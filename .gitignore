@@ -1,0 +1,32 @@
+# Python
+__pychache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+backend/.venv/
+
+# Python packaging
+*.egg-info/
+backend/*.egg-info/
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Logs
+*.log
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/

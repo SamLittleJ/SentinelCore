@@ -1,0 +1,148 @@
+# 01 - Backend Foundation
+
+## Scop
+Acest document descrie fundatia initiala a backend-ului SentinelCore si primele decizii tehnice luate pentru a porni proiectul corect.
+
+---
+
+## Ce a fost realizat
+
+### 1. Structura initiala a backend-ului
+A fost creat directorul `backend/`, separat de frontend, pentru a pastra clar delimitata partea de API si logica server-side.
+
+Structura actuala relevanta:
+
+```text
+backend/
+├── .venv/
+├── app/
+│   ├── api/
+│   │   └── routes/
+│   │       └── health.py
+│   └── main.py
+├── tests/
+├── .env.example
+├── pyproject.toml
+└── README.md
+```
+
+---
+
+### 2. Virtual environment dedicat backend-ului
+A fost folosit un mediu virtual Python separat in `backend/.venv`.
+
+Motiv:
+- izolarea dependentelor backend-ului
+- evitarea conflictelor cu Python-ul global din sistem
+- control mai bun aspura pachetelor instalate
+
+---
+
+### 3. Configurarea proiectului Python prin **pyproject.toml**
+Backend-ul a fost initializat ca proiect Python modern folosind **pyproject.toml**.
+
+In acest fisier au fost definite:
+- build system-ul
+- numele proiectului
+- versiunea
+- versiunea minima Python
+- dependentele minime initiale
+
+Dependente instalate in aceasta etapa:
+- fastapi
+- uvicorn[standard]
+
+---
+
+### 4. Instalarea backend-ului in mod editable
+A fost rulat:
+- `pip install -e .`
+- `python -m pip install -e`
+
+Scop:
+- instalarea proiectului local in mediul virtual
+- posibilitatea de a lucra iterativ fara reinstalari complete la fiecare modificare
+
+---
+
+### 5. Prima aplicatie FastAPI functionala
+A fost creat fisierul `app/main.py` si aplicatia FastAPI minima.
+
+Initial, endpoint-ul `/health` a fost definit direct in `main.py`, apoi a fost mutat intr-un router separat pentru a mentine o structura mai curata.
+
+---
+
+### 6. Separarea rutelor
+A fost introdusa o structura minima pentru routere:
+- `app/main.py` - punct de intrat al aplicatiei
+- `app/api/routes/health.py` - router dedicat pentru health check
+
+Aceasta separare pregateste proiectul pentru extinderea viitoare fara aglomerarea fisierului principal.
+
+---
+
+### 7. Health endpoint functional
+A fost implementat endpoint-ul:
+- GET /health
+Raspunsul returnat:
+- {"status": "ok"}
+
+Acest endpoint confirma ca:
+- aplicatia porneste
+- serverul raspunde corect
+- structura minima a backend-ului este functionala
+
+---
+
+### 8. Pornirea locala a backend-ului
+Backend-ul a fost pornit local cu comanda:
+- python -m uvicorn app.main:app --reload
+Aceasta este comanda standard de lucru local folosita in proiect in acest moment.
+
+---
+
+## Probleme intalinte si rezolvari
+
+### Problema 1: **pyproject.toml** invalid
+La prima incercare de instalare a proiectului a aparut o eroare de tip TOML parse error.
+Cauza:
+- sintaxa invalida in `pyproject.toml` din cauza unei ghilimele lipsa
+Rezolvare:
+- fisierul a fost corectat si validat
+- instalarea editable a functionat dupa corectare
+
+---
+
+### Problema 2: **uvicorn** rulat din context gresit
+La prima rulare a serverului aparea eroarea `ModuleNotFoundError: No module named 'fastapi'`, desi FastAPI era instalat in virtual environment.
+Cauza:
+- comanda `uvicorn...` folosea executabilul gresit / contextul gresit din sistem
+Rezolvare:
+- rularea a fost facuta cu: `python -m uvicorn app.main:app --reload`
+- astfel s-a folosit interpreterul Python din `.venv`
+
+---
+
+## Ce a fost inteles in aceasta etapa
+In aceasta etapa au fost clarificate urmatoarele concepte:
+- rolul fisierului `pyproject.toml`
+- diferenta dintre Python global si Python din virtual environment
+- importanta rularii tool-urilor Python prin `python -m...`
+- separarea dintre punctul de intrare al aplicatiei si routerele dedicate
+- rolul unui endpoint de health check in validarea fundatiei backend-ului
+
+---
+
+## Stare la finalul etapei
+La finalul acestei etape, backend-ul SentinelCore are:
+- proiect Python configurat
+- dependente minime instalate
+- mediu virtual functional
+- aplicatie FastAPI functionala
+- router separat pentru `/health`
+- pornire locala validata
+
+---
+
+## Pasul urmator
+Pasul urmator dupa aceasta fundatie este configurarea conexiunii la baza de date si definirea primului model real al aplicatiei.

@@ -1,0 +1,5 @@
+- monorepor in loc de doua repo-uri
+- modular monolith in loc de microservicii
+- web-first in MVP
+- venv separat in backend
+- rulare backend cu `python -m uvicorn`w
