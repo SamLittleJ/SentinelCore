@@ -202,12 +202,13 @@ Backend-ul va urma directia unui monolit modular.
 
 Strucutra tinta:
 
-backend/app/
+```backend/app/
 ├── api/
 ├── core/
 ├── models/
 ├── schemas/
 ├── services/
+```
 
 ### Meaning of each layer
 - api/ - endpoints si routere
