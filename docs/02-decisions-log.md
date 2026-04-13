@@ -3,3 +3,9 @@
 - web-first in MVP
 - venv separat in backend
 - rulare backend cu `python -m uvicorn`w
+- configuratia backend-ului este centralizata prin `app/core/config.py` folosing `pydantic-settings`
+- baza de date locala pentru development ruleaza cu Docker Compose folosind PostgreSQL
+- SQLAlchemy este folosit ca fundatie ORM
+- Proiectul foloseste importuri absolute incepand direct din `app` pentru a evita module duplicate si inconsitente
+- Prima entitate ORM este `User`, legata la tabela `users`
+- În această etapă, `Base.metadata.create_all(...)` este folosit doar pentru validarea modelului și a conexiunii ORM. Gestionarea structurii bazei de date va fi mutată ulterior în Alembic.

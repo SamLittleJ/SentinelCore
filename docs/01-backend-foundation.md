@@ -146,3 +146,77 @@ La finalul acestei etape, backend-ul SentinelCore are:
 
 ## Pasul urmator
 Pasul urmator dupa aceasta fundatie este configurarea conexiunii la baza de date si definirea primului model real al aplicatiei.
+
+### 9. PostgreSQL local prin Docker Compose
+A fost consigurat un serviciu PostgreSQL local folosind Docker Compose.
+
+Scop:
+- mediu reproductibil
+- rulare locala controlata
+- fundatie pentru dezvoltarea backend-ului si testarea modelelor
+
+Baza de date locala a fost pornita si verificata cu succes.
+
+### 10. Test de conexiune reala la baza de date
+Conexiunea reala la PostgreSQL a fost validata prin executarea unei interogari simple:
+
+'''sql
+SELECT 1
+'''
+
+Rezultatul a confirmat:
+- server PostgreSQL functional
+- URL de conexiune valid
+- driver **psycopg** functional
+- conectarea corecta prin SQLAlchemy
+
+### 11. Primul model ORM: **User**
+A fost introdus primul model real al aplicatiei: **User**
+
+Campuri definite:
+- id
+- username
+- email
+- hashed_password
+- is_active
+- created_at
+- updated_at
+Constrangeri importante:
+- username unic
+- email unic
+- campuri obligatorii pentru datele esentiale
+Acest model reprezinta prima entitate centrala a sistemului SentinelCore
+
+### 12. Crearea primei tabele in baza de date
+Tabela **users** a fost creata in PostgreSQL folosind:
+'''
+Base.metadata.create_all(bind=engine)
+'''
+Crearea a fost verificate direct in PostgreSQL cu:
+- \dt
+- \d users
+Rezultatul a confirmat existenta tabelei si a coloanelor definite in model.
+
+### 13. Problema intalnita: importuri inconsistente
+La prima incercare, tabela **users** nu a fost creata, desi modelul exista.
+Cauza:
+- proiectul folosea importuri inconsistente:
+  - unele pornind din **app...**
+  - altele pornind direct din **core...* sau **models...**
+Aceasta a dus la incarcarea separata a modulelor si la folosirea unor instante diferite de **Base**, ceea ce a facut ca **create_all()** sa nu vada modelul **User**.
+Rezolvare:
+- standardizarea importurilor pe varianta absoluta pornind din **app**
+- exemplu:
+  - from app.core.database import Base
+  - from app.models.user import User
+Aceasta decizie trebuie pastrata consecvent in tot backend-ul
+
+### 14. Stare actuala a backend-ului
+In acest moment backend-ul are:
+- aplicatie FastAPI functionala
+- health check functional
+- configurare prin .env
+- conexiune la PostgreSQL functionala
+- strat ORM initial
+- model User
+- tabea users creata si validata

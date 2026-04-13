@@ -232,6 +232,10 @@ La acest moment:
 - aplicatia FastAPI porneste local
 - endpoint-ul /health functioneaza
 - ruta de health a fost separata intr-un router dedicat
+- config functional
+- PostgreSQL local validat
+- model User
+- tabela users validata
 
 ---
 
