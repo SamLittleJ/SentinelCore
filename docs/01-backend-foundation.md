@@ -323,3 +323,120 @@ In acest moment backend-ul are:
 - strat `schemas`
 - strat `services`
 - prim flux real de creare utilizator validat
+
+## Extinderea fundatiei backend: login si JWT
+
+### 22. Extinderea securitatii pentru verificarea parolei
+Fisierul `app/core/security.py` a fost extins cu functia `verify_password()`
+
+Scop:
+- compararea unei parole introduse de utilizator cu valoarea hash-uita stocata in baza de date
+- separarea logicii de verificare a parolei de endpoint-uri si servicii
+- pastrarea responsabilitatilor de securitate intr-un singur modul dedicat
+Aceasta functie completeaza `hash_password()` si permite implementarea fluxului de autentificare
+
+### 23. Introducerea schemei de login
+Fisierul `app/schemas/user.py` a fost extins cu schema `UserLogin`
+
+Aceasta defineste datele necesare pentru autentificare:
+- `email`
+- `password`
+
+Scop:
+- separarea clara intre contractul de register si contractul de login
+- validarea input-ului de autentificare prin Pydantic
+
+### 24. Introducerea schemei de token
+Fisierul `app/schemas/user.py` a fost extins si cu schema `Token`.
+Aceasta defineste raspunsul endpoint-ului de login:
+- `access_token`
+- `token_type`
+
+Scop:
+- standardizarea raspunsului de autentificare
+- pregatirea folosirii token-ului JWT in endpoint-uri protejate ulterior
+
+### 25. Extinderea configuratiei aplicatiei pentru JWT
+Fisierele `.env.example` si `.env` au fost extinse cu setari pentru JWT:
+- `SECRET_KEY`
+- `ALGORITHM`
+- `ACCESS_TOKEN_EXPIRE_TIME`
+Fisierul `app/core/config.py` a fost actualizat pentru a citi aceste valori
+
+Scop:
+- configurarea centralizata a mecanismului de emitere token
+- evitarea hardcodarii valorilor de securitate in cod
+
+### 26. Generarea token-ului JWT
+Fisierul `app/core/security.py` a fost extins cu functia `create_access_token()`
+
+Aceasta:
+- construieste payload-ul token-ului
+- include claim-ul de `sub`
+- include claim-ul de `exp`
+- semneaza token-ul folosind configuratia din `Settings`
+
+Scop:
+- emiterea unui token JWT valid dupa autentificare reusita
+- pregatirea bazei pentru endpoint-uri protejate
+
+### 27. Introducerea autentificarii in stratul de servicii
+Fisierul `app/services/user_service.py` a fost extins cu functia `authenticate_user()`
+
+Aceasta:
+- cauta utilizatorul dupa email
+- verifica parola folosind `verify_password()`
+- returneaza utilizatorul daca autentificarea este valida
+- returneaza `None` daca autentificarea esueaza
+
+Scop:
+- separarea logicii de autentificare de endpoint
+- reutilizarea logicii intr-un mod clar si testabil
+
+### 28. Implementarea endpoint-ului de login
+Fisierul `app/api/routes/auth.py` a fost extins cu endpoint-ul:
+```http
+POST /auth/login
+```
+Acesta:
+- primeste imput de tip `UserLogin`
+- foloseste sesiunea DB prin `get_db()`
+- valideaza credentialele prin `authenticate_user()`
+- emite un JWT prin `create_access_token()`
+- returneaza raspunsul de tip `Token`
+
+### 29. Validarea fluxului de login
+Fluxul de autentificare a fost testat prin Swagger UI (`/docs`)
+
+Rezultate confirmate:
+- login valid -> `200 OK`
+- login cu parola gresita -> `401 Unauthorized`
+Raspunsul pentru login valid include:
+- `access_token`
+- `token_type = "bearer"`
+Aceasta confirma functionarea completa a fluxului de autentificare:
+- validare input
+- verificare user in DB
+- verificare parola hash-uita
+- generare JWT
+- raspuns standardizat pentru client
+
+### 30. Stare actuala a backend-ului
+In acest moment backend-ul are:
+- aplicatie FastAPI functionala
+- endpoint `/health`
+- endpoint `POST /auth/register`
+- endpoint `POST /auth/login`
+- configurare prin `.env`
+- conexiune PostgreSQL functionala
+- model ORM `User`
+- tabela `users` creata si validata
+- hashing si verificare de parola
+- generare JWT
+- strat `schemas`
+- strat `services`
+- flux complet de register
+- flux complet de login
+
+### Observație practică
+În această etapă, token-ul JWT folosește email-ul utilizatorului ca `subject` (`sub`). Această alegere este suficientă pentru MVP, urmând ca identificatorul principal din token să poată fi revizuit ulterior dacă va fi nevoie de o strategie mai strictă.

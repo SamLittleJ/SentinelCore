@@ -235,8 +235,10 @@ La acest moment:
 - modelul `User` este definit și mapat în tabela `users`
 - tabela `users` a fost creată și verificată în PostgreSQL
 - schemele Pydantic pentru user sunt definite
-- hashing-ul parolei este implementat
+- hashing-ul si verificarea parolei sunt implementate
 - endpoint-ul `POST /auth/register` este funcțional
+- endpoint-ul `POST /auth/login` este functional
+- generarea JWT este functionala
 ---
 
 ## 11. Current Sprint

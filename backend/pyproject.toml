@@ -16,4 +16,5 @@ dependencies = [
     "pydantic-settings",
     "pwdlib",
     "pwdlib[argon2]",
+    "PyJWT",
 ]
