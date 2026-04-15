@@ -9,3 +9,11 @@
 - Proiectul foloseste importuri absolute incepand direct din `app` pentru a evita module duplicate si inconsitente
 - Prima entitate ORM este `User`, legata la tabela `users`
 - În această etapă, `Base.metadata.create_all(...)` este folosit doar pentru validarea modelului și a conexiunii ORM. Gestionarea structurii bazei de date va fi mutată ulterior în Alembic.
+- Input-ul si output-ul API sunt separate de modelul ORM prin Pydantic schemas
+- Sesiunea DB pentru endpoint-uri este gestionata prin `get_db()` in `app/api/deps.py`
+- Hashing-ul parolelor este centralizat in `app/core/security.py`
+- Logica de business pentru user este mutata in `app/services/user_service.py`
+- Endpoint-ul de register este implementat in `app/api/routes/auth.py`
+- Crearea de utilizatori verifica explicit duplicatele pe `email` si `username`
+- Parolele nu sunt stocate raw, se salveaza doar `hashed_password`
+- Primul flux end-to-end validat este `POST /auth/register`

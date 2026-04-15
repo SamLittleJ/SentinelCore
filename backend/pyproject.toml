@@ -14,4 +14,6 @@ dependencies = [
     "psycopg[binary]",
     "alembic",
     "pydantic-settings",
+    "pwdlib",
+    "pwdlib[argon2]",
 ]

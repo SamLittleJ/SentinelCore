@@ -223,20 +223,20 @@ Strucutra tinta:
 
 La acest moment:
 
-- repo-ul este creat
-- structura de baza a proiectului este creata
-- frontend-ul porneste corect
+- repo-ul și structura de bază sunt create
+- frontend-ul pornește corect
 - backend-ul are virtual environment propriu
-- pyproject.toml este configurat minimal
-- dependentele minime backend sunt instalate
-- aplicatia FastAPI porneste local
-- endpoint-ul /health functioneaza
-- ruta de health a fost separata intr-un router dedicat
-- config functional
-- PostgreSQL local validat
-- model User
-- tabela users validata
-
+- `pyproject.toml` este configurat pentru fundația backend-ului
+- aplicația FastAPI pornește local
+- endpoint-ul `/health` funcționează
+- configurația aplicației este citită din `.env`
+- PostgreSQL local rulează prin Docker Compose
+- conexiunea reală la baza de date este validată
+- modelul `User` este definit și mapat în tabela `users`
+- tabela `users` a fost creată și verificată în PostgreSQL
+- schemele Pydantic pentru user sunt definite
+- hashing-ul parolei este implementat
+- endpoint-ul `POST /auth/register` este funcțional
 ---
 
 ## 11. Current Sprint

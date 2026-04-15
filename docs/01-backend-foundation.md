@@ -220,3 +220,106 @@ In acest moment backend-ul are:
 - strat ORM initial
 - model User
 - tabea users creata si validata
+
+## Extinderea fundatiei backend: schemas, services si primul flux real de autentificare
+
+### 15. Introducerea schemelor Pydantic pentru user
+A fost creat directorul `app/schemas/` si fisierul `app/schemas/user.py`.
+
+Au fost definite doua scheme initiale:
+- `UserCreate` - pentru input-ul necesar la crearea unui utilizator
+- `UserRead` - pentru output-ul trimis catre client
+
+Scopul acestei separari:
+- diferentierea clara intre modelul ORM si contractul API
+- control asupra datelor acceptate in request
+- control asupra datelor returnate in response
+- excluderea explicita a campului `hashed_password` din raspunsurile API
+
+### 16. Introducerea dependentei pentru sesiunea DB
+A fost creat fisierul `app/api/deps.py`
+A fost introdusa functia `hash_password()`, bazata pe `pwdlib`.
+
+Scop:
+- parolele nu sunt stocate niciodata in forma raw
+- hashing-ul este centralizat intr-un loc dedicat
+- logica de securitate nu este imprastiata prin endpoint-uri
+
+### 17. Introducerea stratului de servicii pentru user
+A fost creat directorul `app/services` si fisierul `app/services/user_service.py`.
+
+Au fost definite functiile:
+- `get_user_by_email()`
+- `get_user_by_username()`
+- `create_user()`
+
+Scopul stratului `services`:
+- mutarea logicii de business in afara endpoint-urilor
+- separarea clara dintre ruta, acces DB si reguli de business
+- pregatirea arhitecturii pentru extinderea ulterioara
+
+### 18. Implementarea primului endpoint real: register
+A fost creat fisierul `app/api/routes/auth.py`.
+
+A fost introdus endpoint-ul:
+
+```http
+POST /auth/register
+```
+Acesta:
+- primeste input de tip `UserCreate`
+- foloseste `get_db()` pentru sesiunea de baza de date
+- verifica existenta unui utilizator cu acelasi email
+- verifica existenta unui utilizator cu acelasi username
+- creeaza utilizatorul daca datele sunt valide si unice
+- returneaza datele utilizatorului prin schema `UserRead`
+
+### 19. Validarea fluxului de register
+Fluxul de inregistrare a fost testat prin Swagger UI (`/docs`)
+Rezultate confirmate:
+- creare user cu succes -> `201 Created`
+- incercare de creare user duplicat - > `400 Bad Request`
+- endpoint-ul `/health` ramane functional in paralel
+Aceasta confirma primul flux complet end-to-end al backend-ului:
+- request HTTP
+- validare input
+- acces DB
+- logica de business
+- hashing parola
+- persistenta in PostgreSQL
+- response model controlat
+
+### 20. Structura actuala relevanta a backend-ului
+```
+backend/app/
+├── api/
+│   ├── deps.py
+│   └── routes/
+│       ├── auth.py
+│       └── health.py
+├── core/
+│   ├── config.py
+│   ├── database.py
+│   └── security.py
+├── models/
+│   └── user.py
+├── schemas/
+│   └── user.py
+├── services/
+│   └── user_service.py
+└── main.py
+```
+
+### 21. Stare actuala a backend-ului
+In acest moment backend-ul are:
+- aplicatie FastAPI functionala
+- endpoint `/health`
+- enpoint `POST /auth/register`
+- configurare prin `.env`
+- conexiune PostgreSQL functionala
+- model ORM `User`
+- tabela `users` creata si validata
+- hashing de parola
+- strat `schemas`
+- strat `services`
+- prim flux real de creare utilizator validat
