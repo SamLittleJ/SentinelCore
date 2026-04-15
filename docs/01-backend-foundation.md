@@ -444,7 +444,8 @@ In acest moment backend-ul are:
 ## Extinderea fundatiei backend: current user si RBAC(Role-base Access Control)
 
 ### 31. Decodarea token-ului JWT
-Fisierul `app/core/security.py` a fost extins cu functia `decode_access_token()`
+Fisierul `app/core/security.py` a fost extins cu functia `decode_access_token()`.
+
 Aceasta:
 - decodeaza token-ul JWT
 - valideaza semnatura token-ului
@@ -510,7 +511,8 @@ user
 Aceasta alegere defineste comportamentul standard pentru utilizatorii obisnuiti si evita atribuirea accidentala a unor privilegii ridicate.
 
 ### 37. Expunerea rolului in schema de output
-Schema `UserRead` a fost extinsa cu campul `role`
+Schema `UserRead` a fost extinsa cu campul `role`.
+
 Scop:
 - vizibilitate asupra rolului utilizatorului in raspunsurile API
 - validarea corecta a comportamentului RBAC
@@ -518,11 +520,13 @@ Scop:
 
 ### 38. Introducerea autorizarii pe rol
 Fisierul `app/api/deps.py` a fost extins cu functia `require_roles()`
+
 Aceasta:
 - primeste unul sau mai multe roluri permise
 - verifica rolul utilizatorului autentificat
 - returneaza `403 Forbidden` daca utilizatorul nu are acces
 - permite continuarea request-ului daca rolul este acceptat
+
 Scop:
 - separarea autentificarii de autorizare
 - definirea unui mecanism reutilizabil pentru protejarea endpoint-urilor
@@ -542,6 +546,7 @@ Comportamentul RBAC a fost testat prin request-uri autentificate.
 Rezultate confirmate:
 - utilizatorul cu rol `user` -> `403 Forbidden`
 - utilizatoru cu rol `admin` -> `200 OK`
+
 Aceasta confirma:
 - functionarea corecta a dependentei `get_current_user()`
 - functionarea corecta a dependentei `require_roles()`
