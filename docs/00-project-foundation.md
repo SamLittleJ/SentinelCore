@@ -235,10 +235,13 @@ La acest moment:
 - modelul `User` este definit și mapat în tabela `users`
 - tabela `users` a fost creată și verificată în PostgreSQL
 - schemele Pydantic pentru user sunt definite
-- hashing-ul si verificarea parolei sunt implementate
+- hashing-ul și verificarea parolei sunt implementate
 - endpoint-ul `POST /auth/register` este funcțional
-- endpoint-ul `POST /auth/login` este functional
-- generarea JWT este functionala
+- endpoint-ul `POST /auth/login` este funcțional
+- generarea și decodarea JWT sunt funcționale
+- endpoint-ul `GET /users/me` este funcțional
+- fundația RBAC este implementată prin roluri pe modelul `User`
+- controlul de acces pe rol este validat pentru endpoint-uri protejate
 ---
 
 ## 11. Current Sprint

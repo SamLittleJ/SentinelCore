@@ -440,3 +440,135 @@ In acest moment backend-ul are:
 
 ### Observație practică
 În această etapă, token-ul JWT folosește email-ul utilizatorului ca `subject` (`sub`). Această alegere este suficientă pentru MVP, urmând ca identificatorul principal din token să poată fi revizuit ulterior dacă va fi nevoie de o strategie mai strictă.
+
+## Extinderea fundatiei backend: current user si RBAC(Role-base Access Control)
+
+### 31. Decodarea token-ului JWT
+Fisierul `app/core/security.py` a fost extins cu functia `decode_access_token()`
+Aceasta:
+- decodeaza token-ul JWT
+- valideaza semnatura token-ului
+- valideaza expirarea token-ului
+- returneaza payload-ul daca token-ul este valid
+
+Scop:
+- consumarea reala a token-ului emis la login
+- pregatirea endpoint-urilor protejate
+- separarea logicii JWT de restul aplicatiei
+
+### 32. Introducerea dependentei pentru utilizatorul curent
+Fisierul `app/api/deps.py` a fost extins cu:
+- `oauth2_scheme`
+- `get_current_user()`
+
+Rolul acestora:
+- extragerea token-ului Bearer din request
+- validarea token-ului
+- extragerea identitatii utilizatorului din claim-ul `sub`
+- cautarea utilizatorului real in baza de date
+- returnarea utlizatorului curent daca autentificarea este valida
+
+In aceasta etapa, claim-ul `sub` contine email-ul utilizatorului.
+
+### 33. Introducerea primului endpoint protejat.
+A fost creat fisierul `app/api/routes/users.py`
+
+A fost introdus endpoint-ul:
+```http
+GET /users/me
+```
+Acesta:
+- necesita token JWT valid
+- foloseste `get_current_user()`
+- returneaza utilizatorul autentificat prin schema `UserRead`
+Scop:
+- validarea consumului real al token-ului
+- confirmarea faptului ca autentificarea functioneaza nu doar la emitere, ci si la utilizare
+
+### 34. Introducerea fundatiei RBAC
+Modelul `User` a fost extins cu un camp `role`.
+Rolurile au fost definite prin enum-ul `UserRole`, cu valorile:
+- `user`
+- `admin`
+- `security_analyst`
+- `owner`
+Scop:
+- introducerea controlului de acces bazat pe rol
+- separarea clara a tipurilor de utilizatori inca din MVP
+- pregatirea sistemului pentru endpoint-uri diferentiate pe roluri
+
+### 35. Reset local al bazei de date pentru schimbarea schemei
+Pentru a introduce coloana `role` in tabela `users`, baza de date locala a fost resetata.
+A fost folosit un reset local prin Docker Compose, deoarece proiectul nu foloseste inca migratii gestionate prin Alembic pentru schimbarile de schema.
+Aceasta abordare este acceptabila in aceasta etapa deoarece datele locale nu au inca valoare operationala.
+
+### 36. Rol implicit pentru utilizatori noi
+La crearea unui utilizator nou prin fluxul de register, rolul este setat implicit la:
+```
+user
+```
+Aceasta alegere defineste comportamentul standard pentru utilizatorii obisnuiti si evita atribuirea accidentala a unor privilegii ridicate.
+
+### 37. Expunerea rolului in schema de output
+Schema `UserRead` a fost extinsa cu campul `role`
+Scop:
+- vizibilitate asupra rolului utilizatorului in raspunsurile API
+- validarea corecta a comportamentului RBAC
+- pregatirea interfetei pentru afisarea rolului in frontend mai tarziu
+
+### 38. Introducerea autorizarii pe rol
+Fisierul `app/api/deps.py` a fost extins cu functia `require_roles()`
+Aceasta:
+- primeste unul sau mai multe roluri permise
+- verifica rolul utilizatorului autentificat
+- returneaza `403 Forbidden` daca utilizatorul nu are acces
+- permite continuarea request-ului daca rolul este acceptat
+Scop:
+- separarea autentificarii de autorizare
+- definirea unui mecanism reutilizabil pentru protejarea endpoint-urilor
+
+### 39. Implementarea unui endpoint admin-only
+Fisierul `app/api/routes/users.py` a fost extins cu endpoint-ul:
+```http
+GET /user/admin-only
+```
+Acesta:
+- necesita utilizator autentificat
+- permite acces doar pentru rolurile autorizate(`admin`, respectiv `owner` in implementarea curenta)
+- returneaza raspuns valid doar daca utilizatorul are permisiunea neceasra
+
+### 40. Validarea comportamentului RBAC
+Comportamentul RBAC a fost testat prin request-uri autentificate.
+Rezultate confirmate:
+- utilizatorul cu rol `user` -> `403 Forbidden`
+- utilizatoru cu rol `admin` -> `200 OK`
+Aceasta confirma:
+- functionarea corecta a dependentei `get_current_user()`
+- functionarea corecta a dependentei `require_roles()`
+- diferentierea clara dintre autentificare si autorizare
+
+### 41. Stare actuala a backend-ului
+In acest moment backend-ul are:
+- aplicatie FastAPI functionala
+- endpoint `/health`
+- endpoint `POST /auth/register`
+- endpoint `POST /auth/login`
+- endpoint `GET /users/me`
+- endpoint `GET /users/admin-only`
+- configurare prin `.env`
+- conexiune PostgreSQL functionala
+- model ORM `User`
+- tabela `users` creata si validata
+- hashing si verificare de parola
+- generare si decodare JWT
+- strat `schemas`
+- strat `services`
+- flux complet de register
+- flux complet de login
+- identificarea utilizatorului curent din token
+- fundatie RBAC functionala
+
+### Observație practică privind testarea endpoint-urilor protejate
+În implementarea actuală, endpoint-ul de login folosește input JSON, nu formular OAuth2 standard. Din acest motiv, mecanismul `Authorize` din Swagger UI nu este aliniat complet cu fluxul de login și testarea endpoint-urilor protejate a fost făcută prin request-uri manuale (`curl`).
+
+Aceasta este o limitare de integrare a documentației interactive, nu o problemă a backend-ului.

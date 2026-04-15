@@ -17,3 +17,13 @@
 - Crearea de utilizatori verifica explicit duplicatele pe `email` si `username`
 - Parolele nu sunt stocate raw, se salveaza doar `hashed_password`
 - Primul flux end-to-end validat este `POST /auth/register`
+- Token-ul JWT este folosit nu doar pentru emitere, ci si pentru identificarea utilizatorului curent.
+- Claim-ul `sub` din JWT contine email-ul utilizatorului in etapa actuala
+- Utilizatorul curent este obtinut prin dependenta `get_current_user()`.
+- MVP-ul RBAC foloseste un camp `role` in modelul `User`.
+- Rolurile sunt definite prin enum-ul `UserRole`.
+- Rolul implicit la register este `user`.
+- Autorizarea pe rol se face prin dependenta `require_roles()`.
+- Endpoint-urile protejate pe rol returneaza `403 Forbidden` cand utilizatorul nu are permisiunea necesara.
+- Endpoint-ul `GET /users/admin-only` este folosit pentru validarea fundatiei RBAC.
+- Modificarile de schema locale sunt inca validate prin reset local si `create_all()`, nu prin migratii Alembic.
