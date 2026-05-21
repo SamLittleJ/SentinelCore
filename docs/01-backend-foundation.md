@@ -577,3 +577,181 @@ In acest moment backend-ul are:
 În implementarea actuală, endpoint-ul de login folosește input JSON, nu formular OAuth2 standard. Din acest motiv, mecanismul `Authorize` din Swagger UI nu este aliniat complet cu fluxul de login și testarea endpoint-urilor protejate a fost făcută prin request-uri manuale (`curl`).
 
 Aceasta este o limitare de integrare a documentației interactive, nu o problemă a backend-ului.
+
+## Extinderea fundatiei backend: Audit Logging
+
+### 42. Introducerea modelului `AuditLog`
+A fost creat modelul ORM `AuditLog` in fisierul:
+
+```text
+app/models/audit_log.py
+```
+Acest model reprezinta baza mecanismului de audit al aplicatiei SentinelCore.
+
+Scopul auditului este inregistrarea actiunilor importante din sistem, in special cele legate de autentificare, acces si evenimente relevante pentru securitate.
+
+Modelul `AuditLog` contine urmatoarele campuri:
+- `id`
+- `event_type`
+- `user_id`
+- `email`
+- `message`
+- `created_at`
+
+### 43. Introducerea tipurilor de evenimente de audit
+
+A fost definit enum-ul `AuditEventType`.
+
+Evenimentele initiale definite sunt:
+
+- `USER_REGISTERED`
+- `LOGIN_SUCCESS`
+- `LOGIN_FAILED`
+- `ADMIN_ENDPOINT_ACCESSED`
+
+Scop:
+
+- evitarea valorilor scrise manual in mai multe locuri
+- reducerea riscului de typo-uri
+- difinirea controlata a tipurilor de evenimente de audit
+
+Observatie:
+
+In etapa actuala, valorile enum-ului sunt salvate in baza de date cu numele membrilor enum, de exemplu `USER_REGISTERED`, nu cu forma lowercase `user_registered`. Acest comportament este acceptabil pentru MVP.
+
+### 44. Crearea tabelei `audit_logs`
+
+Tabela `audit_logs` a fost creata in PostgreSQL folosind mecanismul temporar:
+
+```
+Base.metadata.create_alll(bind=engine)
+```
+
+Pentru ca SQLAlchemy sa detecteze modelul, `AuditLog` a fost importat in `app/main.py`.
+
+Tabela a fost verificata in PostgreSQL cu:
+
+```
+\dt
+\d audit_logs
+```
+
+Rezultatul a confirmat existenta tabelei `audit_logs` si a relatiei foregin key catre tabela `users`.
+
+### 45. Structura tabelei `audit_logs`
+
+Tabela `audit_logs` contine:
+
+- `id` - identificator unic al evenimentului
+- `event_type` - tipul evenimentului de audit
+- `user_id` - referinta optionala catre utilizator
+- `email` - email asociat evenimentului, util mai ales la login esuat
+- `message` - descriere umana a evenimentului
+- `created_at` - momentul producerii evenimentului
+
+Campul `user_id` este optional deoarece anumite evenimente, precum login esua cu email inexistent sau parola gresita, pot exista fara un utilizator autentificat valid.
+
+### 46. Introducerea serviciului de audit
+
+A fost creat fisierul:
+
+```
+app/services/audit_service.py
+```
+
+Aceasta contine functia:
+
+```
+create_audit_log()
+```
+
+Scopul serviciului este centralizarea logicii de creare a evenimentelor de audit.
+
+Aceasta abordare evita duplicarea codului de tip:
+
+- creare obiect `AuditLog`
+- `db.add(...)`
+- `db.commit()`
+- `db.refresh(...)`
+
+in mai multe endpoint-uri.
+
+### 47. Integrarea auditului in fluxul de register
+
+Endpoint-ul:
+```
+POST /auth/register
+```
+a fost extins astfel incat, dupa crearea cu succesa unui utilizator, sa creeze un eveniment de audit de tip: ```USER_REGISTERED```
+
+Acest eveniment confirma ca inregistrarea utilizatorului este urmarita in sistem.
+
+### 48. Integrarea auditului in fluxul de login reusit
+
+Endpoint-ul:
+```
+POST /auth/login
+```
+creeaza un eveniment de audit de tip: ```LOGIN_SUCCESS``` atunci cand autentificarea este valida.
+
+Acest eveniment confirma ca autentificarile reusite sunt urmarite in sistem.
+
+### 49. Integrarea auditului in fluxul de login esuat
+
+Endpoint-ul:
+```
+POST /auth/login
+```
+creeaza un eveniment de audit de tip: ```LOGIN_FAILED``` atunci cand autentificarea esueaza.
+
+Acest caz este important deoarece tentativele de loing esuate pot deveni ulterior baza pentru detectii de securitate, cum ar fi brute-force sau activitate suspecte.
+
+In acest caz, audit log-ul poate contine email-ul incercat chiar daca nu exista un utilizator autentificat valid.
+
+### 50. Integrarea auditului in endpoint-ul admin-only
+
+Endpoint-ul:
+```
+GET /users/admin-only
+```
+creeaza un eveniment de audit de tip: ```ADMIN_ENDPOINT_ACCESSED``` atunci cand un utilizator cu rol permis acceseaza endpoint-ul.
+
+In etapa actuala, este auditat accesul permis. Accesul refuzat prin `403 Forbidden` nu este inca auditat.
+
+### 51. Validarea auditului in baza de date
+
+Auditul a fost validat in PostgreSQL prin query-ul:
+```
+SELECT id, event_type, user_id, email, message, created_at
+FROM audit_logs
+ORDER BY id;
+```
+
+Au fost confirmate urmatoarele evenimente:
+- `USER_REGISTERED`
+- `LOGIN_SUCCESS`
+- `LOGIN_FAILED`
+- `ADMIN_ENDPOINT_ACCESSED`
+
+Aceasta confirma ca auditul functioneaza pentru fluxuri reale ale aplicatiei.
+
+### 52. Stare actuala dupa Audit Logging
+
+In acest moment backend-ul are:
+- aplicatie FastAPI functionala
+- endpoint `/health`
+- endpoint `POST /auth/register`
+- endpoint `POST /auth/login`
+- endpoint `GET /users/me`
+- endpoint `GET /users/admin-only`
+- configurare prin `.env`
+- PostgreSQL local prin Docker Compose
+- model ORM `User`
+- model ORM `AuditLog`
+- tabela `users`
+- tabela `audit_logs`
+- hashing si verificare de parola
+- generare si decodare JWT
+- identificarea utilizatorului curent din token
+- fundatie RBAC functionala
+- audit logging functional pentru register, login si acces admin

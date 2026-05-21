@@ -27,3 +27,13 @@
 - Endpoint-urile protejate pe rol returneaza `403 Forbidden` cand utilizatorul nu are permisiunea necesara.
 - Endpoint-ul `GET /users/admin-only` este folosit pentru validarea fundatiei RBAC.
 - Modificarile de schema locale sunt inca validate prin reset local si `create_all()`, nu prin migratii Alembic.
+- Audit logging-ul este stocat in PostgreSQL in tabela `audit_logs`.
+- Evenimentele de audit sunt definite prin enum-ul `AuditEventType`.
+- Modelul `AuditLog` permite `user_id` optional pentru cazurile in care evenimentul nu are un user valid asociat.
+- Campul `email` este pastrat in audit log pentru a permite urmarirea tentativelor de login esuate.
+- Logica de creare a evenimentelor de audit este centralizata in `app/services/audit_service.py`.
+- Endpoint-ul `POST /auth/register` creeaza eveniment `USER_REGISTERED`.
+- Endpoint-ul `POST /auth/login` creeaza evenimente `LOGIN_SUCCESS` si `LOGIN_FAILED`.
+- Endpoint-ul `GET /users/admin-only` creeaza eveniment `ADMIN_ENDPOINT_ACCESSED` pentru acces permis.
+- In etapa actuala, accesul refuzat prin RBAC nu este inca auditat.
+- Pentru MVP, valorile enum-ului de audit sunt acceptate in forma salvata de SQLAlchemy, de exemplu `USER_REGISTERED`.

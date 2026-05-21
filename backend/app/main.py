@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from .api.routes import health, auth, users
 from app.core.database import engine, Base
 from app.models.user import User
+from app.models.audit_log import AuditLog
 
 Base.metadata.create_all(bind=engine)
 

@@ -242,6 +242,10 @@ La acest moment:
 - endpoint-ul `GET /users/me` este funcțional
 - fundația RBAC este implementată prin roluri pe modelul `User`
 - controlul de acces pe rol este validat pentru endpoint-uri protejate
+- modelul `AuditLog` este definit și mapat în tabela `audit_logs`
+- tabela `audit_logs` a fost creată și validată în PostgreSQL
+- audit logging-ul este funcțional pentru register, login success, login failed și acces admin
+- SentinelCore are acum fundație IAM + RBAC + Audit Logging
 ---
 
 ## 11. Current Sprint
