@@ -1053,7 +1053,7 @@ In acest moment backend-ul are:
 - model ORM `SecurityEvent`
 - tabelă `users`
 - tabelă `audit_logs`
-- tabelă `security_events`
+- tabelă `securityy_events`
 - hashing și verificare de parolă
 - generare și decodare JWT
 - identificarea utilizatorului curent din token
@@ -1061,3 +1061,135 @@ In acest moment backend-ul are:
 - audit logging funcțional
 - security events funcționale
 - prim strat SIEM-light funcțional
+
+## Extinderea fundatiei backend: Alembic Migrations
+
+### 71. Trecerea de la `create_all()` la migratii
+
+Pana in aceasta etapa, schema bazei de date a fost creata temporar prin: ```Base.metadata.create_all(bind=engine)```.
+
+Acest mecanism a fost util pentru validarea initiala a modelelor si pentru intelegerea legaturii dintre SQLAlchemy si PostgreSQL.
+
+Dupa introducerea modelelor principale (`User`, `AuditLog`, `SecurityEvent`), acest mecanism a fost eliminat din `app/main.py`.
+
+De acum inainte, schema bazei de date este gestionata prin Alembic.
+
+### 72. Motivul introducerii Alembic
+
+Alembic a fost introdus pentru:
+- versionarea schemei bazei de date
+- evitarea resetarilor locale repetate
+- gestionarea modificarilor viitoare de modele prin migratii
+- apropierea proiectului de un workflow real de dezvoltare backend
+- separarea responsabilitatii dintre aplicatie si schema DB
+
+Aplicatia FastAPI nu mai trebuie sa creeze tabele la pornire.
+
+### 73. Initializarea Alembic
+
+Alembic a fost initalizat in backend.
+
+Au fost create: 
+- `alembic.ini`
+- directorul `migrations/`
+- directorul `migrations/versions/`
+- fisierul `migrations/env.py`
+- template-ul pentru migratii
+
+### 74. Configurarea conexiunii Alembic la baza de date
+
+In `alembic.ini`, conexiunea catre PostgreSQL local a fost configurata prin:
+
+```
+sqlalchemy.url = postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore
+```
+
+Aceasta configurare permite Alembic sa se conecteze la baza de date locala pentru generarea si aplicarea migratiilor.
+
+### 75. Conectarea Alembic la modelele SQLAlchemy
+
+In `migrations/env.py`, Alembic a fost conectat la metadata SQLAlchemy.
+
+A fost importat `Base`: ```from app.core.database import Base``` si au fost importate modelele principale:
+
+```
+from app.models.user import User
+from app.models.audit_log import AuditLog
+from app.models.security_event import SecurityEvent
+```
+
+Apoi `target_metadata` a fost setat la: ```target_metadata = Base.metadata```.
+
+Aceasta configurare permite comenzii ` --autogenerate` sa compare modelele SQLAlchemy cu schmea reala din baza de date.
+
+### 76. Reset local al bazei de date pentru migratia initiala
+
+Pentru ca mediul este inca local si datele nu au valoare operationala, baza de date a fost resetata inainte de migratia initiala.
+
+Comenzile folosite:
+```
+docker compose down -v
+docker compose up -d
+```
+
+Aceasta resetare a permis pornirea de la o baza PostgreSQL goala, astfel incat schmea initiala sa fie creata exclusiv prin Alembic.
+
+### 77. Generarea migratiei initiale
+
+Migratia initala a fost generata cu:
+
+```
+python -m alembic revision --autogenerate -m "initial schema"
+```
+
+Alembic a detectat modelele si a generat un fisier de migratie in: ```migrations/versions```.
+
+Migratia initiala contine schema pentru:
+- `users`
+- `audit_logs`
+- `security_events`
+- tipurile enum asociate
+- indexurile definite pe modele
+- foreign key-urile dintre tabele
+
+### 78. Aplicarea migratiei initiale
+
+Migratia initiala a fost aplicata cu: ```python -m alembic upgrade head```.
+
+Dupa aplicare, Alembic a creat si tabela: ```alembic_version```.
+
+Aceasta stocheaza versiunea curenta a schemei bazei de date.
+
+### 79. Verificarea rezultatului in PostgreSQL
+
+Schema bazei de date a fost verificata in PostgreSQL cu: ```SELECT * FROM alembic_version;```.
+
+Rezultatul a confirmat ca baza de date este la versiunea migratiei initiale.
+
+### 80. Workflow standard pentru modificari viitoare de schema
+
+De acum inainte, orice modificare a modelelor SQLAlchemy trebuie gestionata prin Alembic.
+
+Workflow-ul standard este:
+
+```
+python -m alembic reivison --autogenerate -m "descriere modificare"
+python -m alembic upgrade head
+```
+
+Migratiile generate trebuie verificate manual inainte de aplicare.
+
+`--autogenerate` ajuta, dar nu inlocuieste verificarea logica a dezvoltatorului.
+
+### 81. Stare actuala dupa Alembic
+
+În acest moment backend-ul are:
+
+- aplicație FastAPI funcțională
+- PostgreSQL local prin Docker Compose
+- schema bazei de date gestionată prin Alembic
+- `create_all()` eliminat din `main.py`
+- migrație inițială generată și aplicată
+- tabela `alembic_version` creată
+- tabelele `users`, `audit_logs` și `security_events` create prin migrație
+- workflow matur pentru modificări viitoare ale schemei DB

@@ -55,3 +55,17 @@
 - Login failed este mapat ca security event cu severitate `warn`.
 - Register, login success și admin access sunt mapate ca security events cu severitate `info`.
 - Security events reprezintă începutul componentei SIEM-light din SentinelCore.
+- Schema bazei de date este gestionată prin Alembic, nu prin `Base.metadata.create_all()` la pornirea aplicației.
+- `create_all()` a fost folosit doar temporar pentru învățare și validare locală.
+- Migrațiile Alembic devin mecanismul standard pentru modificările viitoare ale schemei DB.
+- Schema bazei de date este gestionată prin Alembic.
+- `Base.metadata.create_all(bind=engine)` a fost eliminat din `app/main.py`.
+- `create_all()` a fost folosit doar temporar pentru învățare și validare locală.
+- Directorul Alembic standard este `migrations/`.
+- O denumire greșită inițială (`imigrations`) a fost corectată în `migrations`.
+- `migrations/env.py` folosește `target_metadata = Base.metadata`.
+- Modelele `User`, `AuditLog` și `SecurityEvent` sunt importate în `migrations/env.py` pentru autogenerate.
+- Migrația inițială creează tabelele `users`, `audit_logs` și `security_events`.
+- Tabela `alembic_version` confirmă versiunea curentă a schemei DB.
+- Modificările viitoare ale modelelor trebuie gestionate prin `alembic revision --autogenerate` și `alembic upgrade head`.
+- Migrațiile generate automat trebuie verificate manual înainte de aplicare.

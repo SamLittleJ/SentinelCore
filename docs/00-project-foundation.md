@@ -231,12 +231,13 @@ La acest moment:
 - configurația aplicației este citită din `.env`
 - PostgreSQL local rulează prin Docker Compose
 - conexiunea reală la baza de date este validată
+- schema bazei de date este gestionată prin Alembic
+- migrația inițială Alembic a fost generată și aplicată
+- tabela `alembic_version` confirmă versiunea curentă a schemei DB
 - modelul `User` este definit și mapat în tabela `users`
 - modelul `AuditLog` este definit și mapat în tabela `audit_logs`
 - modelul `SecurityEvent` este definit și mapat în tabela `security_events`
-- tabela `users` a fost creată și verificată în PostgreSQL
-- tabela `audit_logs` a fost creată și verificată în PostgreSQL
-- tabela `security_events` a fost creată și verificată în PostgreSQL
+- tabelele `users`, `audit_logs` și `security_events` sunt create prin migrații
 - schemele Pydantic pentru user, audit logs și security events sunt definite
 - hashing-ul și verificarea parolei sunt implementate
 - endpoint-ul `POST /auth/register` este funcțional
@@ -249,7 +250,7 @@ La acest moment:
 - audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`
 - security events sunt funcționale pentru register, login success, login failed și admin access
 - security events pot fi consultate prin API folosind `GET /security/events`
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging și Security Events
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events și migrații DB prin Alembic
 ---
 
 ## 11. Current Sprint
