@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.routes import health, auth, users, audit
+from app.api.routes import health, auth, users, audit, security
 from app.models.security_event import SecurityEvent
 from app.core.database import engine, Base
 from app.models.user import User
@@ -13,3 +13,4 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(audit.router)
+app.include_router(security.router)

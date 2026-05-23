@@ -6,6 +6,8 @@ from app.schemas.user import UserRead
 from app.models.audit_log import AuditEventType
 from app.services.audit_service import create_audit_log
 from sqlalchemy.orm import Session
+from app.models.security_event import SecurityEventType, SecuritySeverity
+from app.services.security_event_service import create_security_event
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -21,6 +23,14 @@ def read_admin_only(
     create_audit_log(
         db=db,
         event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
+        user=current_user,
+        message=f"Admin endpoint accessed by user: {current_user.email}",
+    )
+    
+    create_security_event(
+        db=db,
+        event_type=SecurityEventType.ADMIN_ACCESS,
+        severity=SecuritySeverity.INFO,
         user=current_user,
         message=f"Admin endpoint accessed by user: {current_user.email}",
     )

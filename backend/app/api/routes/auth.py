@@ -12,6 +12,8 @@ from app.services.user_service import (
     get_user_by_email,
     get_user_by_username,
 )
+from app.models.security_event import SecurityEventType, SecuritySeverity
+from app.services.security_event_service import create_security_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -38,6 +40,14 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> UserRea
         user=user,
         message=f"User registered: {user.email}",
     )
+    
+    create_security_event(
+        db=db,
+        event_type=SecurityEventType.USER_REGISTERED,
+        severity=SecuritySeverity.INFO,
+        user=user,
+        message=f"New user registered: {user.email}",
+    )
     return user
 
 @router.post("/login", response_model=Token)
@@ -51,6 +61,14 @@ def login_user(user_in: UserLogin, db: Session = Depends(get_db)) -> Token:
             message=f"Failed login attempt for email: {user_in.email}",
         )
         
+        create_security_event(
+            db=db,
+            event_type=SecurityEventType.LOGIN_FAILED,
+            severity=SecuritySeverity.WARN,
+            email=user_in.email,
+            message=f"Failed login attempt for email: {user_in.email}",
+        )
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -63,6 +81,14 @@ def login_user(user_in: UserLogin, db: Session = Depends(get_db)) -> Token:
         message=f"Successful login for user: {user.email}",
     )
     
+    create_security_event(
+        db=db,
+        event_type=SecurityEventType.LOGIN_SUCCESS,
+        severity=SecuritySeverity.INFO,
+        user=user,
+        message=f"Successful login for user: {user.email}",
+    )
+
     access_token = create_access_token(user.email)
     
     return Token(

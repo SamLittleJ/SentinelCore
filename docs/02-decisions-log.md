@@ -42,3 +42,16 @@
 - Userii obisnuiti primesc `403 Forbidden` la accesarea audit logs.
 - Audit logs sunt returnate prin schema `AuditLogRead`, nu direct ca model ORM necontrolat.
 - Listarea audit logs este limitata prin paramentrul `limit`.
+- Security events sunt separate de audit logs.
+- Audit logs reprezintă jurnalul factual al acțiunilor din sistem.
+- Security events reprezintă evenimente relevante pentru securitate și SIEM-light.
+- Security events sunt stocate în PostgreSQL în tabela `security_events`.
+- Evenimentele de securitate sunt definite prin enum-ul `SecurityEventType`.
+- Severitățile de securitate sunt definite prin enum-ul `SecuritySeverity`.
+- Severitățile inițiale sunt `info`, `warn` și `incident`.
+- Endpoint-ul `GET /security/events` expune evenimentele de securitate prin API.
+- Endpoint-ul `GET /security/events` este protejat prin RBAC.
+- Rolurile permise pentru consultarea security events sunt `admin`, `owner` și `security_analyst`.
+- Login failed este mapat ca security event cu severitate `warn`.
+- Register, login success și admin access sunt mapate ca security events cu severitate `info`.
+- Security events reprezintă începutul componentei SIEM-light din SentinelCore.

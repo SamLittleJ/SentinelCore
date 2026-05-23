@@ -841,3 +841,223 @@ In acest moment backend-ul are:
 - endpoint `GET /admin/aduit-logs`
 - protectie RBAC pentru acces la audit logs
 - validare functionala pentru admin si user normal
+
+## Extinderea fundatiei backend: Security Events
+
+### 59. Introducerea modelului `SecurityEvent`
+
+A fost creat modelul ORM `SecurityEvent` in fisierul: `app/models/security_event.py`.
+
+Acest model reprezinta primul strat de evenimente de securitate al platformei SentinelCore.
+
+Spre deosebire de `AuditLog`, care inregistreaza factual actiuni din sistem, `SecurityEvent` reprezinta evenimentele relevante pentru zona de securitate si SIEM-light.
+
+Modelul `SecurityEvent` contine urmatoarele campuri:
+
+- `id`
+- `event_type`
+- `severity`
+- `user_id`
+- `email`
+- `source`
+- `message`
+- `created_at`
+
+### 60. Diferenta dintre Audit Logs si Security Events
+
+In SentinelCore, cele doua concepte sunt separate:
+
+**Audit Logs**
+Audit logs raspund la intrebarea:
+
+```
+Ce s-a intamplat in sistem?
+```
+
+Exemple:
+- utilizator creat
+- login reusit
+- login esuat
+- endpoint admin accesat
+
+**Security Events**
+Security events raspund la intrebarea:
+
+```
+Ce evenimente sunt relevante pentru securitate?
+```
+
+Exemple:
+- login esuat cu severitate `warn`
+- login reusit cu severitate `info`
+- acces admin cu severitate `info`
+
+Aceasta separare este importanta deoarece auditul este jurnalul brut, iar security events reprezinta stratul de interpretare pentru zona SIEM-light.
+
+### 61. Introducerea tipurilor de security events
+
+A fost definit enum-ul `SecurityEventType`.
+
+Evenimentele initale definite sunt:
+- `USER_REGISTERED`
+- `LOGIN_SUCCESS`
+- `LOGIN_FAILED`
+- `ADMIN_ACCESS`
+
+Acestea acopera primele fluxuri reale deja existente in backend:
+- register
+- login reusit
+- login esuat
+- acces admin
+
+### 62. Introducerea severitatilor de securitate
+
+A fost definit enum-ul `SecuritySeverity`
+
+Severitatile initiale sunt:
+- `INFO`
+- `WARN`
+- `INCIDENT`
+
+In etapa actuala au fost folosite:
+- `INFO` pentru evenimente normale, dar relevante
+- `WARN` pentru login esuat
+
+Severitatea `INCIDENT` este pregatita pentru evenimente viitoare mai grave, cum ar fi detectii de tip brute-force sau comportament suspect.
+
+### 63. Crearea tabelei `security_events`
+
+Tabela `security_events` a fost create in PostgreSQL prin mecanismul temporar:
+
+```
+Base.metadata.create_all(bind=engine)
+```
+
+Pentru ca SQLAlchemy sa detecteze modelul, `SecurityEvent` a fost importat in `app.main.py`.
+
+Tabela a fost verificata in PostgreSQL cu:
+
+```
+\dt
+\d security_events
+```
+
+### 64. Introducerea serviciului pentru security events
+
+A fost creat fisierul:
+
+```
+app/services/security_event_service.py
+```
+
+Acesta contine functiile:
+
+```
+create_security_event()
+list_security_events()
+```
+
+Scopul serviciului este centralizarea logicii de creare si citire a evenimentelor de securitate.
+
+Functia `create_security_event()` permite salvarea unui eveniment cu:
+- tip eveniment
+- severitate
+- user asociat optional
+- email asociat optional
+- sursa
+- mesaj descriptiv
+
+Functia `list_security_events()` permite citirea evenimentelor de securitate in ordine descrescatoare dupa momentul producerii.
+
+### 65. Introducerea schemei `SecurityEventRead`
+
+A fost creat fisierul: ```app/schemas/security_event.py```.
+
+Acesta defineste schema `SecurityEventRead`.
+
+Scop:
+- separarea modelului ORM de respons-ul API
+- controlarea campurilor returnate catre client
+- pregatirea datelor pentru dashboard-uri viitoare de securitate
+
+### 66. Introducerea endpoint-ului pentru security events
+
+A fost creat fisierul: ```app/api/routes/security.py```.
+
+A fost introdus endpoint-ul: ```GET /security/events```.
+
+Acesta permite consultarea evenimentelor de securitate prin API.
+
+Endpoint-ul accepta parametrul: ```limit``` pentru limitarea numarului de evenimente returnate.
+
+### 67. Protejarea endpoint-ului de security events prin RBAC
+
+Endpoint-ul `GET /security/events` este protejat prin `require_roles(...)`.
+
+Rolurile permise sunt:
+- `admin`
+- `owner`
+- `security_analyst`
+
+Un utilizator standard cu rol `user` nu are acces la acest endpoint.
+
+### 68. Integrarea security events in fluxurile existente
+
+Security events au fost integrate in urmatoarele fluxuri:
+
+**Register**
+La crearea unui utilizator nou se creeaza evenimentul: ```USER_REGISTERED``` cu severitate: ```INFO```.
+
+**Login reusit**
+La autentificare reusita se creeaza evenimentul ```LOGIN_SUCCESS``` cu severitate: ```INFO```.
+
+**Login esuat**
+La autentificare esuata se creeaza evenimentul ```LOGIN_FAILED``` cu severitate: ```WARN```.
+Acest eveniment este important deoarece poate deveni ulterior baza pentru detectii de tip brute-force.
+
+**Acces admin**
+La accesarea endpoint-ului admin-only se creeaza evenimentul: ```ADMIN_ACCESS``` cu severitate: ```INFO```.
+
+### 69. Validarea endpoint-ului `GET /security/events`
+
+Endpoint-ul a fost testat prin `curl`.
+
+Rezultate confirmate:
+- utilizator cu rol permis -> `200 OK`
+- raspunsul contine security events reale
+- evenimentele sunt returnate in format JSON
+- severitatile apar corect ca `info` si `warn`
+
+Evenimente confirmate in raspuns:
+- `user_registered`
+- `login_success`
+- `login_failed`
+- `admin_access`
+
+### 70. Stare actuala dupa Security Events Foundation
+
+In acest moment backend-ul are:
+
+- aplicație FastAPI funcțională
+- endpoint `/health`
+- endpoint `POST /auth/register`
+- endpoint `POST /auth/login`
+- endpoint `GET /users/me`
+- endpoint `GET /users/admin-only`
+- endpoint `GET /admin/audit-logs`
+- endpoint `GET /security/events`
+- configurare prin `.env`
+- PostgreSQL local prin Docker Compose
+- model ORM `User`
+- model ORM `AuditLog`
+- model ORM `SecurityEvent`
+- tabelă `users`
+- tabelă `audit_logs`
+- tabelă `security_events`
+- hashing și verificare de parolă
+- generare și decodare JWT
+- identificarea utilizatorului curent din token
+- fundație RBAC funcțională
+- audit logging funcțional
+- security events funcționale
+- prim strat SIEM-light funcțional

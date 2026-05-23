@@ -226,15 +226,18 @@ La acest moment:
 - repo-ul și structura de bază sunt create
 - frontend-ul pornește corect
 - backend-ul are virtual environment propriu
-- `pyproject.toml` este configurat pentru fundația backend-ului
 - aplicația FastAPI pornește local
 - endpoint-ul `/health` funcționează
 - configurația aplicației este citită din `.env`
 - PostgreSQL local rulează prin Docker Compose
 - conexiunea reală la baza de date este validată
 - modelul `User` este definit și mapat în tabela `users`
+- modelul `AuditLog` este definit și mapat în tabela `audit_logs`
+- modelul `SecurityEvent` este definit și mapat în tabela `security_events`
 - tabela `users` a fost creată și verificată în PostgreSQL
-- schemele Pydantic pentru user sunt definite
+- tabela `audit_logs` a fost creată și verificată în PostgreSQL
+- tabela `security_events` a fost creată și verificată în PostgreSQL
+- schemele Pydantic pentru user, audit logs și security events sunt definite
 - hashing-ul și verificarea parolei sunt implementate
 - endpoint-ul `POST /auth/register` este funcțional
 - endpoint-ul `POST /auth/login` este funcțional
@@ -242,13 +245,11 @@ La acest moment:
 - endpoint-ul `GET /users/me` este funcțional
 - fundația RBAC este implementată prin roluri pe modelul `User`
 - controlul de acces pe rol este validat pentru endpoint-uri protejate
-- modelul `AuditLog` este definit și mapat în tabela `audit_logs`
-- tabela `audit_logs` a fost creată și validată în PostgreSQL
 - audit logging-ul este funcțional pentru register, login success, login failed și acces admin
-- SentinelCore are acum fundație IAM + RBAC + Audit Logging
-- Audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`.
-- Accesul la audit logs este protejat prin RBAC
-- SentinelCore are acum fundatie functionala pentru IAM, RBAC si audit logs consultabile.
+- audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`
+- security events sunt funcționale pentru register, login success, login failed și admin access
+- security events pot fi consultate prin API folosind `GET /security/events`
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging și Security Events
 ---
 
 ## 11. Current Sprint
