@@ -246,6 +246,9 @@ La acest moment:
 - tabela `audit_logs` a fost creată și validată în PostgreSQL
 - audit logging-ul este funcțional pentru register, login success, login failed și acces admin
 - SentinelCore are acum fundație IAM + RBAC + Audit Logging
+- Audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`.
+- Accesul la audit logs este protejat prin RBAC
+- SentinelCore are acum fundatie functionala pentru IAM, RBAC si audit logs consultabile.
 ---
 
 ## 11. Current Sprint

@@ -37,3 +37,8 @@
 - Endpoint-ul `GET /users/admin-only` creeaza eveniment `ADMIN_ENDPOINT_ACCESSED` pentru acces permis.
 - In etapa actuala, accesul refuzat prin RBAC nu este inca auditat.
 - Pentru MVP, valorile enum-ului de audit sunt acceptate in forma salvata de SQLAlchemy, de exemplu `USER_REGISTERED`.
+- Audit logs sunt expuse prin endpoint-ul `GET /admin/audit-logs`.
+- Endpoint-ul de audit este disponibil doar pentru rolurile `admin`, `owner` si `security_analyst`.
+- Userii obisnuiti primesc `403 Forbidden` la accesarea audit logs.
+- Audit logs sunt returnate prin schema `AuditLogRead`, nu direct ca model ORM necontrolat.
+- Listarea audit logs este limitata prin paramentrul `limit`.

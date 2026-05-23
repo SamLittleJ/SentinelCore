@@ -755,3 +755,89 @@ In acest moment backend-ul are:
 - identificarea utilizatorului curent din token
 - fundatie RBAC functionala
 - audit logging functional pentru register, login si acces admin
+
+## Extinderea fundatiei backend: Audit Logs API
+
+### 53. Introducerea schemei `AuditLogRead`
+
+A fost creat fisierul:
+
+```text
+app/schemas/audit_log.py
+```
+
+Acesta defineste schema `AuditLogRead`, folosita pentru raspunsurile API care expun evenimentele de audit.
+
+Scop:
+
+- separarea modelului ORM `AuditLog` de contractul API
+- controlarea campurilor returnate catre clinet
+- pregatirea audit logs pentru afisare in dashboard-uri viitoare
+
+### 54. Listarea audit logs prin service
+
+Fisierul `app/services/audit_service.py` a fost extins cu functia:
+
+```
+list_audit_logs()
+```
+
+Aceasta:
+
+- citeste evenimentele de audit din baza de date
+- le ordoneaza descrescator dupa `created_at`
+- aplica o limita pentru a evita returnarea intregii tabele
+
+### 55. Introducerea endpoint-ului pentru audit logs
+
+A fost creat fisierul:
+
+```
+app/api/routes/audit.py
+```
+
+A fost introdus endpoint-ul:
+
+```
+GET /admin/audit-logs
+```
+Acesta permite consultarea evenimentelor de audit prin API.
+
+Endpoint-ul accepta paramentrul: ```limit``` pentru controlarea numarului de rezultate returnate.
+
+### 56. Protejarea endpoint-ului de audit prin RBAC
+
+Endpoint-ul `GET /admin/aduit-logs` este protejat prin `require_role(...)`.
+
+Rolurile permise sunt:
+
+- `admin`
+- `owner`
+- `security_analyst`
+
+Un utilizator standard cu rol `user` nu poate accesa acest endpoint.
+
+### 57. Validarea endpoint-ului de audit
+
+Endpoint-ul a fost testat prin `curl`.
+
+Rezultate confirmate:
+
+- utlizator cu rol `admin` -> `200 OK`
+- utilizator cu rol `user` -> `403 Forbidden`
+
+Aceasta confirma:
+
+- listarea audit logs prin API
+- protectia endpoint-ului prin RBAC
+- separarea corecta intre utilizator obisnuit si roluri privilegiate
+
+### 58. Stare actuala dupa Audit Logs API
+
+In acest moment backend-ul are:
+
+- audit logs salvate in PostgreSQL
+- audit logs consultabile prin API
+- endpoint `GET /admin/aduit-logs`
+- protectie RBAC pentru acces la audit logs
+- validare functionala pentru admin si user normal
