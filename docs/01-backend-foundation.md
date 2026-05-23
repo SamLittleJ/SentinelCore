@@ -1193,3 +1193,173 @@ Migratiile generate trebuie verificate manual inainte de aplicare.
 - tabela `alembic_version` creată
 - tabelele `users`, `audit_logs` și `security_events` create prin migrație
 - workflow matur pentru modificări viitoare ale schemei DB
+
+## Extinderea fundatiei backend: Tests Foundation
+
+### 82. Introducerea testelor automate
+
+A fost introdusa prima fundatie de teste automate pentru backend-ul SentinelCore.
+
+Scopul acestei etape este trecerea de la testare manuala prin `curl` / Swagger la validarea automata a fluxurilor principale.
+
+Au fost adaugate dependentele:
+- `pytest`
+- `httpx`
+
+Acestea permit rularea testelor automate si folosirea `TestClient` pentru testarea aplicatiei FastAPI.
+
+### 83. Configurarea `pyproject.toml` pentru teste
+
+Fisierul `pyproject.toml` a fost actualizat pentru testare.
+
+A fost adaugata configuratia:
+
+```toml
+[tol.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+```
+
+Scop:
+- testele sunt cautate in directorul `tests`
+- importurile absolute de forma `from app...` funtioneaza corect in timpul testarii
+
+De asemenea, a fost configurata descoperirea explicita a pachetului Python:
+```toml
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["migrations*", "tests*"]
+```
+
+Aceasta configurare a fost necesara deoarece dupa introducerea Alembic, `setuptools` detecta atat `app`, cat si `migrations` ca pachete top-level.
+
+### 84. Introducerea bazei de date separate pentru teste
+
+A fost create o baza de date separata pentru teste: ```sentinelcore_test```.
+
+Scop:
+- testele nu modifica baza de date de development
+- datele de test sunt izolate
+- testele pot crea si sterge date fara risc pentru mediul local principal
+
+A fost adaugata variabila:
+```env
+TEST_DATABASE_URL=postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test
+```
+in configuratia locala si in `.env.example`.
+
+### 85. Introducerea fisierului `tests/conftest.py`
+
+A fost creat fisierul: ```tests/conftest.py`.
+
+Acesta defineste fixture-uri reutilizabile pentru teste
+
+Elementele principale:
+- `test_engine`
+- `TestingSessionLocal`
+- fixture `db_session`
+- fixture `client`
+
+Scop:
+- conectarea testelor la baza de date `sentinelcore_test`
+- crearea tabelelor inainte de test
+- stergerea tabelelor dupa test
+- suprascrierea dependentei `get_db`
+- rularea requesturilor prin `TestClient`
+
+### 86. Override pentru `get_db`
+
+In teste, dependenta reala: ``` get_db()``` este suprascrisa cu o sesiune de test.
+
+Scop:
+- endpoint-urile folosesc baza de date de test
+- logica aplicatiei este testata aproape real
+- testele nu ating baza de date principala
+
+Aceasta abordare permite testarea endpoint-urilor FastAPI fara a porni un server HTTP separat.
+
+### 87. Test pentru endpoint-ul `/health`
+
+A fost creat testul: ```/tests/test_health```.
+
+Acesta verifica endpoint-ul:
+```http
+GET /health
+```
+
+Rezultatul asteptat:
+```JSON
+{"status": "ok"}
+```
+Acest test confirma ca aplicatia FastAPI se importa corect si ca routerul de health este functional.
+
+### 88. Teste pentru register
+
+A fost creat fisierul: ```tests/test_auth.py```.
+
+Au fost validate urmatoarele scenarii:
+
+**Register valid**
+Endpoint testat:
+```http
+POST /auth/register
+```
+
+Rezultatul asteptat:
+- status `201 Created`
+- user creat cu `username` si `email`
+- `hashed_password` nu este returnat in response
+
+**Register cu email duplicat**
+
+Rezultat asteptat:
+- status `400 Bad Request`
+- mesaj: `Email already registered`
+
+### 89. Teste pentru login
+
+Au fost validate urmatorele scenarii
+
+**Login valid**
+
+Endpoint testat:
+```http
+POST /auth/login
+```
+
+Rezultat asteptat:
+- status `200 ok`
+- response contine `access_token`
+- `token_type` este `bearer`
+
+**Login cu parola gresita**
+
+Rezultat asteptat:
+- status `401 Unauthorized`
+- mesaj: `Invalid email or password`
+
+### 90. Validarea testelor
+
+Testele au fost rulate cu:
+```bash
+python -m pytest
+```
+
+Rezultatul confirmat:
+``` 5 passed```
+
+Aceasta confirma ca prima etapa de teste automate functioneaza corect.
+
+### 91. Stare actuala dupa Tests Foundation Phase 1
+
+In acest moment backend-ul are:
+- test automat pentru `/health`
+- teste automate pentru register
+- teste automate pentru login
+- baza de date separata pentru teste
+- fixture pentru sesiune DB de test
+- override pentru `get_db`
+- `TestClient` functional
+- rulare automata prin `pytest`
+
+Aceasta marcheaza trecerea de la testare manuala la o prima plasa de siguranta automata pentru backend.

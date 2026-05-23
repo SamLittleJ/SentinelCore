@@ -17,4 +17,14 @@ dependencies = [
     "pwdlib",
     "pwdlib[argon2]",
     "PyJWT",
+    "pytest",
+    "httpx",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["migrations*", "tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

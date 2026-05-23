@@ -250,7 +250,9 @@ La acest moment:
 - audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`
 - security events sunt funcționale pentru register, login success, login failed și admin access
 - security events pot fi consultate prin API folosind `GET /security/events`
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events și migrații DB prin Alembic
+- testele automate backend sunt introduse prin `pytest`
+- endpoint-ul `/health` și fluxurile register/login sunt testate automat
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale
 ---
 
 ## 11. Current Sprint

@@ -69,3 +69,14 @@
 - Tabela `alembic_version` confirmă versiunea curentă a schemei DB.
 - Modificările viitoare ale modelelor trebuie gestionate prin `alembic revision --autogenerate` și `alembic upgrade head`.
 - Migrațiile generate automat trebuie verificate manual înainte de aplicare.
+- Testele backend sunt rulate cu `pytest`.
+- FastAPI este testat prin `TestClient`, care necesită `httpx`.
+- Testele sunt plasate în directorul `backend/tests`.
+- Configurația pytest este definită în `pyproject.toml`.
+- Testele folosesc o bază de date separată: `sentinelcore_test`.
+- Testele nu trebuie să ruleze pe baza de date de development.
+- În teste, dependența `get_db()` este suprascrisă prin `app.dependency_overrides`.
+- `Base.metadata.create_all()` este permis doar în fixture-ul de test, nu în aplicația reală.
+- Aplicația reală folosește Alembic pentru gestionarea schemei DB.
+- Pachetul Python inclus la build este doar `app*`; `migrations*` și `tests*` sunt excluse din packaging.
+- Prima etapă de teste acoperă `/health`, register și login.
