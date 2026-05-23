@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from .api.routes import health, auth, users, audit
+from app.api.routes import health, auth, users, audit
+from app.models.security_event import SecurityEvent
 from app.core.database import engine, Base
 from app.models.user import User
 from app.models.audit_log import AuditLog
