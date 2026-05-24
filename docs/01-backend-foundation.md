@@ -1363,3 +1363,194 @@ In acest moment backend-ul are:
 - rulare automata prin `pytest`
 
 Aceasta marcheaza trecerea de la testare manuala la o prima plasa de siguranta automata pentru backend.
+
+## Extinderea testelor backend: Tests Foundation Phase 2
+
+### 92. Scopul fazei 2 de testare
+
+Dupa validarea endpoint-urilor de baza (`/health`, register si login), testele au fost extinse catre rutele protejate ale aplicatiei.
+
+Scopul acestei faze este validarea automata a:
+- autentificarii prin JWT
+- accesului la endpoint-uri protejate
+- comportamentului fara token
+- controlului de acces pe roluri
+- accesului admin la audit logs
+- accesului admin la security logs
+
+Aceasta etapa confirma ca mecanismele IAM si RBAC functioneaza nu doar manual, ci si automat prin teste.
+
+### 93. Fisier nou pentru rute protejate
+
+A fost creat fisierul:
+```text
+tests/test_protected_routes.py
+```
+
+Acesta contine teste pentru endpoint-urile care necesita autentificare sau roluri speciale.
+
+### 94. Helper functions pentru teste
+
+In `test_protected_routes.py` au fost introduse functii helper pentru reducerea duplicarii codului:
+
+```python
+register_user()
+login_user()
+auth_headers()
+promote_user_to_admin()
+```
+
+Scopul acestor functii este:
+- crearea rapida a unui user de test
+- autentificarea userului si obtinerea tokenului JWT
+- construirea headerului `Authorization`
+- promovarea unui user la rolul `Admin` direct in baza de date de test
+
+### 95. Testarea endpoint-ului `/users/me`
+
+A fost testat endpoint-ul:
+
+```http
+GET /users/me
+```
+
+Scenarii validate:
+
+**Cu token valid**
+Rezultatul asteptat:
+- status `200 OK`
+- response-ul contine datele userului autentificat
+- `hashed_password` nu este returnat in response
+
+**Fara token**
+Rezultatul asteptat:
+- status `401 Unauthorized`
+
+Acest test confirma ca endpoint-ul este protejat corect si nu permite acces anonim.
+
+### 96. Testarea endpoint-ului `/users/admin-only`
+
+A fost testat endpoint-ul:
+```http
+GET /usres/admin-only
+```
+
+Scenarii valide:
+
+**User normal**
+Rezultat asteptat:
+- status `403 Forbidden`
+
+Acest test confirma ca un user autentificat, dar fara rol potrivit, nu poate accesa ruta de admin.
+
+**User admin**
+Rezultat asteptat:
+- status `200 OK`
+- response-ul confirma userul admin
+- rolul returnat este `admin`
+
+Acest test valideaza fundatia RBAC
+
+### 97. Promovarea userului la admin in test
+
+Pentru ca aplicatia nu are inca un endpoint dedicat pentru schimbarea rolului unui user, promovarea la admin este facuta direct in baza de date de test:
+
+```python
+user.role = UserRole.ADMIN
+db_session.commit()
+```
+
+Aceasta abordare este acceptabila in teste deoarece reprezinta doar setup de test, nu logica de productie.
+
+In aplicatia reala, schimbarea rolurilor va trebui facuta ulterior prin endpoint-uri administrative controlate si auditate.
+
+### 98. Testarea endpoint-ului de audit logs
+
+A fost testat endpoint-ul
+
+```http
+GET /admin/audit-logs?limit=20
+```
+
+Scenariu validat:
+- user admin autentificat
+- status `200 OK`
+- response-ul este o lista
+
+Acest test confirma ca audit logs pot fi accesate prin API de catre rolurile autorizate.
+
+### 99. Testarea endpoint-ului de security events
+
+A fost testat endpoint-ul:
+
+```http
+GET /security/events?limit=20
+```
+
+Scenariu validat:
+- user admin autentificat
+- status `200 OK`
+- response-ul este o lista
+
+Acest test confirma ca security events pot fi consultate prin API de catre rolurile autorizate.
+
+### 100. Teste validate in Phase 2
+
+In aceasta faza au fost validate urmatoarele scenarii:
+```
+/users/me with token            -> 200
+/users/me without token         -> 401
+/users/admin-only regular user  -> 403
+/users/admin-only admin         -> 200
+/admin/audit-logs admin         -> 200
+/security/events admin          -> 200
+```
+
+Impreuna cu testele din Phase 1, backend-ul are acum teste automate pentru:
+```
+/health                         -> 200
+/auth/register                  -> 201
+/auth/register duplicate email  -> 400
+/auth/login                     -> 200 + token
+/auth/login wrong password      -> 401
+/users/me with token            -> 200
+/users/me without token         -> 401
+/users/admin-only regular user  -> 403
+/users/admin-only admin         -> 200
+/admin/audit-logs admin         -> 200
+/security/events admin          -> 200
+```
+
+### 101. Rezultatul testelor
+
+Testele au fost rulate cu:
+```bash
+python -m pytest -v
+```
+
+Rezultatul confirmat:
+
+```
+11 passed
+```
+
+Aceasta confirma ca fundatia de autentificare, autorizare si acces la endpoint-uri protejate este validata automat.
+
+### 102. Stare actuala dupa Tests Foundation Phase 2
+
+In acest moment backend-ul are:
+- teste automate pentru health check
+- teste automate pentru register
+- teste automate pentru login
+- teste automate pentru endpoint-uri protejate
+- teste automate pentru JWT access
+- teste automate pentru acces fara token
+- teste automate pentru RBAC user/admin
+- teste automate pentru audit logs endpoint
+- teste automate pentru security events endpoint
+- baza de date separata pentru teste
+- override pentru `get_db`
+- setup de test prin `conftest.py`
+- 11 teste automate validate
+
+Aceasta etapa marcheaza trecerea backend-ului SentinelCore de la testare manuala la verificare automata pentru fluxurile IAM/RBAC principale.

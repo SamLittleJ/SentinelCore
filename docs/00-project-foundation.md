@@ -243,16 +243,21 @@ La acest moment:
 - endpoint-ul `POST /auth/register` este funcțional
 - endpoint-ul `POST /auth/login` este funcțional
 - generarea și decodarea JWT sunt funcționale
-- endpoint-ul `GET /users/me` este funcțional
+- endpoint-ul `GET /users/me` este funcțional și testat automat
 - fundația RBAC este implementată prin roluri pe modelul `User`
-- controlul de acces pe rol este validat pentru endpoint-uri protejate
+- controlul de acces pe rol este validat manual și automat
+- endpoint-ul `GET /users/admin-only` este testat pentru user normal și admin
 - audit logging-ul este funcțional pentru register, login success, login failed și acces admin
 - audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`
+- endpoint-ul `GET /admin/audit-logs` este testat automat cu user admin
 - security events sunt funcționale pentru register, login success, login failed și admin access
 - security events pot fi consultate prin API folosind `GET /security/events`
+- endpoint-ul `GET /security/events` este testat automat cu user admin
 - testele automate backend sunt introduse prin `pytest`
-- endpoint-ul `/health` și fluxurile register/login sunt testate automat
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale
+- testele folosesc baza separată `sentinelcore_test`
+- dependența `get_db` este suprascrisă în teste
+- backend-ul are 11 teste automate validate
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale
 ---
 
 ## 11. Current Sprint

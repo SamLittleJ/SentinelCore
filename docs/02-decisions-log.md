@@ -80,3 +80,14 @@
 - Aplicația reală folosește Alembic pentru gestionarea schemei DB.
 - Pachetul Python inclus la build este doar `app*`; `migrations*` și `tests*` sunt excluse din packaging.
 - Prima etapă de teste acoperă `/health`, register și login.
+- Testele au fost extinse în `Tests Foundation Phase 2`.
+- A fost creat fișierul `tests/test_protected_routes.py`.
+- Rutele protejate sunt testate automat cu token JWT valid.
+- Endpoint-ul `/users/me` este testat atât cu token valid, cât și fără token.
+- Endpoint-ul `/users/admin-only` este testat atât cu user normal, cât și cu user admin.
+- Pentru setup de test, userul este promovat la rolul `admin` direct în baza de date de test.
+- Promovarea directă la admin este acceptată doar în teste, nu ca logică de producție.
+- Endpoint-ul `/admin/audit-logs` este testat cu user admin.
+- Endpoint-ul `/security/events` este testat cu user admin.
+- Backend-ul are acum 11 teste automate validate prin `pytest`.
+- Testele acoperă fluxurile principale de IAM, JWT, RBAC, audit logs și security events.
