@@ -2332,3 +2332,252 @@ In acest moment backend-ul SentinelCore are:
 - pipeline fara warning-uri relevante
 
 Aceasta etapa marcheaza introducerea primului strat real de DevSecOps in SentinelCore.
+
+## Admin User Management - Phase 1
+
+### 141. Introducerea administarii utilizatorilor
+
+A fost introdusa prima etapa din zona de administrare a utilizatorilor.
+
+Scopul acestei faze este ca utilizatorii cu rol administrativ sa poata consulta lista utilizatorilor existenti in sistem.
+
+Endpoint introdus:
+
+```
+GET /admin/users
+```
+
+Aceasta etapa marcheaza inceputul zonei de Admin User Management din SentinelCore.
+
+### 142. Scopul endpoint-ului `GET /admin/users`
+
+Endpoint-ul permite listarea utilizatorilor existenti in aplicatie.
+
+Accesul este permis doar pentru rolurile administrative:
+- admin
+- owner
+
+Un utilizator normal nu poate accesa aceasta ruta.
+
+Aceasta separare este importanta pentru fundatia IAM/RBAC, deoarece datele despre utilizatori nu trebuie expuse tuturor conturilor autentificate.
+
+### 143. Service pentru listarea utilizatorilor
+
+In `app/services/user_service.py` a fost adaugata functia:
+
+```python
+def list_users(
+    db: Session,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[User]:
+    statement = select(User).order_by(User.id).offset(offset).limit(limit) 
+    return list(db.scalars(statement).all())
+```
+
+Aceasta functie separa logica de acces la baza de date de logica rutei API.
+
+Scop:
+- pastrarea rutelor cat mai curate
+- reutilizarea logicii de listare in alte zone ale aplicatiei
+- pregatirea pentru paginare mai avansata in viitor
+
+### 144. Ruta noua pentru administrarea utilizatorilor
+
+A fost creat fisierul:
+
+```
+app/api/routes/admin_users.py
+```
+
+Routerul foloseste prefixul:
+
+```python
+router = APIRouter(prefix="/admin/users", tags=["admin-users"])
+```
+
+Endpoint-ul principal introdus:
+
+```python
+@router.get("", response_model=list[UserRead])
+def read_users(...)
+```
+
+Acesta returneaza lista utilizatorilor folosind schema publica `UserRead`.
+
+### 145. Protectia endpoint-ului prin RBAC
+
+Endpoint-ul este protejat cu dependency-ul:
+
+```python
+Depends(require_role(UserRole.ADMIN, UserRole.OWNER))
+```
+
+Aceasta inseamna ca doar utilizatorii cu rolurile de `ADMIN` sau `OWNER` pot accesa lista utilizatorilor.
+
+Un user normal primeste: `403 Forbidden`.
+
+Aceasta verificare confirma ca RBAC-ul este aplicat si pe noile endpoint-uri administrative, nu doar pe endpoint-ul de test `/users/admin-only`.
+
+### 146. Folosirea `Annotated` pentru dependecy injection
+
+Endpoint-ul a fost scris folosind stilul modern FastAPI cu `typing.Annotated`.
+
+Aceasta abordare pastreaza codul compatibil cu standardele introduse in etapa Ruff si evita problam `B008`.
+
+### 147. Parametri de paginare de baza
+
+Endpoint-ul accepta parametri de baza:
+
+```
+limit
+offset
+```
+
+Configuratie:
+
+```
+limit: Annotated[int, Query(ge=1, le=200)] =50
+offset: Annotated[int, Query(ge=0)] = 0
+```
+
+Aceasta implementare ofera o fundatie simpla pentru paginare.
+
+Limitarea la maximum `200` previne cereri prea mari catre API.
+
+### 148. Audit log pentru listarea utilizatorilor
+
+Cand un admin acceseaza lista utilizatorilor, aplicatia creeaza un audit log.
+
+Eveniment folosit:
+
+```
+AuditEventType.ADMIN_ENDPOINT_ACCESSED
+```
+
+Mesaj:
+
+```
+Admin listed users
+```
+
+Aceasta decizie este importanta deoarece accesul la lista de utilizatori este o actiune administrativa si trebuie urmarita.
+
+In SentinelCore, actiunile administrative trebuie sa fie vizibile in audit trail.
+
+### 149. Security event pentru listarea utilizatorilor
+
+Pe langa audit, endpoint-ul creeaza si un security event.
+
+Eveniment folosit: `SecurityEventType.ADMIN_ACCESS`
+
+Severitate: `SecuritySeverity.INFO`
+
+Mesaj: `Admin listed users`
+
+Aceasta clasificare marcheaza actiunea ca eveniment de securitate informativ.
+
+Nu este incident, dar este o actiune relevanta pentru vizibilitatea administrativa.
+
+### 150. Inregistrarea routerului in aplicatie
+
+Routerul `admin_users` a fost inclus in `app/main.py`.
+
+A fost adaugat importul: `from app.api.routes import admin_users` si routerul a fost inregistrat in aplicatia FastAPI: `app.include_router(admin_users.router)
+
+Astfel endpoint-ul devine disponibil in aplicatie sub ruta: `GET /admin/users`
+
+### 151. Teste automate pentru `GET /admin/users`
+
+Au fost adugate teste in: `tests/test_protected_routes.py`
+
+Scenarii validate:
+- user normal -> 403 Forbidden
+- admin user -> 200 OK + lista utilizatori
+
+Primul test confirma ca un utilizator fara rol administrativ nu poate accesa endpoint-ul.
+
+Al doilea test confirma ca un admin poate accesa lista utilizatorilor si ca raspunsul nu expune `hashed_password`.
+
+### 152. Test pentru user normal
+
+Scenariu:
+1. se creeaza un user normal
+2. userul face login
+3. userul incearca sa acceseze GET /admin/users
+4. API-ul raspunde cu 403
+
+Rezultat asteptat: `403 Forbidden`
+
+Acest test valideaza protectia RBAC.
+
+### 153. Test pentru user admin
+
+Scenariu:
+1. se creeaza un user
+2. userul este promovat la admin in baza de date de test
+3. userul face login
+4. acceseaza GET /admin/users
+5. API-ul raspunde cu lista de utilizatori
+
+Rezultatul asteptat: `200 OK`
+
+Validari suplimentare:
+- response-ul este lista
+- lista contine userul creat
+- email-ul este corect
+- username-ul este corect
+- hashed_password nu este expus
+
+Aceasta verificare este importanta pentru securitatea raspunsului API.
+
+### 154. Validarea locala
+
+Dupa implementare au fost rulate local:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
+python -m bandit -r app -c pyproject.toml
+python -m pytest -v
+```
+
+Rezultat confirmat:
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> passed
+- pytest -> passed
+
+Dupa adaugarea celor doua teste noi, numarul total de teste backend a crescut de la `11` la `13`.
+
+### 155. Validarea prin Pull Request
+
+Implementarea a fost facuta pe branch separat, nu direct pe `main`.
+
+Flux folosit:
+- feature branch
+- push
+- Pull Request catre main
+- CI verde
+- merge
+- stergere branch
+
+Aceasta etapa confirma noua disciplina de lucru a proiectului: fiecare task nou se dezvolta pe branch separat si intra in `main` doar dupa verificare prin CI.
+
+### 156. Stare actuala dupa Admin User Management Phase 1
+
+In acest moment backend-ul SentinelCore are:
+- endpoint administrativ `GET /admin/users`
+- listare utilizatori prin service dedicat
+- acces permis doar pentru `admin` si `owner`
+- raspuns prin schema publica `UserRead`
+- protectie impotriva expunerii `hashed_password`
+- audit log pentru listarea utilizatorilor
+- security event pentru listarea utilizatorilor
+- parametri de baza `limit` si `offset`
+- teste pentru acces interzis user normal
+- teste pentru acces permis admin
+- 13 teste backend validate
+- CI verde dupa Pull Request
+
+Aceasta etapa marcheaza inceputul modulului real de administrare a utilizatorilor in SentinelCore.

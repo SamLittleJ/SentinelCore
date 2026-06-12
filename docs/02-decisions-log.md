@@ -144,3 +144,20 @@
 - Pentru fiecare task now se creeaza un branch separat.
 - Pull Request-urile trebuie verificate cu CI verde inainte de merge.
 - Nu se va lucra direct pe `main`, chiar daca GitHub nu blocheaza tehnic acest lucru.
+- A fost introdus modulul Admin User Management Phase 1. 
+- A fost creat endpoint-ul `GET /admin/users`. 
+- Endpoint-ul permite listarea utilizatorilor existenți în sistem. 
+- Accesul la `GET /admin/users` este permis doar pentru rolurile `admin` și `owner`. 
+- Userii normali primesc `403 Forbidden` la accesarea endpoint-ului. 
+- A fost creat fișierul `app/api/routes/admin_users.py`. 
+- Routerul `admin_users` este înregistrat în `app/main.py`. 
+- Logica de listare a utilizatorilor este separată în `app/services/user_service.py`. 
+- Funcția `list_users()` folosește `limit` și `offset` pentru paginare de bază. 
+- Endpoint-ul folosește schema `UserRead` pentru a evita expunerea câmpurilor sensibile. 
+- `hashed_password` nu este returnat în răspunsul API. 
+- Accesarea listei de utilizatori generează audit log. 
+- Accesarea listei de utilizatori generează security event cu severitate `INFO`. 
+- Endpoint-ul este testat pentru user normal și user admin. 
+- Numărul testelor backend a crescut de la 11 la 13. 
+- Implementarea a fost făcută pe branch separat și validată prin Pull Request. 
+- `main` este tratat ca branch stabil, chiar dacă branch protection nu este enforce pe planul privat actual.

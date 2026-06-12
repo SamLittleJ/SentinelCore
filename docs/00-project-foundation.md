@@ -284,6 +284,15 @@ La acest moment:
 - false positive-ul Bandit pentru `token_type="bearer"` a fost tratat punctual cu `# nosec B106` 
 - pipeline-ul backend validează Ruff, Bandit, Gitleaks și pytest 
 - pipeline-ul backend este verde și fără warning-uri relevante
+- modulul Admin User Management a fost început 
+- endpoint-ul `GET /admin/users` este implementat 
+- lista utilizatorilor poate fi accesată de rolurile `admin` și `owner` 
+- userii normali primesc `403 Forbidden` pentru `GET /admin/users` 
+- listarea utilizatorilor generează audit log 
+- listarea utilizatorilor generează security event 
+- endpoint-ul `GET /admin/users` este testat automat 
+- backend-ul are 13 teste automate validate 
+- implementarea a fost livrată prin branch separat și Pull Request
 ---
 
 ## 11. Current Sprint
