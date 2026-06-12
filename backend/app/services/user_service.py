@@ -47,3 +47,8 @@ def list_users(
 ) -> list[User]:
     statement = select(User).order_by(User.id).offset(offset).limit(limit)
     return list(db.scalars(statement).all())
+
+
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+    statement = select(User).where(User.id == user_id)
+    return db.scalar(statement)

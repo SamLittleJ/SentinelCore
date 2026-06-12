@@ -165,3 +165,67 @@ def test_admin_users_with_admin_user_returns_users(
     assert data[0]["email"] == "test@example.com"
     assert data[0]["username"] == "testuser"
     assert "hashed_password" not in data[0]
+
+
+def get_user_id_by_email(db_session: Session, email: str) -> int:
+    user = db_session.scalar(select(User.id).where(User.email == email))
+
+    assert user is not None
+
+    return user
+
+
+def test_admin_user_detail_with_reqular_user_returns_403(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    register_user(client)
+    user_id = get_user_id_by_email(db_session, "test@example.com")
+    token = login_user(client)
+
+    response = client.get(
+        f"/admin/users/{user_id}",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_user_detail_with_admin_user_returns_user(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    register_user(client)
+    user_id = get_user_id_by_email(db_session, "test@example.com")
+    promote_user_to_admin(db_session, "test@example.com")
+    token = login_user(client)
+
+    response = client.get(
+        f"/admin/users/{user_id}",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["id"] == user_id
+    assert data["email"] == "test@example.com"
+    assert data["username"] == "testuser"
+    assert "hashed_password" not in data
+
+
+def test_admin_user_detail_with_unknown_user_returns_404(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    register_user(client)
+    promote_user_to_admin(db_session, "test@example.com")
+    token = login_user(client)
+
+    response = client.get(
+        "/admin/users/9999",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"
