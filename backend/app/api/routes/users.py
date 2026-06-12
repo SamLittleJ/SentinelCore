@@ -1,24 +1,32 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
 
-from app.api.deps import get_current_user, require_role, get_db
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_db, require_role
+from app.models.audit_log import AuditEventType
+from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
 from app.schemas.user import UserRead
-from app.models.audit_log import AuditEventType
 from app.services.audit_service import create_audit_log
-from sqlalchemy.orm import Session
-from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.services.security_event_service import create_security_event
 
 router = APIRouter(prefix="/users", tags=["users"])
 
+
 @router.get("/me", response_model=UserRead)
-def read_current_user(current_user: User = Depends(get_current_user)) -> UserRead:
+def read_current_user(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UserRead:
     return current_user
+
 
 @router.get("/admin-only")
 def read_admin_only(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User, Depends(require_role(UserRole.ADMIN, UserRole.OWNER))
+    ],
 ) -> dict:
     create_audit_log(
         db=db,
@@ -26,7 +34,7 @@ def read_admin_only(
         user=current_user,
         message=f"Admin endpoint accessed by user: {current_user.email}",
     )
-    
+
     create_security_event(
         db=db,
         event_type=SecurityEventType.ADMIN_ACCESS,
@@ -34,9 +42,9 @@ def read_admin_only(
         user=current_user,
         message=f"Admin endpoint accessed by user: {current_user.email}",
     )
-    
+
     return {
-        "message" : "You have admin-level access.",
-        "username" : current_user.username,
+        "message": "You have admin-level access.",
+        "username": current_user.username,
         "role": current_user.role,
     }

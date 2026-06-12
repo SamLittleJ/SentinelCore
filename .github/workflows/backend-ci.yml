@@ -58,6 +58,16 @@ jobs:
                 python -m pip install --upgrade pip
                 python -m pip install -e .
 
+            - name: Run Ruff Lint
+              working-directory: backend
+              run: |
+                python -m ruff check .
+
+            - name: Run Ruff format check
+              working-directory: backend
+              run: |
+                python -m ruff format --check .
+
             - name: Run backend tests
               working-directory: backend
               run: |

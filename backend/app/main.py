@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from app.api.routes import health, auth, users, audit, security
 
+from app.api.routes import audit, auth, health, security, users
 
 app = FastAPI(title="SentinelCore API", version="0.1.0")
 

@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User
@@ -23,10 +23,7 @@ def create_audit_log(
     db.refresh(audit_log)
     return audit_log
 
+
 def list_audit_logs(db: Session, limit: int = 50) -> list[AuditLog]:
-    statement = (
-        select(AuditLog)
-        .order_by(AuditLog.created_at.desc())
-        .limit(limit)
-    )
+    statement = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
     return list(db.scalars(statement).all())
