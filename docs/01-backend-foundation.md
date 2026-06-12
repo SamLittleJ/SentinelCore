@@ -2041,3 +2041,294 @@ In acest moment backend-ul SentinelCore are:
 - pipeline CI verde pentru teste si calitatea codului
 
 Aceasta etapa marcheaza introducerea primului strat real de code quality automation in SentinelCore.
+
+## Backend Security Checks - Phase 1
+
+### 126. Introducerea verificarilor de securitate in backend
+
+A fost introdus primul strat de verificari automate de securitate pentru backend-ul SentinelCore.
+
+Pana in aceasta etapa, pipeline-ul valida:
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
+
+Dupa aceasta etapa, pipeline-ul valideaza si:
+
+```bash
+bandit
+gitleaks
+```
+
+Scopul acestei faze este ca proiectul sa nu fie verificat doar functional si stilistic, ci si din perspectiva securitatii de baza.
+
+### 127. Introducerea Bandit
+
+A fost introdus `Bandit` pentru scanarea codului Python.
+
+Bandit este folosit pentru detectarea unor probleme comune de securitate in codul sursa Python.
+
+In `backend/pyproject.toml` a fost adaugata dependenta:
+
+```toml
+"bandit[toml]",
+```
+
+S-a folosit varianta `[toml]` pentru ca Bandit sa poata fi configurat prin `pyproject.toml`.
+
+### 128. Configurarea Bandit
+
+In `backend/pyproject.toml` a fost adaugata configuratia:
+
+```toml
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "migrations"]
+skips = []
+```
+
+Au fost excluse:
+- tests -> testele pot contine parole sau valori hardcodate de test
+- .venv -> mediul virtual nu trebuie scanat
+- migrations -> migratiile Alembic nu reprezinta logica aplicatiei
+
+Pentru inceput, scanarea Bandit se concentreaza pe codul aplicatiei din: `app/`
+
+### 129. Rularea locala Bandit
+
+Bandit a fost rulat local din directorul `backend` cu:
+
+```bash
+python -m bandit -r app -c pyproject.toml
+```
+
+Initial, Bandit a raportat un issue de severitate mica:
+
+```
+B106: hardcoded_password_funcarg
+Possible hardcoded password: 'bearer'
+```
+
+Locatia raportata era in endpoint-ul de login, la raspunsul:
+
+```python
+return Tokne(access_token=accesss_token, token_type="bearer")
+```
+
+### 130. Tratarea false positive-ului Bandit B106
+
+Raportarea `B106` a fost analizata si clasificata ca false positive.
+
+Valoarea: `bearer` nu este o parola, token real sau secret. Este valoarea standard OAuth2 pentru tipul token-ului returnat clientului.
+
+Rezolvarea a fost facuta punctual, prin adaugarea comentariului:
+
+```python
+return Token(
+  access_token = access_token,
+  token_type="bearer", # nosec B106 - OAuth2 token type, not a password or secret.
+)
+```
+
+Decizia importanta:
+- regula `B106` nu a fost dezactivata global
+- exceptia a fost aplicata doar pe linia analizata
+- regula ramane activa pentru a detecta eventuale parole reale hardcodate in viitor
+
+Aceasta este abordatea corecta deoarece evita suprimarea unei reguli utile la nivelul intregului proiect.
+
+### 131. Validarea Bandit dupa corectie
+
+Dupa tratarea false positive-ului, au fost rulate din nou:
+- python -m ruff check .
+- python -m ruff format --check .
+- python -m bandit -r app -c pyproject.toml
+- python -m pytest -v
+
+Rezultatul local:
+- ruff check -> All checks passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 11 passed
+
+Aceasta confirma ca backend-ul trece atat verificarile functionale, cat si verificarile de calitate si securitate Python.
+
+### 132. Introducerea Gitleaks
+
+A fost introdus `Gitleaks` pentru scanarea secretelor in repository.
+
+Gitleaks este folosit pentru detectarea de:
+- parole
+- token-uri
+- API keys
+- private key
+- secrete hardcodate
+- credentiale expuse accidental
+
+Aceasta verificare este importanta mai ales deoarece SentinelCore urmeaza sa poata fi facut public dupa ce repo-ul este considerat sigur.
+
+### 133. Problema locala intalnita cu Docker pe Fedora
+
+La prima rulare locala cu Docker, Gitleaks nu a scanat repository-ul real.
+
+Rezultatul gresit arata:
+- 0 commits scanned
+- scanned ~0 bytes
+- fatal: not a git repository
+
+Aceasta iesire nu a fost acceptata ca valida, deoarece `no leaks found` nu are valoare daca au fost scanate `0` commit-uri.
+
+Problema a fost investigata prin rularea unui container Alpine:
+
+```bash
+docker run --rm -v "$(pwd):/repo" -w /repo alpine:latest ls -la
+```
+
+Rezultatul a indicat:
+
+```
+Permission denied
+```
+
+Cauza a fost legata de permisiunile Docker/SELinux pe Fedora.
+
+### 134. Rezolvarea problemei SELinuz cu `:Z`.
+
+Pe Fedora, problema de mount Docker a fost rezolvata prin folosirea optiunii `:Z`:
+
+```bash
+docker run --rm -v "$(pwd):/repo:Z" -w /repo alpine:latest ls -la
+```
+
+Dupa aceasta modificare, containerul a putut vedea corect repository-ul:
+- .git
+- .github
+- backend
+- frontend
+- docs
+
+Comanda locala corecta pentru Gitleaks pe Fedora devine:
+
+```bash
+docker run --rm -v "$(pwd):/repo:Z" -w /repo zricethezav/gitleaks:latest
+```
+
+### 135. Validarea locala Gitleaks
+
+Dupa rezolvarea problemei de mount, Gitleaks a scanat corect repository-ul.
+
+Rezultat confirmat:
+
+```
+23 commits scanned
+scanned ~280700 bytes
+no leaks found
+```
+
+Aceasta confirma ca Gitleaks a scanat istoricul Git disponibil si nu doar un director gol.
+
+### 136. Integrarea Bandit in GitHub Actions
+
+Dupa validarea locala, Bandit a fost integrat in workflow-ul backend.
+
+In `.github/workflows/backend-ci.yml`, Bandit ruleaza dupa Ruff si inainte de pytest:
+
+```yml
+  - name: Run Bandit security scan 
+    working-directory: backend 
+    run: | 
+      python -m bandit -r app -c pyproject.toml
+```
+
+Ordinea actuala jobului backend devine:
+- install dependencies
+- ruff check
+- ruff format --check
+- badit
+- pytest
+
+Aceasta ordine este intentionata:
+- mai intai se valideaza calitatea codului
+- apoi se ruleaza scanarea de securitate Python
+- apoi se ruleaza testele functionale
+
+### 137. Integrarea Gitleaks in GitHub Actions
+
+Gitleaks a fost integrat in workflow ca job separat.
+
+Initial a fost testata varianta cu:
+
+```yml
+uses: gitleaks/gitleaks-action@v2
+```
+
+Aceasta functiona, dar producea un warning de infrastructura legat de Node.js 20.
+
+Pentru a elimina warning-ul, Gitleaks a fost schimbat sa ruleze prin Docker in CI:
+
+```yml
+gitleaks:
+  name: Run Gitleaks secret scan 
+  runs-on: ubuntu-latest 
+  
+  steps: 
+    - name: Checkout repository 
+      uses: actions/checkout@v5 
+      with: 
+        fetch-depth: 0 
+    
+    - name: Run Gitleaks with Docker 
+      run: | 
+        docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose
+```
+
+In CI nu este necesara optinuea `:Z`, deoarece aceasta a fost specifica mediului local Fedora/SELinux.
+
+### 138. Scanarea istoricului Git
+
+Pentru jobul Gitleaks, checkout-ul foloseste: `fetch-depth: 0`.
+
+Aceasta setare descarca istoricul complet al repository-ului in runner.
+
+Motiv:
+- Gitleaks trebuie sa poata scana si istoricul Git, nu doar ultimul snapshot
+- Daca un secret a fost comis in trecut, el poate fi detectat chiar daca fisierul curent a fost curatat.
+
+Aceasta abordare este importanta pentru pregatirea repository-ului in vederea publicarii ulterioare.
+
+### 139. Rezultatul final in CI
+
+Dupa integrarea Bandit si Gitleaks, workflow-ul GitHub Actions a fost rulat cu success.
+
+Rezultat confirmat:
+
+```
+Ruff lint -> passed
+Ruff format check -> passed
+Bandit security scan -> passed
+Gitleaks secret scan -> passed
+pytest -> 11 passed
+```
+
+Pipeline-ul este verde si fara warning-uri relevante.
+
+### 140. Starea actuala dupa Security Checks Phase 1
+
+In acest moment backend-ul SentinelCore are:
+- teste automate locale
+- teste automate in GitHub Actions
+- PostgreSQL ca serviciu in CI
+- Ruff pentru linting si format check
+- Bandit pentru scanare de securitate Python
+- Gitleaks pentru scanare de secrete
+- Gitleaks rulat local prin Docker cu `:Z` pe Fedora
+- Gitleaks rulat in CI prin Docker
+- scanare Git history prin `fetch-depth:0`
+- false positive Bandit tratat punctual cu `# nosec B106`
+- 11 teste validate
+- pipeline CI verde
+- pipeline fara warning-uri relevante
+
+Aceasta etapa marcheaza introducerea primului strat real de DevSecOps in SentinelCore.

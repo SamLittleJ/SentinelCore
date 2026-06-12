@@ -277,6 +277,13 @@ La acest moment:
 - enum-urile principale au fost modernizate la `StrEnum` 
 - workflow-ul Backend CI rulează Ruff înainte de testele pytest 
 - pipeline-ul backend este verde pentru Ruff și pytest
+- Bandit este introdus pentru scanarea de securitate a codului Python 
+- Bandit rulează local și în GitHub Actions - Gitleaks este introdus pentru scanarea secretelor în repository 
+- Gitleaks rulează local prin Docker și în CI prin Docker 
+- Gitleaks scanează istoricul Git prin `fetch-depth: 0` 
+- false positive-ul Bandit pentru `token_type="bearer"` a fost tratat punctual cu `# nosec B106` 
+- pipeline-ul backend validează Ruff, Bandit, Gitleaks și pytest 
+- pipeline-ul backend este verde și fără warning-uri relevante
 ---
 
 ## 11. Current Sprint

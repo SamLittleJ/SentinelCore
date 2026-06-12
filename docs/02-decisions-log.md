@@ -99,9 +99,11 @@
 - Workflow-ul pornește un serviciu PostgreSQL folosind imaginea `postgres:16`. 
 - Baza de date folosită în CI este `sentinelcore_test`. 
 - Variabila `TEST_DATABASE_URL` indică explicit către baza de date de test. 
-- Variabila `DATABASE_URL` este setată în CI pentru ca aplicația să se poată importa corect. - `SECRET_KEY` din CI trebuie să aibă cel puțin 32 bytes pentru a evita warning-urile HMAC SHA256. 
+- Variabila `DATABASE_URL` este setată în CI pentru ca aplicația să se poată importa corect. 
+- `SECRET_KEY` din CI trebuie să aibă cel puțin 32 bytes pentru a evita warning-urile HMAC SHA256. 
 - Acțiunile GitHub au fost actualizate la `actions/checkout@v5` și `actions/setup-python@v6`. 
-- A fost adăugată dependența `pydantic[email]` pentru suportul `EmailStr` în mediul CI. - CI-ul rulează `python -m pip install -e .` în directorul `backend`. 
+- A fost adăugată dependența `pydantic[email]` pentru suportul `EmailStr` în mediul CI. 
+- CI-ul rulează `python -m pip install -e .` în directorul `backend`. 
 - CI-ul rulează testele cu `python -m pytest -v`. 
 - Backend-ul are 11 teste automate validate în GitHub Actions. 
 - Warning-ul extern legat de `TestClient` / `httpx` este tolerat temporar, deoarece nu vine din codul propriu al aplicației.
@@ -118,3 +120,20 @@
 - Pașii Ruff rulează în CI înainte de `pytest`. 
 - CI-ul backend validează acum atât calitatea codului, cât și testele funcționale. 
 - Workflow-ul GitHub Actions este verde cu Ruff lint, Ruff format check și 11 teste backend.
+- A fost introdus Bandit pentru scanarea de securitate a codului Python. 
+- Bandit este configurat în `backend/pyproject.toml`. 
+- Bandit scanează codul aplicației cu `python -m bandit -r app -c pyproject.toml`. 
+- Directoarele `tests`, `.venv` și `migrations` sunt excluse din scanarea Bandit. 
+- Raportarea Bandit `B106` pentru `token_type="bearer"` a fost analizată ca false positive. 
+- `B106` nu a fost dezactivată global; a fost folosit `# nosec B106` punctual. 
+- A fost introdus Gitleaks pentru scanarea secretelor în repository. 
+- Gitleaks scanează parole, tokenuri, API keys, private keys și alte secrete hardcodate. 
+- Local, pe Fedora, Gitleaks rulează prin Docker cu mount `:Z` pentru compatibilitate SELinux. 
+- Comanda locală Gitleaks este `docker run --rm -v "$(pwd):/repo:Z" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose`. 
+- În GitHub Actions, Gitleaks rulează ca job separat prin Docker. 
+- În CI nu este necesar `:Z`, deoarece problema a fost specifică mediului local Fedora/SELinux. 
+- Jobul Gitleaks folosește `actions/checkout@v5` cu `fetch-depth: 0`. 
+- `fetch-depth: 0` este folosit pentru ca Gitleaks să poată scana istoricul Git complet. 
+- Varianta `gitleaks/gitleaks-action@v2` a fost înlocuită cu rularea prin Docker pentru a evita warning-ul Node.js 20. 
+- Pipeline-ul backend validează acum Ruff, Bandit, Gitleaks și pytest. 
+- Security Checks Phase 1 este finalizată cu pipeline verde și fără warning-uri relevante.
