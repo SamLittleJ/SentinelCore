@@ -38,3 +38,12 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         return None
 
     return user
+
+
+def list_users(
+    db: Session,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[User]:
+    statement = select(User).order_by(User.id).offset(offset).limit(limit)
+    return list(db.scalars(statement).all())

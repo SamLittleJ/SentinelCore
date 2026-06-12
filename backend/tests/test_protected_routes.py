@@ -130,3 +130,38 @@ def test_security_events_endpoint_with_admin_returns_200(
 
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_admin_users_with_regular_user_returns_403(client: TestClient) -> None:
+    register_user(client)
+    token = login_user(client)
+
+    response = client.get(
+        "/admin/users",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 403
+
+
+def test_admin_users_with_admin_user_returns_users(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    register_user(client)
+    promote_user_to_admin(db_session, "test@example.com")
+    token = login_user(client)
+
+    response = client.get(
+        "/admin/users",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["email"] == "test@example.com"
+    assert data[0]["username"] == "testuser"
+    assert "hashed_password" not in data[0]
