@@ -1778,3 +1778,266 @@ In acest moment SentinelCore are:
 - pipeline verde in GitHub Actions
 
 Aceasta etapa marcheaza trecerea backend-ului de la testare locala la validare automata in pipeline CI.
+
+## Backend Code Quality CI - Ruff Phase 1
+
+### 114. Introducerea Ruff pentru calitatea codului
+
+A fost introdus `Ruff` pentru verificarea calitatii codului Python si pentru verificarea formatarii.
+
+Scopul acestei etape este ca backend-ul SentinelCore sa nu fie verificat doar functional prin teste, ci si stilistic si structural.
+
+Pana in aceasta etapa, CI-ul valida:
+
+```
+pytest -> testele backend
+```
+
+Dupa introducerea Ruff, CI-ul valideaza si:
+
+```bash
+ruff check .
+ruff format --check .
+```
+
+Aceasta marcheaza trecerea de la simpla rulare a testelor la un prim standard automat de calitate a codului.
+
+### 115. Configurarea Ruff in `pyproject.toml`
+
+In `backend/pyproject.toml` a fost adaugata dependenta:
+
+```toml
+"ruf",
+```
+
+A fost adaugata si configuratia Ruff:
+
+```
+[tool.ruff] 
+line-length = 88 
+target-version = "py312" 
+
+[tool.ruff.lint] 
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+  ] 
+ignore = [] 
+
+[tool.ruff.format] 
+quote-style = "double" 
+indent-style = "space" 
+line-ending = "auto"
+```
+
+Regulile selectate au urmatorul rol:
+- E -> reguli de stil Python
+- F -> erori de tip Pyflakes, iumporturi sau variabile nefolosite
+- I -> ordine importuri
+- B -> posibile bug-uri comune detectate de flake8-bugbear
+- UP -> modernizare cod Python pentru versiuni mai noi
+
+### 116. Verificari Ruff rulate local
+
+Inainte de integrarea in CI, Ruff a fost rulat local:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
+```
+
+Initial, Ruff a gasit mai multe probleme, desi testele treceau.
+
+Acest lucru a confirmat diferenta dintre:
+
+- teste functionale -> aplicatia merge
+- linting -> codul respecta standardul de calitate
+
+Testele treceau, dar Ruff a indentificat probleme de stil, modernizare si bune practici.
+
+### 117. Probleme identificate de Ruff
+
+Ruff a identificat urmatoarele categorii principale de probleme:
+- B008 -> apeluri Depends(...) in argumente default
+- B904 -> ridicare de exceptii in except fara `from`
+- UP042 -> enum-uri definite ca str + enum.Enum in loc de StrEnum
+
+Aceste probleme nu stricau functionalitatea aplicatiei, dar indicau zone unde codul putea fi modernizat si clarificat.
+
+### 118. Modernizarea dependecy injection cu `Annotated`
+
+Pentru a rezolva regulile `B008`, endpoint-urile FastAPI au fost modernizate folosind `typing.Annotated`.
+
+In locul stilului clasic:
+
+```python
+def read_current_user(current_user: User = Depends(get_current_user)) -> return current_user
+```
+
+a fost folosit stilul modern:
+
+```python
+def read_current_user(
+  current_user: Annotated[User, Depends(get_current_user)],
+) -> UserRead:
+  return current_user
+```
+
+Aceasta schimbare a fost aplicata in:
+- app/api/deps.py
+- app/api/routes/auth.py
+- app/api/routes/users.py
+- app/api/routes/audit.py
+- app/api/routes/security.py
+
+Avantaje:
+- cod mai compatibil cu stilul modern FastAPI
+- eliminarea warning-urilor Ruff `B008`
+- separarea mai clara intre tipul datelor si mecanismul de dependency injection
+- cod mai usor de verificat static
+
+### 119. Rezolvarea regulii `B904`
+
+In `app/api/deps.py`, Ruff a semnalat ca o exceptie ridicata in interiorul unui bloc `except` trebuie sa pastreze cauza initiala.
+
+In loc de:
+
+```python
+except InvalidTokenError:
+  raise credentials_exception
+```
+
+s-a folosit:
+
+```python
+except InvalidTokenError as exc:
+  raise credentials_exception from exc
+```
+
+Aceasta modificare face mai clar lantul cazual al erorilor si ajuta debugging-ul.
+
+### 120. Modificarea enum-urilor cu `StrEnum`
+
+Pentru regula `UP042`, enum-urile definite prin combinatia:
+
+```python
+class UserRole(str, enumEnum):
+  ...
+```
+
+au fost modernizate folosind:
+
+```python
+from enum import StrEnum
+```
+
+si:
+
+```python
+class UserRole(StrEnum):
+  ...
+```
+
+Aceasta schimbare a fost aplicata pentru:
+- UserRole
+- AuditEventType
+- SecurityEventType
+- SecuritySeverity
+
+Fisiere afectate:
+- app/models/user.py
+- app/models/audit_log.py
+- app/models/security_event.py
+
+Aceasta modernizare este potrivita deoarece backend-ul foloseste Python 3.12.
+
+### 121. Ruff format
+
+Ruff format a fost folosit pentru verificarea formatarii codului:
+
+```bash
+python -m ruff format --check .
+```
+
+Rezultatul local a confirmat ca fisierele sunt formatate corect:
+
+```bash
+32 files already formatted
+```
+
+Aceasta inseamna ca standardul de formatare este consistent in backend.
+
+### 122. Validarea finala locala
+
+Dupa corectarea problemelor, au fost rulate local:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
+python -m pytest -v
+```
+
+Rezultatul final:
+- ruff check -> All checks passed
+- ruff format --check -> passed
+- pytest -> 11 passed
+
+Aceasta confirma ca backend-ul respecta atat testele functionale, cat si regulile de calitate a codului.
+
+### 123. Integrarea Ruff in GitHub Actions
+
+Dupa validarea locala, Ruff a fost integrat in workflow-ul GitHub Actions
+
+In `.github/workflows/backend-ci.yml`, dupa instalarea dependentelor si inainte de rularea testelor, au fost adaugati pasii:
+
+```yml
+- name: Run Ruff lint 
+  working-directory: backend 
+  run: | 
+    python -m ruff check . 
+    
+- name: Run Ruff format check 
+  working-directory: backend 
+  run: | 
+    python -m ruff format --check .
+```
+
+Ordinea actuala a pipeline-ului backend este:
+- install dependencies
+- ruff check
+- ruff format --check
+- pytest
+
+Aceasta ordine este intentionata: codul trebuie sa respecte standardul de calitate inainte ca testele sa fie rulate.
+
+### 124. Rezultatul in CI
+
+Workflow-ul GitHub Actions a fost rulat dupa integrarea Ruff.
+
+Rezultat confirmat:
+
+- Ruff lint -> passed
+- Ruff format check -> passed
+- pytest -> 11 passed
+
+Pipeline-ul backend este verde.
+
+### 125. Stare actuala dupa Ruff Phase 1
+
+In acest moment backend-ul SentinelCore are:
+- teste automate locale
+- teste automate in GitHub Actions
+- PostgreSQL ca serviciu in CI
+- 11 teste validate in CI
+- Ruff instalat si configurat
+- linting automat prin `ruff check`
+- verificare automata a formatarii prin `ruff format --check`
+- cod modernizat cu `Annotated`
+- enum-uri modernizate cu `StrEnum`
+- regula `B904` rezolvata corect
+- pipeline CI verde pentru teste si calitatea codului
+
+Aceasta etapa marcheaza introducerea primului strat real de code quality automation in SentinelCore.

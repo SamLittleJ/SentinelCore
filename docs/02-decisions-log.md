@@ -105,3 +105,16 @@
 - CI-ul rulează testele cu `python -m pytest -v`. 
 - Backend-ul are 11 teste automate validate în GitHub Actions. 
 - Warning-ul extern legat de `TestClient` / `httpx` este tolerat temporar, deoarece nu vine din codul propriu al aplicației.
+- A fost introdus Ruff pentru linting și verificarea formatării codului Python. 
+- Ruff este configurat în `backend/pyproject.toml`. 
+- Regulile activate includ `E`, `F`, `I`, `B` și `UP`. 
+- Backend-ul folosește `ruff check .` pentru verificări de linting. 
+- Backend-ul folosește `ruff format --check .` pentru verificarea formatării. 
+- Ruff a fost rulat local înainte de integrarea în CI. 
+- Problemele `B008` au fost rezolvate prin trecerea dependency injection-ului FastAPI la `typing.Annotated`. 
+- Problema `B904` a fost rezolvată prin `raise ... from exc`. 
+- Enum-urile definite ca `str` + `enum.Enum` au fost modernizate la `StrEnum`. 
+- Ruff a fost integrat în workflow-ul `.github/workflows/backend-ci.yml`. 
+- Pașii Ruff rulează în CI înainte de `pytest`. 
+- CI-ul backend validează acum atât calitatea codului, cât și testele funcționale. 
+- Workflow-ul GitHub Actions este verde cu Ruff lint, Ruff format check și 11 teste backend.

@@ -269,6 +269,14 @@ La acest moment:
 - acțiunile GitHub au fost actualizate la versiuni compatibile cu Node 24 
 - dependențele backend includ suport explicit pentru `pydantic[email]` 
 - pipeline-ul backend este verde
+- Ruff este introdus pentru linting și verificarea formatării codului Python 
+- Ruff este configurat în `backend/pyproject.toml` 
+- backend-ul trece local `ruff check .` 
+- backend-ul trece local `ruff format --check .` 
+- dependency injection-ul FastAPI a fost modernizat cu `Annotated` 
+- enum-urile principale au fost modernizate la `StrEnum` 
+- workflow-ul Backend CI rulează Ruff înainte de testele pytest 
+- pipeline-ul backend este verde pentru Ruff și pytest
 ---
 
 ## 11. Current Sprint
