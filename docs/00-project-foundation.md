@@ -257,7 +257,18 @@ La acest moment:
 - testele folosesc baza separată `sentinelcore_test`
 - dependența `get_db` este suprascrisă în teste
 - backend-ul are 11 teste automate validate
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale\
+- backend-ul are workflow CI în GitHub Actions 
+- workflow-ul CI rulează automat la modificări relevante în `backend/**` 
+- workflow-ul poate fi rulat manual prin `workflow_dispatch` 
+- CI-ul pornește PostgreSQL ca serviciu în GitHub Actions 
+- CI-ul folosește baza de date `sentinelcore_test` 
+- CI-ul instalează automat dependențele backend 
+- CI-ul rulează testele backend cu `pytest` 
+- cele 11 teste backend trec în GitHub Actions 
+- acțiunile GitHub au fost actualizate la versiuni compatibile cu Node 24 
+- dependențele backend includ suport explicit pentru `pydantic[email]` 
+- pipeline-ul backend este verde
 ---
 
 ## 11. Current Sprint

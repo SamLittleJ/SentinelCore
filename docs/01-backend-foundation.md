@@ -1554,3 +1554,227 @@ In acest moment backend-ul are:
 - 11 teste automate validate
 
 Aceasta etapa marcheaza trecerea backend-ului SentinelCore de la testare manuala la verificare automata pentru fluxurile IAM/RBAC principale.
+
+## Backend CI Pipeline - Phase 1
+
+### 103. Introducerea CI pentru backend
+
+A fost introdus primul workflow de Continuous Integration pentru backend-ul SentinelCore.
+
+Scopul acestei etape este ca testele backend sa ruleze automat in GitHub Actions la modificari relevante ale codului.
+
+Pana in aceasta etapa, testele erau rulate local cu:
+
+```bash
+python -m pytest -v
+```
+
+Dupa introducerea CI, testele sunt rulate si automat in GitHub, ceea ce ofera o verificare reproductibila a backend-ului.
+
+### 104. Fisierul workflow
+
+A fost creat fisierul:
+
+```
+.github/workflows/backend-ci.yml
+```
+
+Acesta defineste pipeline-ul pentru testarea backend-ului.
+
+Workflow-ul se numeste:
+
+```yml
+name: Backend CI
+```
+
+### 105. Trigger-ele workflow-ului
+
+Workflow-ul ruleaza automat la:
+
+- `push` pe branch-ul `main`
+- `pull_request` catre branch-ul `main`
+
+Triggerul este limitat prin `paths`, astfel incat pipeline-ul sa ruleze doar cand sunt modificate fisiere relevante pentru backend sau workflow-ul CI.
+
+Configuratia folosita:
+
+```yml
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+  pull_request:
+    branches:
+      - mina
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+```
+
+A fost postrat si `workflow_dispatch`, pentru a permite rularea manuala a workflow-ului din interfata GitHub Actions.
+
+### 106. PostgreSQL ca serviciu in GitHub Actions
+
+Pentru ca testele backend folosesc baza de date, workflow-ul porneste automat un serviciu PostgreSQL.
+
+Serviciul foloseste imaginea:
+
+```yml
+postgres: 16
+```
+
+Configuratia principala:
+
+```yml
+POSTGRES_USER: sentinelcore 
+POSTGRES_PASSWORD: sentinelcore 
+POSTGRES_DB: sentinelcore_test
+```
+
+Baza de date folosita in CI este:
+
+```
+sentinelcore_test
+```
+
+Aceasta pastreaza aceeasi strategie folosita local: testele nu ruleaza pe baza de date de development.
+
+### 107. Health check pentru PostgreSQL
+
+In workflow a fost configurat un health check pentru PostgreSQL:
+
+```yml
+--health-cmd="pg_isready -U sentinelcore -d sentinelcore_test" 
+--health-interval=10s 
+--health-timeout=5s 
+--health-retries=5
+```
+
+Scopul acestuia este ca job-ul sa astepte pana cand PostgreSQL este pregatit inainte de rularea testelor.
+
+### 108. Variabile de mediu pentru CI
+
+Workflow-ul defineste variabilele necesare pentru rularea aplicatiei si testelor:
+
+```yml
+TEST_DATABASE_URL: postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test 
+DATABASE_URL: postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test 
+SECRET_KEY: ci-test-secret-key-for-sentinelcore-minimum-32-bytes 
+ALGORITHM: HS256 
+ACCESS_TOKEN_EXPIRE_MINUTES: 30
+```
+
+`TEST_DATABASE_URL` este folosit pentru testele automate.
+`DATABASE_URL` este setat pentru ca aplicatia sa poata fi importata corect in mediul CI.
+`SECRET_KEY` a fost setat la o valoare suficient de lunga pentru a evita warning-urile legate de lungimea minima recomandata pentru HMAC SHA256.
+
+### 109. Pasii workflow-ului
+
+Workflow-ul executa urmatorii pasii:
+
+1. checkout repository
+2. setup Python
+3. instalare dependente backend
+4. rulare teste backend
+
+Pasii principali:
+
+```yml
+- name: Checkout repository 
+  uses: actions/checkout@v5 
+
+- name: Set up Python 
+  uses: actions/setup-python@v6 
+  with: python-version: "3.12" 
+  
+- name: Install backend dependencies 
+  working-directory: backend 
+  run: | 
+    python -m pip install --upgrade pip 
+    python -m pip install -e . 
+    
+- name: Run backend tests 
+  working-directory: backend 
+  run: |
+    python -m pytest -v
+```
+
+### 110. Problema intalnita: lipsa `pydantic[email]`
+
+La prima rulare in CI, workflow-ul a esuat deoarece mediul GitHub Actions nu avea instalat suportul necesar pentru validarea campurilor de tip email in Pydantic.
+
+Problema a aratat ca mediul local avea dependente disponibile, dar proiectul nu declara complet cerintele in `pyproject.toml`.
+
+Aceasta dependenta a fost adaugata in `backend/pyproject.toml`.
+
+Lectia acestei etape:
+- CI-ul trebuie sa poata reproduce mediul proiectului doar din fisierele versionate
+- Dependentele folosite de aplicatie trebuie declarate explicit
+- Nu ne bazam pe ce este instalat accidental in mediul local
+
+### 111. Warning JWT rezolvat
+
+In timpul rularii testelor, PyJWT a afisat un warning legat de lungimea prea mica a cheii HMAC folosite pentru `HS256`.
+
+Problema era produsă de:
+
+```yml
+SECRET_KEY: test-secret-key-for-ci
+```
+
+Rezolvare:
+
+```yml
+SECRET_KEY: ci-test-secret-key-for-sentinelcore-minimum-32-bytes
+```
+
+După această modificare, warning-urile legate de JWT au fost eliminate.
+
+### 112. Rezultatul final al workflow-ului
+
+Dupa corectii, workflow-ul ruleaza corect in GitHub Actions.
+
+Rezultat confirmat:
+
+```
+11 passed
+```
+
+Testele validate in CI:
+
+```
+/health -> 200 
+/auth/register -> 201 
+/auth/register duplicate email -> 400 
+/auth/login -> 200 + token 
+/auth/login wrong password -> 401 
+/users/me with token -> 200 
+/users/me without token -> 401 
+/users/admin-only regular user -> 403 
+/users/admin-only admin -> 200 
+/admin/audit-logs admin -> 200 
+/security/events admin -> 200
+```
+
+### 113. Stare actuala dupa Backend CI Phase 1
+
+In acest moment SentinelCore are:
+- workflow GitHub Actions pentru backend
+- PostgreSQL pornit ca serviciu in CI
+- baza de date de test `sentinelcore_test`
+- instalare automata a dependentelor backend
+- rulare automata a testelor cu `pytest`
+- 11 teste validate in CI
+- trigger limitat prin `paths`
+- posibilitate de rulare manuala prin `workflow_dispatch`
+- actiuni GitHub actualizate la versiuni compatibile cu Node 24
+- warning JWT rezolvat prin `SECRET_KEY` mai puternic
+- pipeline verde in GitHub Actions
+
+Aceasta etapa marcheaza trecerea backend-ului de la testare locala la validare automata in pipeline CI.

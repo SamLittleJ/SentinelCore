@@ -91,3 +91,17 @@
 - Endpoint-ul `/security/events` este testat cu user admin.
 - Backend-ul are acum 11 teste automate validate prin `pytest`.
 - Testele acoperă fluxurile principale de IAM, JWT, RBAC, audit logs și security events.
+- A fost introdus workflow-ul `Backend CI` în GitHub Actions. 
+- Workflow-ul este definit în `.github/workflows/backend-ci.yml`. 
+- CI-ul rulează automat la `push` și `pull_request` pe branch-ul `main`. 
+- Trigger-ul este limitat prin `paths` la modificări în `backend/**` și `.github/workflows/backend-ci.yml`. 
+- A fost păstrat `workflow_dispatch` pentru rulare manuală din GitHub Actions. 
+- Workflow-ul pornește un serviciu PostgreSQL folosind imaginea `postgres:16`. 
+- Baza de date folosită în CI este `sentinelcore_test`. 
+- Variabila `TEST_DATABASE_URL` indică explicit către baza de date de test. 
+- Variabila `DATABASE_URL` este setată în CI pentru ca aplicația să se poată importa corect. - `SECRET_KEY` din CI trebuie să aibă cel puțin 32 bytes pentru a evita warning-urile HMAC SHA256. 
+- Acțiunile GitHub au fost actualizate la `actions/checkout@v5` și `actions/setup-python@v6`. 
+- A fost adăugată dependența `pydantic[email]` pentru suportul `EmailStr` în mediul CI. - CI-ul rulează `python -m pip install -e .` în directorul `backend`. 
+- CI-ul rulează testele cu `python -m pytest -v`. 
+- Backend-ul are 11 teste automate validate în GitHub Actions. 
+- Warning-ul extern legat de `TestClient` / `httpx` este tolerat temporar, deoarece nu vine din codul propriu al aplicației.
