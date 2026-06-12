@@ -293,6 +293,14 @@ La acest moment:
 - endpoint-ul `GET /admin/users` este testat automat 
 - backend-ul are 13 teste automate validate 
 - implementarea a fost livrată prin branch separat și Pull Request
+- endpoint-ul `GET /admin/users/{user_id}` este implementat 
+- un admin sau owner poate consulta detaliile unui utilizator individual 
+- userii normali primesc `403 Forbidden` pentru `GET /admin/users/{user_id}` 
+- userii inexistenți returnează `404 Not Found` 
+- vizualizarea detaliilor unui user generează audit log 
+- vizualizarea detaliilor unui user generează security event 
+- endpoint-ul `GET /admin/users/{user_id}` este testat automat 
+- backend-ul are 16 teste automate validate
 ---
 
 ## 11. Current Sprint
