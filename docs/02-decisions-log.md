@@ -137,3 +137,10 @@
 - Varianta `gitleaks/gitleaks-action@v2` a fost înlocuită cu rularea prin Docker pentru a evita warning-ul Node.js 20. 
 - Pipeline-ul backend validează acum Ruff, Bandit, Gitleaks și pytest. 
 - Security Checks Phase 1 este finalizată cu pipeline verde și fără warning-uri relevante.
+- Pana cand repo-ul devine public, vom lucra prin branch-uri si PR-uri manuale.
+- Repository-ul ramane privat in contul personal pe moment
+- Branch protection rule pentru `main` a fost creata, dar nu este enforce pe planul privat actual.
+- Pana la publicarea repository-ului, se va lucra disciplinat prin branch-uri si Pull Requests.
+- Pentru fiecare task now se creeaza un branch separat.
+- Pull Request-urile trebuie verificate cu CI verde inainte de merge.
+- Nu se va lucra direct pe `main`, chiar daca GitHub nu blocheaza tehnic acest lucru.
