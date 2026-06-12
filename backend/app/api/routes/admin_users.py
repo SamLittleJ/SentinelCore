@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_role
@@ -10,7 +10,7 @@ from app.models.user import User, UserRole
 from app.schemas.user import UserRead
 from app.services.audit_service import create_audit_log
 from app.services.security_event_service import create_security_event
-from app.services.user_service import list_users
+from app.services.user_service import get_user_by_id, list_users
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -41,3 +41,38 @@ def read_users(
     )
 
     return list_users(db, limit=limit, offset=offset)
+
+
+@router.get("/{user_id}", response_model=UserRead)
+def read_user_by_id(
+    user_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User,
+        Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
+    ],
+) -> User:
+    target_user = get_user_by_id(db, user_id)
+
+    if target_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    create_audit_log(
+        db=db,
+        user=current_user,
+        event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
+        message=f"Admin viewed user details for user_id={target_user.id}",
+    )
+
+    create_security_event(
+        db=db,
+        user=current_user,
+        event_type=SecurityEventType.ADMIN_ACCESS,
+        severity=SecuritySeverity.INFO,
+        message=f"Admin viewed user details for user_id={target_user.id}",
+    )
+
+    return target_user
