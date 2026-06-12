@@ -19,6 +19,7 @@ dependencies = [
     "PyJWT",
     "pytest",
     "httpx",
+    "pydantic[email]",
 ]
 
 [tool.setuptools.packages.find]
