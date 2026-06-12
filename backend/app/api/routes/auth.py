@@ -97,4 +97,7 @@ def login_user(user_in: UserLogin, db: Annotated[Session, Depends(get_db)]) -> T
 
     access_token = create_access_token(user.email)
 
-    return Token(access_token=access_token, token_type="bearer")
+    return Token(
+        access_token=access_token,
+        token_type="bearer",  # nosec B106 - OAuth2 token type, not a password or secret.
+    )

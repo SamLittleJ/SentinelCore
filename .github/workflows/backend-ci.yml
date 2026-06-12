@@ -68,7 +68,27 @@ jobs:
               run: |
                 python -m ruff format --check .
 
+            - name: Run Bandit security scan
+              working-directory: backend
+              run: |
+                python -m bandit -r app -c pyproject.toml
+
             - name: Run backend tests
               working-directory: backend
               run: |
                 python -m pytest -v
+    
+    gitleaks:
+        name: Run Gitleaks secret scan
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+              with:
+                fetch-depth: 0  # Fetch all history for Gitleaks to scan the entire commit history
+
+            - name: Run Gitleaks
+              uses: gitleaks/gitleaks-action@v2
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -21,6 +21,7 @@ dependencies = [
     "httpx",
     "pydantic[email]",
     "ruff",
+    "bandit[toml]",
 ]
 
 [tool.setuptools.packages.find]
@@ -49,3 +50,7 @@ ignore = []
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "migrations"]
+skips = []
