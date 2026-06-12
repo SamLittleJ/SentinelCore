@@ -2581,3 +2581,225 @@ In acest moment backend-ul SentinelCore are:
 - CI verde dupa Pull Request
 
 Aceasta etapa marcheaza inceputul modulului real de administrare a utilizatorilor in SentinelCore.
+
+## Admin User Management - Phase 2
+
+### 157. Introducerea endpoint-urilor pentru detalii utilizator
+
+A fost introdusa a doua etapa din zona de Admin User Management.
+
+Dupa implementarea endpoint-ului pentru listarea utilizatorilor: `GET /admin/users` a fost adaugat endpoint-ul pentru consultarea unui utilizator individual: `GET /admin/users/{user_id}`.
+
+Scopul acestui endpoint este ca un utilizator cu rol administrativ sa poata vedea detaliile unui user specific.
+
+### 158. Scopul endpoint-ului `GET /admin/users/{user_id}`
+
+Endpoint-ul permite obtinerea informatiilor publice despre un utilizator, pe baza ID-ului intern.
+
+Accesul este permis doar pentru rolurile:
+- admin
+- owner
+
+Un utilizator normal nu poate accesa aceasta ruta si primeste: `403 Forbidden`.
+
+Daca utilizatorul cerut nu exista, API-ul raspunde cu: `404 Not Found` si mesajul `{"detail": "User not found"}
+
+### 159. Service pentru citirea unui user dupa ID
+
+In `app/services/user_service.py` a fost adaugata functia:
+
+```python
+def get_user_by_id(db: Session, user_id: int) -> User | None:
+   statement = select(User).where(User.id == user_id) 
+   return db.scalar(statement)
+```
+
+Aceasta functie separa logica de acces la baza de date de logica endpoint-ului API.
+
+Scop:
+- ruta API mai curata
+- logica reutilizabila
+- pregatire pentru viitoare endpoint-uri administrative
+- tratarea clara a cazului in care userul nu exista
+
+### 160. Extinderea routerului `admin_users`
+
+Endpoint-ul a fost adaugat fisierul:
+
+```
+app/api/routes/admin_users.py
+```
+
+Ruta introdusa:
+
+```python
+@router.get("/{user_id}", response_model=UserRead)
+def read_user_by_id(...)
+```
+
+Endpoint-ul returneaza un obiect de tip `UserRead`, nu modelul complet intern.
+
+Aceasta decizie previne expunerea campurilor sensibile, cum ar fi:
+- hashed_password
+
+### 161. Protectia prin RBAC
+
+Endpoint-ul este protejat cu: `Depends(require_role(UserRole.ADMIN, UserRole.OWNER))`
+
+Aceasta inseamna ca doar utilizatorii cu rol administrativ pot consulta detaliile altor utilizatori.
+
+Scenarii:
+- user normal -> 403 Forbidden
+- admin -> 200 OK
+- owner -> 200 OK
+
+Aceasta protectie este esentiala deoarece detaliile utilizatorilor nu trebuie sa fie accesibile public sau pentru orice user autentificat.
+
+### 162. Tratarea userului inexistent
+
+Daca `get_user_by_id()` nu gaseste userul cerut, endpoint-ul returneaza:
+
+```python
+raise HTTPException(
+  status_code=status.HTTP_404_NOT_FOUND,
+  detail="User not found",
+)
+```
+
+Aceasta tratare este importanta pentru claritatea API-ului.
+Nu returnam `None`, nu returnam lista goala si nu ascundem eroarea.
+
+### 163. Audit log pentru vizualizarea detaliilor unui user
+
+Cand un admin sau owner consulta detaliile unui user, aplicatia creeaza un audit log.
+
+Eveniment folosit: `AuditEventType.ADMIN__ENDPOINT_ACCESSED`
+
+Mesaj: `Admin viewed user details for user_id={target_user.id}`
+
+Aceasta decizie este importanta deoarece vizualizarea datelor unui user este o actiune administrativa si trebuie urmarita.
+
+In SentinelCore, actiunile administrative trebuie sa fie vizibile in audit trail.
+
+### 164. Security event pentru vizualizarea detaliilor unui user
+
+Pe langa audit log, endpoint-ul creeaza si un security event.
+
+Eveniment folosit: `SecurityEventType.ADMIN_ACCESS`
+
+Severitate: `SecuritySeverity.INFO`
+
+Mesaj : `Admin viewed user details for user_id={target_user.id}`
+
+Acest eveniment nu este incident, dar reprezinta o actiune administrativa relevanta pentru vizibilitatea de securitate.
+
+### 165. Teste automate pentru `GET /admin/users/{user_id}`
+
+Au fost adaugate teste in: `teste/test_protected_routes.py`
+
+Scenarii validate:
+- user normal -> 403 Forbidden
+- admin user -> 200 OK + detalii user
+- user inexistent -> 404 Not Found
+
+Aceste teste extind acoperirea pentru zona de administrare a utilizatorilor.
+
+### 166. Test pentru user normal
+
+Scenariu:
+1. se creeaza un user normal
+2. se obtine ID-ul userului din baza de date de test
+3. userul face login
+4. userul incearca sa acceseze `GET /admin/users/{user_id}`
+5. API-ul raspunde cu 403
+
+Rezultatul asteptat: `403 Forbidden`
+
+Acest test confirma ca un user normal nu poate consulta detalii administrative despre utilizatori.
+
+### 167. Test pentru user admin
+
+Scenariu:
+1. se creeaza un user
+2. se obtine ID-ul userului din baza de date de test
+3. userul este promovat la admin in baza de date de test
+4. userul face login
+5. adminul acceseaza `GET /admin/users/{user_id}`
+6. API-ul returneaza detaliile userului
+
+Rezultatul asteptat: `200 OK`
+
+Validari suplimentare:
+- id-ul este corect
+- email-ul este corect
+- username-ul este corect
+- hashed_password nbu este expus
+
+### 168. Test pentru user inexistent
+
+Scenariu:
+1. se creeaze un user
+2. userul este promovat la admin
+3. adminul face login
+4. adminul acceseaza `GET /admin/users/999999`
+5. API-ul raspunde cu 404
+
+Rezultat asteptat: `404 Not Found`
+
+Mesaj validat: `{"detail": "User not found"}`
+
+Acest test confirma ca API-ul trateaza explicit cazul in care userul cerut nu exista.
+
+### 169. Validarea locala
+
+Dupa implementare au fost rulate local:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
+python -m bandit -r app -c pyproject.toml
+python -m pytest -v
+```
+
+Rezultat confirmat:
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> passed
+- pytest -> passed
+
+Dupa adaugarea celor trei teste noi, numarul total de teste backend a crescut de la `13` la `16`.
+
+### 170. Validarea prin Pull Request
+
+Implementarea a fost facuta pe branch separat, nu direct pe `main`.
+
+Flux folosit:
+- feature branch
+- push
+- Pull Request catre main
+- CI verde
+- merge
+- stergere branch
+
+Aceasta etapa continua disciplina introdusa anterior: fiecare task nou este lucrat pe branch separat si intra in main doar dupa validare prin CI.
+
+### 171. Stare actuala dupa Admin User Management Phase 2
+
+In acest moment backend-ul SentinelCore are:
+- endpoint administrativ `GET /admin/users`
+- endpoint administrativ `GET /admin/users/{user_id}`
+- listare utilizatori
+- citire detalii utilizator individual
+- acces permis doar pentru `admin` si `owner`
+- raspuns prin schema publica `UserRead`
+- protectie impotriva expunerii `hashed_password`
+- tratare explicita `404 User not found`
+- audit log pentru vizualizarea detaliilor unui user
+- security event pentru vizualizarea detaliilor unui user
+- teste pentru acces interzis user normal
+- teste pentru acces permis admin
+- teste pentru user inexistent
+- 16 teste backend validate
+- CI verde dupa Pull Request
+
+Aceasta etapa consolideaza modulul Admin User Management si pregateste terenul pentru actiuni administrative mai sensibile, precum schimbarea rolurilor.

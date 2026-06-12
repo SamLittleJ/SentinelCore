@@ -161,3 +161,18 @@
 - Numărul testelor backend a crescut de la 11 la 13. 
 - Implementarea a fost făcută pe branch separat și validată prin Pull Request. 
 - `main` este tratat ca branch stabil, chiar dacă branch protection nu este enforce pe planul privat actual.
+- A fost introdus Admin User Management Phase 2. 
+- A fost creat endpoint-ul `GET /admin/users/{user_id}`. 
+- Endpoint-ul permite consultarea detaliilor unui utilizator individual. 
+- Accesul la `GET /admin/users/{user_id}` este permis doar pentru rolurile `admin` și `owner`. 
+- Userii normali primesc `403 Forbidden`. 
+- Dacă userul cerut nu există, API-ul returnează `404 Not Found`. 
+- Mesajul pentru user inexistent este `User not found`. 
+- A fost adăugată funcția `get_user_by_id()` în `app/services/user_service.py`. 
+- Endpoint-ul folosește schema `UserRead` pentru a evita expunerea câmpurilor sensibile. 
+- `hashed_password` nu este returnat în răspunsul API. 
+- Vizualizarea detaliilor unui user generează audit log. 
+- Vizualizarea detaliilor unui user generează security event cu severitate `INFO`. 
+- Endpoint-ul este testat pentru user normal, user admin și user inexistent. 
+- Numărul testelor backend a crescut de la 13 la 16. 
+- Implementarea a fost făcută pe branch separat și validată prin Pull Request.
