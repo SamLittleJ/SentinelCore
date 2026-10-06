@@ -175,7 +175,16 @@
 - Vizualizarea detaliilor unui user generează security event cu severitate `INFO`. 
 - Endpoint-ul este testat pentru user normal, user admin și user inexistent. 
 - Numărul testelor backend a crescut de la 13 la 16. 
-- Implementarea a fost făcută pe branch separat și validată prin Pull Request.- `migrations/env.py` importă explicit modulele cu modele, cu `# noqa: F401`, pentru ca `--autogenerate` să vadă schema completă.
+- Implementarea a fost făcută pe branch separat și validată prin Pull Request.
+- Phase 3 role changes are restricted to an authenticated owner through `PATCH /admin/users/{user_id}/role`.
+- The endpoint forbids self-modification, modifying existing owners, and assigning the owner role.
+- Audit and security event identity fields record the actor; the message records the target ID and old/new roles.
+- A real role change and both event records share one commit, with rollback on commit failure. Existing event helpers commit independently and are not used for this transaction.
+- An allowed request for the existing role returns 200 without successful-change events. Owner restrictions still apply before this shortcut.
+- Phase 3 reuses existing event categories and requires no schema migration.
+- Local verification on 2026-10-06 confirmed 29 passing PostgreSQL tests, passing Ruff checks, and no Bandit security findings. Bandit emitted warnings about an existing `nosec` comment.
+- Transaction-failure testing and Phase 3 CI validation remain pending.
+- `migrations/env.py` importă explicit modulele cu modele, cu `# noqa: F401`, pentru ca `--autogenerate` să vadă schema completă.
 - `python -m alembic check` este folosit pentru a verifica sincronizarea dintre modele și schema DB.
 - Utilizatorii cu `is_active = False` primesc `403 Inactive user` la login și pe orice endpoint autentificat.
 - Login-ul pentru un user inactiv este înregistrat ca `LOGIN_FAILED`, cu severitate `WARN`.

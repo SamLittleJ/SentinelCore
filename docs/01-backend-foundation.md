@@ -2805,6 +2805,68 @@ In acest moment backend-ul SentinelCore are:
 - CI verde dupa Pull Request
 
 Aceasta etapa consolideaza modulul Admin User Management si pregateste terenul pentru actiuni administrative mai sensibile, precum schimbarea rolurilor.
+
+## Admin User Management - Phase 3 (local implementation)
+
+### 172. Role update endpoint and policy
+
+`PATCH /admin/users/{user_id}/role` accepts a body such as `{"role": "admin"}`
+and returns `UserRead`, excluding `hashed_password`.
+
+Only an authenticated owner may change a target user's role. Allowed destination
+roles are `user`, `admin`, and `security_analyst`. The endpoint rejects
+self-modification, modifying an existing owner, and assigning the owner role.
+
+| Situation | Response |
+| --- | --- |
+| Missing token | 401 |
+| Actor is not an owner | 403, `Insufficient permissions` |
+| Target does not exist | 404, `User not found` |
+| Owner targets their own account | 403, `Owners cannot change their own role` |
+| Owner targets another owner | 403, `Cannot change the role of an owner` |
+| Owner tries to assign owner | 403, `Cannot promote a user to owner` |
+| Unknown role such as `manager` | 422 |
+| Allowed change | 200 |
+| Existing role requested for an allowed target | 200, no change events |
+
+`UserRoleUpdate` validates the role using `UserRole`. The value `owner` is valid
+input for the enum but is rejected by the endpoint's business rules.
+
+### 173. Actor, target, and transaction behavior
+
+The actor is the authenticated owner; the target is the user identified by the
+route's `user_id`. Audit and security event `user_id` and `email` fields identify
+the actor. The message records the target ID and the previous and new roles:
+
+`Owner changed role for user_id={target_id} from {old_role} to {new_role}`
+
+`update_user_role()` stages the role change, an `AuditLog`, and a `SecurityEvent`
+before committing once. It rolls back and re-raises if the commit fails.
+It constructs event objects directly because the existing event creation helpers
+commit independently. No new enum values or database migration are required.
+
+The events reuse `ADMIN_ENDPOINT_ACCESSED` and `ADMIN_ACCESS`, with security
+severity `INFO` and source `backend`. Requests rejected by the endpoint and
+requests that leave the role unchanged create no successful-change events.
+Self-modification and owner restrictions are checked before the unchanged-role
+shortcut.
+
+### 174. Local verification on 2026-10-06
+
+- Ruff lint and formatting checks passed for the backend.
+- Bandit reported no security findings; it emitted warnings while parsing the
+  existing OAuth2 `nosec` comment in `auth.py`.
+- All 29 tests passed in 4.64 seconds against the separate PostgreSQL database
+  `sentinelcore_test`, using `backend/.venv`.
+- Successful-change tests verify the role read back from the database and the
+  actor and message in both event records.
+- Additional tests cover an unknown target, an invalid role, and an unchanged
+  role, including the absence of successful-change events.
+
+The PostgreSQL connection failed inside the sandbox; the successful test run was
+performed outside it. A transaction-failure test remains to be added. Phase 3
+CI validation remains pending.
+
 ## Project Cleanup
 
 ### 175. Scopul etapei

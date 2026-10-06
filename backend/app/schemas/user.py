@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
+from app.models.user import UserRole
+
 
 class UserCreate(BaseModel):
     username: str
@@ -29,3 +31,7 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class UserRoleUpdate(BaseModel):
+    role: UserRole

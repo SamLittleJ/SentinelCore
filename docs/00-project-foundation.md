@@ -302,6 +302,13 @@ La acest moment:
 - vizualizarea detaliilor unui user generează security event 
 - endpoint-ul `GET /admin/users/{user_id}` este testat automat 
 - backend-ul are 16 teste automate validate
+- Admin User Management Phase 3 is implemented locally on `feat/admin-user-role-phase-3`.
+- `PATCH /admin/users/{user_id}/role` allows only an owner to change a non-owner user's role.
+- Self-modification, modifying an owner, and assigning the owner role are forbidden.
+- The role change, audit log, and security event are committed in one transaction.
+- The backend has 29 tests passing locally against the separate PostgreSQL test database.
+- Ruff lint and formatting checks pass; Bandit reports no security findings, with warnings about an existing `nosec` comment.
+- Phase 3 transaction-failure testing and CI validation remain pending.
 - Alembic vede din nou toate modelele; `alembic check` confirmă că modelele și schema DB sunt sincronizate
 - utilizatorii inactivi sunt blocați la login și pe endpoint-urile autentificate
 - login-ul are timp de răspuns egal pentru email existent și inexistent
