@@ -347,6 +347,10 @@ La acest moment:
 - backend-ul are 184 de teste automate validate
 - frontend-ul se va autentifica prin cookie httpOnly, cu protecție CSRF legată de sesiune
 - backend-ul are 205 teste automate validate
+- frontend-ul are fundația construită: direcția vizuală "consolă de operațiuni" cu paleta "Electric", Tailwind CSS și shadcn/ui, React Router, TanStack Query, română și engleză
+- frontend-ul are login prin cookie httpOnly, protecția rutelor, cele două perspective (Contul meu / Organizația), temă și limbă configurabile
+- frontend-ul are 49 de teste automate și workflow CI propriu
+- jurnalul frontend-ului este în `docs/03-frontend-foundation.md`
 ---
 
 ## 11. Current Sprint

@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# SentinelCore Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicația web SentinelCore: React 19, TypeScript, Vite, Tailwind CSS și componente shadcn/ui.
 
-Currently, two official plugins are available:
+## Pornire
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Backend-ul trebuie să ruleze local pe portul 8000 (vezi [backend/README.md](../backend/README.md)).
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Aplicația rulează la `http://localhost:5173`. Vite trimite cererile `/api/*` către backend, astfel încât frontend-ul și API-ul sunt pe aceeași origine: nu e nevoie de CORS, iar cookie-urile de sesiune funcționează.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Comenzi
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Comandă | Ce face |
+| --- | --- |
+| `npm run dev` | server de dezvoltare cu reîncărcare automată |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | verificarea tipurilor TypeScript |
+| `npm test` | testele Vitest |
+| `npm run test:watch` | testele, rerulate la fiecare modificare |
+| `npm run build` | build de producție în `dist/` |
+
+## Structura
+
+```text
+src/
+├── components/
+│   ├── layout/      # structura aplicației: bara laterală, meniul contului
+│   └── ui/          # componente shadcn/ui (generate, apoi ajustate)
+├── features/
+│   ├── auth/        # client API pentru autentificare, hook-uri, protecția rutelor
+│   └── theme/       # tema întunecată / luminoasă
+├── i18n/            # traduceri în română și engleză
+├── lib/             # clientul API, configurarea TanStack Query, utilitare
+├── pages/           # paginile aplicației
+├── test/            # configurarea testelor și serverul API simulat (MSW)
+├── routes.tsx       # rutele, folosite și în teste
+└── main.tsx         # punctul de intrare
 ```
+
+## Autentificare
+
+Login-ul folosește `POST /api/auth/session`. Backend-ul pune token-ul într-un cookie httpOnly, pe care codul frontend nu îl poate citi. Pentru cererile care modifică date, clientul API (`src/lib/api.ts`) citește cookie-ul `sentinelcore_csrf` și îl trimite în header-ul `X-CSRF-Token`.
+
+## Temă și traduceri
+
+- Tema implicită este cea întunecată; utilizatorul poate alege luminoasă sau „ca sistemul” din meniul contului. Culorile sunt definite ca variabile CSS în `src/index.css`.
+- Limba implicită este româna. Textele sunt în `src/i18n/locales/`; fișierul englez este tipat după cel românesc, deci o cheie lipsă oprește verificarea de tipuri.

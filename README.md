@@ -7,10 +7,10 @@ Platformă API-first pentru Identity and Access Management, audit logging și mo
 ```text
 .
 ├── backend/              # API FastAPI, modele SQLAlchemy, migrații Alembic, teste
-├── frontend/             # aplicația web (React + TypeScript + Vite), încă la stadiul de template
+├── frontend/             # aplicația web (React, TypeScript, Vite, Tailwind CSS, shadcn/ui)
 ├── docs/                 # documentația proiectului, pe etape
 ├── infra/                # configurație Prometheus și Grafana
-├── .github/workflows/    # CI backend: Ruff, Bandit, pytest, Gitleaks
+├── .github/workflows/    # CI backend (Ruff, Bandit, pytest, Gitleaks) și frontend
 └── docker-compose.yml    # PostgreSQL, Prometheus și Grafana pentru development local
 ```
 
@@ -35,6 +35,16 @@ python -m uvicorn app.main:app --reload
 
 API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`.
 
+Frontend, într-un alt terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Aplicația web rulează la `http://localhost:5173`. Detalii: [frontend/README.md](frontend/README.md).
+
 În Swagger UI, butonul **Authorize** cere emailul în câmpul `username` și parola.
 
 ## Monitorizare
@@ -55,3 +65,4 @@ Detalii despre backend, teste și verificări: [backend/README.md](backend/READM
 - [00 - Project Foundation](docs/00-project-foundation.md): scop, arhitectură, roluri, MVP și stadiul curent
 - [01 - Backend Foundation](docs/01-backend-foundation.md): jurnalul tehnic al fiecărei etape din backend
 - [02 - Decisions Log](docs/02-decisions-log.md): deciziile tehnice luate pe parcurs
+- [03 - Frontend Foundation](docs/03-frontend-foundation.md): jurnalul tehnic al frontend-ului

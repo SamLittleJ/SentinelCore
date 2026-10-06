@@ -263,3 +263,14 @@
 - `/auth/session` acceptă doar JSON, ceea ce blochează login CSRF prin formulare HTML.
 - Logout-ul șterge și cookie-urile de autentificare.
 - În development, frontend-ul folosește proxy-ul Vite pentru `/api`, deci frontend-ul și API-ul sunt pe aceeași origine, fără CORS.
+- Frontend-ul folosește direcția vizuală "consolă de operațiuni": temă întunecată implicită, cu variantă luminoasă completă, interfață densă, IBM Plex Sans și IBM Plex Mono.
+- Paleta aplicației este "Electric": albastru electric pe bleumarin, generată în OKLCH, cu contrast WCAG AA și culori de grafic validate pentru daltonism.
+- Culorile de severitate sunt separate de culoarea de brand și apar mereu cu text și formă.
+- Aplicația are două perspective: "Contul meu" pentru orice utilizator și "Organizația" pentru `admin`, `owner` și `security_analyst`.
+- Componentele sunt construite cu Tailwind CSS și shadcn/ui; culorile temei sunt variabile CSS.
+- Rutarea folosește React Router, iar datele de la server TanStack Query.
+- Interfața este în română (implicit) și engleză, prin i18next; traducerile în engleză sunt tipate după cele în română.
+- Fonturile sunt servite din aplicație prin `@fontsource`, fără cereri către Google Fonts.
+- Parametrul `next` de după login acceptă doar căi interne, pentru a preveni open redirect.
+- Orice răspuns `401` primit în timpul folosirii trimite utilizatorul la login; logout-ul golește tot cache-ul de date.
+- CI-ul frontend rulează `npm audit`, lint, verificarea tipurilor, testele și build-ul.

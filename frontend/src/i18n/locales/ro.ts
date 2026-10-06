@@ -1,0 +1,82 @@
+const ro = {
+  app: {
+    name: 'SentinelCore',
+    loading: 'Se încarcă…',
+  },
+  scope: {
+    label: 'Perspectivă',
+    personal: 'Contul meu',
+    organization: 'Organizația',
+  },
+  nav: {
+    label: 'Navigare principală',
+    overview: 'Prezentare',
+    mySessions: 'Sesiunile mele',
+    myActivity: 'Activitatea mea',
+    securityEvents: 'Evenimente de securitate',
+    auditLog: 'Jurnal de audit',
+    users: 'Utilizatori',
+  },
+  roles: {
+    user: 'Utilizator',
+    admin: 'Administrator',
+    security_analyst: 'Analist de securitate',
+    owner: 'Proprietar',
+  },
+  account: {
+    menu: 'Meniul contului',
+    theme: 'Temă',
+    themeDark: 'Întunecată',
+    themeLight: 'Luminoasă',
+    themeSystem: 'Ca sistemul',
+    language: 'Limbă',
+    logout: 'Deconectare',
+  },
+  login: {
+    title: 'Autentificare',
+    subtitle: 'Monitorizează activitatea conturilor tale.',
+    email: 'Email',
+    password: 'Parolă',
+    submit: 'Autentifică-te',
+    submitting: 'Se verifică…',
+    errors: {
+      invalid: 'Email sau parolă greșite.',
+      inactive: 'Contul este dezactivat. Contactează un administrator.',
+      locked_one: 'Prea multe încercări eșuate. Încearcă din nou peste {{count}} minut.',
+      locked_few: 'Prea multe încercări eșuate. Încearcă din nou peste {{count}} minute.',
+      locked_other: 'Prea multe încercări eșuate. Încearcă din nou peste {{count}} de minute.',
+      validation: 'Verifică adresa de email și parola.',
+      network: 'Serverul nu răspunde. Verifică conexiunea și încearcă din nou.',
+    },
+  },
+  overview: {
+    greeting: 'Bun venit, {{name}}',
+    profile: 'Profil',
+    username: 'Nume de utilizator',
+    email: 'Email',
+    role: 'Rol',
+    memberSince: 'Membru din',
+    status: 'Stare',
+    active: 'Activ',
+  },
+  orgOverview: {
+    title: 'Organizația',
+    subtitle: 'Activitatea tuturor conturilor.',
+  },
+  placeholder: {
+    title: 'În lucru',
+    body: 'Această secțiune vine într-o etapă următoare a proiectului.',
+  },
+  errors: {
+    forbiddenTitle: 'Acces restricționat',
+    forbiddenBody: 'Perspectiva organizației este disponibilă administratorilor și analiștilor de securitate.',
+    backToAccount: 'Înapoi la contul meu',
+    notFoundTitle: 'Pagina nu există',
+    notFoundBody: 'Adresa nu corespunde niciunei pagini din aplicație.',
+    loadFailedTitle: 'Datele nu s-au încărcat',
+    loadFailedBody: 'Serverul nu a răspuns. Verifică conexiunea și încearcă din nou.',
+    retry: 'Încearcă din nou',
+  },
+}
+
+export default ro
