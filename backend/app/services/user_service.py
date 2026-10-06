@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.metrics import record_security_event
 from app.core.security import DUMMY_PASSWORD_HASH, hash_password, verify_password
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import (
@@ -106,6 +107,7 @@ def _commit_user_change(
         db.rollback()
         raise
 
+    record_security_event(security_event_type, SecuritySeverity.INFO)
     db.refresh(user)
     return user
 

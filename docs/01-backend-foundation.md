@@ -3321,3 +3321,136 @@ Testele noi (`tests/test_event_logs_api.py`) acopera: acces interzis pentru user
 Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea `extra="forbid"`, eliminarea normalizarii emailului, cursor inclusiv, interval inchis, ordonare dupa `created_at`.
 
 Cele 3 teste existente care asteptau o lista au fost actualizate pentru noua forma a raspunsului.
+
+## Observability - Phase 1
+
+### 207. Scopul etapei
+
+"Observability-first" este unul dintre principiile proiectului, iar Prometheus si Grafana fac parte din MVP-ul DevOps. Pana acum, backend-ul nu expunea metrici, scria loguri nestructurate, iar `/health` raspundea `ok` chiar daca PostgreSQL era oprit.
+
+Aceasta etapa introduce:
+- metrici Prometheus pentru HTTP si pentru security events
+- loguri structurate, cu un request id pe fiecare cerere
+- un health check care verifica baza de date
+- Prometheus si Grafana in Docker Compose, cu dashboard provizionat automat
+
+### 208. Metrici
+
+Metricile sunt definite in `app/core/metrics.py` si expuse la `GET /metrics`, in formatul text Prometheus.
+
+| Metrica | Tip | Etichete |
+| --- | --- | --- |
+| `sentinelcore_http_requests_total` | Counter | `method`, `route`, `status_code` |
+| `sentinelcore_http_request_duration_seconds` | Histogram | `method`, `route` |
+| `sentinelcore_security_events_total` | Counter | `event_type`, `severity` |
+
+Fiecare combinatie distincta de etichete devine o serie separata in Prometheus. De aceea etichetele provin din multimi mici si fixe:
+- `route` este sablonul rutei (`/admin/users/{user_id}`), nu calea concreta (`/admin/users/42`)
+- caile care nu corespund niciunei rute primesc `route="unmatched"`
+- metodele HTTP necunoscute primesc `method="OTHER"`
+
+Altfel, oricine ar putea crea un numar nelimitat de serii trimitand cereri catre cai sau metode inventate.
+
+`sentinelcore_security_events_total` este incrementat dupa commit-ul fiecarui security event, in cele trei locuri care le creeaza: `create_security_event()`, `_commit_user_change()` si `lock_login()`. O singura metrica acopera login-uri reusite si esuate, blocari, incidente brute-force si schimbari administrative.
+
+Metricile sunt pastrate in memoria procesului si pornesc de la zero la fiecare restart; functiile `rate()` si `increase()` din Prometheus trateaza aceste resetari. Configuratia presupune un singur proces uvicorn; mai multi workeri ar necesita modul multiprocess din `prometheus_client`.
+
+### 209. Protectia `/metrics`
+
+Daca `METRICS_TOKEN` este setat in `.env`, `/metrics` cere `Authorization: Bearer <token>` si raspunde altfel cu `401`. Daca este gol sau lipseste, endpoint-ul este deschis, ceea ce este potrivit pentru dezvoltare locala.
+
+Token-ul este comparat cu `hmac.compare_digest`, in timp constant, astfel incat timpul de raspuns nu dezvaluie cat de mult din token a fost ghicit.
+
+`/metrics` nu apare in documentatia OpenAPI.
+
+### 210. Request id si loguri structurate
+
+Middleware-ul `observe_requests` din `app/api/middleware.py`:
+- refoloseste header-ul `X-Request-ID` primit, daca are maximum 64 de caractere din `A-Z a-z 0-9 . _ -`, altfel genereaza unul nou
+- intoarce request id-ul in header-ul `X-Request-ID` al raspunsului
+- il pastreaza intr-un `ContextVar`, astfel incat orice log scris in timpul cererii il contine
+- scrie un singur log pe cerere, cu `method`, `route`, `path`, `status_code`, `duration_ms` si `client_ip`
+- inregistreaza metricile HTTP
+
+Validarea request id-ului primit impiedica injectarea de text arbitrar, de exemplu linii noi, in loguri si header-e.
+
+Formatul logurilor se alege din `.env`:
+
+```env
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+```
+
+- `json`: un obiect JSON pe linie, pentru colectoare de loguri
+- `text`: linii lizibile in terminal, cu aceleasi campuri
+
+Exemplu JSON:
+
+```json
+{"timestamp": "2026-10-06T16:00:03.871220+00:00", "level": "INFO", "logger": "sentinelcore.request", "message": "Request completed", "request_id": "demo-trace-1", "method": "GET", "route": "/health", "path": "/health", "status_code": 200, "duration_ms": 0.22, "client_ip": "127.0.0.1"}
+```
+
+Logurile uvicorn trec prin acelasi format. Access log-ul propriu al uvicorn este dezactivat, deoarece ar dubla logul scris de middleware.
+
+### 211. Health checks
+
+- `GET /health`: liveness, adica procesul ruleaza si raspunde; nu depinde de baza de date
+- `GET /health/ready`: readiness, adica aplicatia poate servi trafic; executa `SELECT 1` si raspunde `503` cu `{"status": "unavailable", "database": "unavailable"}` daca PostgreSQL nu este disponibil
+
+Separarea permite unui orchestrator sa nu reporneasca procesul cand doar baza de date este temporar indisponibila, dar sa nu-i trimita trafic pana cand aceasta revine.
+
+### 212. Prometheus si Grafana
+
+`docker-compose.yml` contine acum serviciile `prometheus` (`prom/prometheus:v3.15.0`) si `grafana` (`grafana/grafana:13.2.3`). Configuratia este in `infra/`:
+
+```text
+infra/
+├── prometheus/
+│   └── prometheus.yml
+└── grafana/
+    ├── provisioning/
+    │   ├── datasources/prometheus.yml
+    │   └── dashboards/sentinelcore.yml
+    └── dashboards/
+        └── sentinelcore-overview.json
+```
+
+Ambele servicii folosesc `network_mode: host` si asculta doar pe `127.0.0.1`:
+- Prometheus colecteaza backend-ul pornit local pe `localhost:8000`, fara ca uvicorn sa fie pornit pe `0.0.0.0`
+- nimic nu este expus in reteaua locala
+
+Host networking este suportat complet pe Linux.
+
+Fisierele de configurare sunt montate cu `:ro,z`. Optiunea `z` reeticheteaza fisierele pentru SELinux, necesara pe Fedora, la fel ca la Gitleaks; pe sisteme fara SELinux este ignorata.
+
+Dashboard-ul `SentinelCore Overview` este provizionat automat si contine:
+- Security: incidente brute-force, incercari blocate, login-uri esuate, dezactivari de conturi, security events pe minut dupa tip si dupa severitate
+- HTTP: request-uri pe secunda dupa ruta, raspunsuri dupa status code, latenta p95 dupa ruta, procentul de erori 5xx
+
+Pornire:
+
+```bash
+docker compose up -d prometheus grafana
+```
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`, user `admin`, parola `sentinelcore` (doar local)
+
+### 213. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 132 passed
+
+Testele noi (`tests/test_observability.py`) acopera: generarea, refolosirea si respingerea request id-urilor, logul per cerere, propagarea request id-ului in logurile scrise in timpul cererii, ambele formate de log, etichetele bazate pe sabloane, gruparea cailor si metodelor necunoscute, histograma de durata, numararea security events, protectia `/metrics` si readiness-ul cu baza de date disponibila si indisponibila.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: cale concreta in loc de sablon, request id nevalidat, request id nepropagat in loguri, token nevalidat, incident nenumarat.
+
+Verificare end-to-end, pe o baza temporara migrata:
+- backend pornit cu loguri JSON, Prometheus si Grafana pornite prin Docker Compose
+- un atac brute-force simulat: 4 raspunsuri `401`, apoi `429` cu `Retry-After: 900`
+- Prometheus colecteaza backend-ul (`health: up`) si raporteaza exact evenimentele generate
+- Grafana provizioneaza datasource-ul si dashboard-ul, iar toate cele 12 panouri returneaza date
+
+Verificarea a gasit o problema: panoul pentru erorile 5xx nu afisa nimic cand nu existau erori, deoarece impartirea unei serii goale nu produce rezultat. Expresia foloseste acum `or vector(0)`, astfel incat afiseaza `0`.

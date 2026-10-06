@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.metrics import record_security_event
 from app.models.security_event import (
     SecurityEvent,
     SecurityEventType,
@@ -32,6 +33,7 @@ def create_security_event(
     db.add(security_event)
     db.commit()
     db.refresh(security_event)
+    record_security_event(event_type, severity)
     return security_event
 
 

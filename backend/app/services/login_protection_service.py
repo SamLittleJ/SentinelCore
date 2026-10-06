@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.metrics import record_security_event
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import (
     SecurityEvent,
@@ -119,4 +120,7 @@ def lock_login(
         db.rollback()
         raise
 
+    record_security_event(
+        SecurityEventType.BRUTE_FORCE_DETECTED, SecuritySeverity.INCIDENT
+    )
     return settings.login_lockout_minutes * 60

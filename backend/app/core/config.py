@@ -1,3 +1,6 @@
+from typing import Literal
+
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +15,10 @@ class Settings(BaseSettings):
     login_max_failed_attempts: int = 5
     login_failure_window_minutes: int = 15
     login_lockout_minutes: int = 15
+    log_level: str = "INFO"
+    log_format: Literal["json", "text"] = "json"
+    # When set, /metrics requires `Authorization: Bearer <token>`.
+    metrics_token: SecretStr | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

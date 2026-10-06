@@ -9,8 +9,9 @@ Platformă API-first pentru Identity and Access Management, audit logging și mo
 ├── backend/              # API FastAPI, modele SQLAlchemy, migrații Alembic, teste
 ├── frontend/             # aplicația web (React + TypeScript + Vite), încă la stadiul de template
 ├── docs/                 # documentația proiectului, pe etape
+├── infra/                # configurație Prometheus și Grafana
 ├── .github/workflows/    # CI backend: Ruff, Bandit, pytest, Gitleaks
-└── docker-compose.yml    # PostgreSQL pentru development local
+└── docker-compose.yml    # PostgreSQL, Prometheus și Grafana pentru development local
 ```
 
 ## Pornire rapidă
@@ -33,6 +34,17 @@ python -m uvicorn app.main:app --reload
 ```
 
 API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`.
+
+## Monitorizare
+
+```bash
+docker compose up -d prometheus grafana
+```
+
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000 (user `admin`, parola `sentinelcore`, doar local), dashboard-ul **SentinelCore Overview**
+
+Prometheus colectează metricile backend-ului pornit local pe portul 8000. Serviciile folosesc host networking, suportat complet pe Linux.
 
 Detalii despre backend, teste și verificări: [backend/README.md](backend/README.md).
 

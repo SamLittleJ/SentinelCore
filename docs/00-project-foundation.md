@@ -331,6 +331,11 @@ La acest moment:
 - audit logs și security events au paginare prin cursor și filtre după tip, severitate, user, email, IP și interval de timp
 - consultarea logurilor este auditată
 - backend-ul are 107 teste automate validate
+- backend-ul expune metrici Prometheus pentru HTTP și security events la `/metrics`
+- logurile sunt structurate și au request id pe fiecare cerere
+- `/health/ready` verifică disponibilitatea bazei de date
+- Prometheus și Grafana rulează local prin Docker Compose, cu dashboard-ul `SentinelCore Overview` provizionat automat
+- backend-ul are 132 de teste automate validate
 ---
 
 ## 11. Current Sprint

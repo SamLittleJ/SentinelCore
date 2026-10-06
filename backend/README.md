@@ -43,6 +43,20 @@ LOGIN_LOCKOUT_MINUTES=15
 
 În spatele unui reverse proxy, pornește uvicorn cu `--proxy-headers --forwarded-allow-ips=<IP-ul proxy-ului>`, altfel toate evenimentele vor înregistra IP-ul proxy-ului.
 
+## Observabilitate
+
+- `GET /health`: procesul rulează
+- `GET /health/ready`: aplicația poate servi trafic; răspunde `503` dacă baza de date nu e disponibilă
+- `GET /metrics`: metrici Prometheus; dacă `METRICS_TOKEN` e setat, cere `Authorization: Bearer <token>`
+- fiecare răspuns conține `X-Request-ID`, prezent și în toate logurile cererii
+
+Logurile se configurează în `.env`:
+
+```env
+LOG_LEVEL=INFO
+LOG_FORMAT=text   # json pentru colectoare de loguri
+```
+
 ## Migrații
 
 ```bash

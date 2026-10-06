@@ -227,3 +227,14 @@
 - Parametrii de query necunoscuți sunt respinși cu `422`, pentru ca un filtru scris greșit să nu fie ignorat.
 - Consultarea logurilor este auditată prin `AUDIT_LOGS_VIEWED` și `SECURITY_EVENTS_VIEWED`, doar în audit log, nu și ca security event.
 - Logica comună de filtrare și paginare este în `fetch_event_page()`.
+- Metricile sunt expuse în format Prometheus la `/metrics`, folosind `prometheus-client`.
+- Etichetele metricilor folosesc șablonul rutei, `unmatched` pentru căi necunoscute și `OTHER` pentru metode necunoscute, pentru a limita numărul de serii.
+- `sentinelcore_security_events_total` este incrementat după commit-ul fiecărui security event.
+- `/metrics` cere token Bearer doar dacă `METRICS_TOKEN` este setat; tokenul este comparat în timp constant.
+- Fiecare cerere are un request id, refolosit din `X-Request-ID` doar dacă este sigur, altfel generat.
+- Logurile sunt structurate, în format `json` sau `text`, configurabil prin `LOG_FORMAT`.
+- Access log-ul uvicorn este dezactivat; middleware-ul scrie un singur log pe cerere.
+- `/health` este liveness, iar `/health/ready` este readiness și verifică baza de date.
+- Prometheus și Grafana rulează în Docker Compose cu host networking, ascultând doar pe `127.0.0.1`.
+- Configurația Prometheus și Grafana este versionată în `infra/`, iar dashboard-ul este provizionat automat.
+- Imaginile Docker pentru Prometheus și Grafana sunt fixate la versiuni exacte.
