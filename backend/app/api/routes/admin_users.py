@@ -7,12 +7,18 @@ from app.api.deps import get_client_ip, get_db, require_role
 from app.models.audit_log import AuditEventType
 from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
-from app.schemas.user import UserRead, UserRoleUpdate, UserStatusUpdate
+from app.schemas.user import (
+    SessionsRevoked,
+    UserRead,
+    UserRoleUpdate,
+    UserStatusUpdate,
+)
 from app.services.audit_service import create_audit_log
 from app.services.security_event_service import create_security_event
 from app.services.user_service import (
     get_user_by_id,
     list_users,
+    revoke_all_user_sessions,
     update_user_role,
     update_user_status,
 )
@@ -135,6 +141,27 @@ def change_user_role(
     )
 
 
+def _ensure_can_manage_account(
+    actor: User,
+    target: User,
+    *,
+    self_detail: str,
+    owner_detail: str,
+    admin_detail: str,
+) -> None:
+    """Account management hierarchy shared by status and session actions:
+    no one acts on their own account or on an owner, and only an owner acts on
+    an admin. Each action supplies its own error messages."""
+    if target.id == actor.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=self_detail)
+
+    if target.role == UserRole.OWNER:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=owner_detail)
+
+    if actor.role == UserRole.ADMIN and target.role == UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=admin_detail)
+
+
 @router.patch("/{user_id}/status", response_model=UserRead)
 def change_user_status(
     user_id: int,
@@ -154,23 +181,13 @@ def change_user_status(
             detail="User not found",
         )
 
-    if target_user.id == current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Users cannot change their own status",
-        )
-
-    if target_user.role == UserRole.OWNER:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot change the status of an owner",
-        )
-
-    if current_user.role == UserRole.ADMIN and target_user.role == UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an owner can change the status of an admin",
-        )
+    _ensure_can_manage_account(
+        current_user,
+        target_user,
+        self_detail="Users cannot change their own status",
+        owner_detail="Cannot change the status of an owner",
+        admin_detail="Only an owner can change the status of an admin",
+    )
 
     return update_user_status(
         db=db,
@@ -179,3 +196,40 @@ def change_user_status(
         is_active=status_in.is_active,
         actor=current_user,
     )
+
+
+@router.delete("/{user_id}/sessions", response_model=SessionsRevoked)
+def revoke_user_sessions(
+    user_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    current_user: Annotated[
+        User,
+        Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
+    ],
+) -> SessionsRevoked:
+    """Sign a user out everywhere, for example after a suspected compromise,
+    without deactivating the account."""
+    target_user = get_user_by_id(db, user_id)
+
+    if target_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    _ensure_can_manage_account(
+        current_user,
+        target_user,
+        self_detail="Use /auth/logout-all to revoke your own sessions",
+        owner_detail="Cannot revoke the sessions of an owner",
+        admin_detail="Only an owner can revoke the sessions of an admin",
+    )
+
+    revoked = revoke_all_user_sessions(
+        db=db,
+        user=target_user,
+        actor=current_user,
+        ip_address=client_ip,
+    )
+    return SessionsRevoked(revoked_sessions=revoked)

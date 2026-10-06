@@ -336,6 +336,15 @@ La acest moment:
 - `/health/ready` verifică disponibilitatea bazei de date
 - Prometheus și Grafana rulează local prin Docker Compose, cu dashboard-ul `SentinelCore Overview` provizionat automat
 - backend-ul are 132 de teste automate validate
+- token-ul JWT identifică userul prin id și sesiunea prin `jti`, cu `iss`, `aud` și `iat` verificate
+- sesiunile de login sunt stocate și pot fi revocate: logout, logout de pe toate dispozitivele, revocarea unei sesiuni proprii
+- dezactivarea unui cont îi revocă toate sesiunile
+- butonul Authorize din Swagger funcționează prin `POST /auth/token`
+- backend-ul are 164 de teste automate validate
+- sesiunile vechi sunt șterse periodic, după o perioadă de retenție configurabilă
+- adminii pot deconecta un user de pe toate dispozitivele fără să-i dezactiveze contul
+- backend-ul trece verificarea de tipuri Pyright fără erori
+- backend-ul are 184 de teste automate validate
 ---
 
 ## 11. Current Sprint

@@ -1,15 +1,26 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.security import OAuth2PasswordRequestForm
 from psycopg.errors import UniqueViolation
+from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_client_ip, get_db
+from app.api.deps import (
+    get_client_ip,
+    get_current_session,
+    get_current_user,
+    get_db,
+    get_user_agent,
+)
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.audit_log import AuditEventType
 from app.models.security_event import SecurityEventType, SecuritySeverity
+from app.models.user import User
+from app.models.user_session import UserSession
 from app.schemas.user import Token, UserCreate, UserLogin, UserRead
 from app.services.audit_service import create_audit_log
 from app.services.login_protection_service import (
@@ -18,6 +29,11 @@ from app.services.login_protection_service import (
     lock_login,
 )
 from app.services.security_event_service import create_security_event
+from app.services.session_service import (
+    create_session,
+    revoke_session,
+    stage_revoke_all_sessions,
+)
 from app.services.user_service import (
     authenticate_user,
     create_user,
@@ -62,7 +78,7 @@ def register_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=DUPLICATE_USER_DETAILS.get(
-                exc.orig.diag.constraint_name, "User already exists"
+                exc.orig.diag.constraint_name or "", "User already exists"
             ),
         ) from exc
 
@@ -93,12 +109,14 @@ def too_many_login_attempts(retry_after_seconds: int) -> HTTPException:
     )
 
 
-@router.post("/login", response_model=Token)
-def login_user(
+def _log_in(
+    db: Session,
     user_in: UserLogin,
-    db: Annotated[Session, Depends(get_db)],
-    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    client_ip: str | None,
+    user_agent: str | None,
 ) -> Token:
+    """Shared by the JSON and OAuth2 form login endpoints, so both get the
+    same brute-force protection, events and session handling."""
     email = user_in.email
 
     # A locked email is rejected before the password is checked, so guesses
@@ -182,10 +200,84 @@ def login_user(
         message=f"Successful login for user: {user.email}",
     )
 
-    access_token = create_access_token(user.email)
+    session = create_session(db, user, client_ip, user_agent)
+    access_token = create_access_token(
+        user_id=user.id,
+        session_id=session.id,
+        issued_at=session.created_at,
+        expires_at=session.expires_at,
+    )
 
     return Token(
         access_token=access_token,
         # OAuth2 token type, not a password or secret.
         token_type="bearer",  # nosec B106
+        expires_in=settings.access_token_expire_minutes * 60,
+    )
+
+
+@router.post("/login", response_model=Token)
+def login_user(
+    user_in: UserLogin,
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    user_agent: Annotated[str | None, Depends(get_user_agent)],
+) -> Token:
+    return _log_in(db, user_in, client_ip, user_agent)
+
+
+@router.post("/token", response_model=Token)
+def login_for_access_token(
+    form: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    user_agent: Annotated[str | None, Depends(get_user_agent)],
+) -> Token:
+    """OAuth2 password flow, used by the Authorize button in Swagger UI.
+
+    The form's `username` field carries the email address.
+    """
+    try:
+        user_in = UserLogin(email=form.username, password=form.password)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
+
+    return _log_in(db, user_in, client_ip, user_agent)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    db: Annotated[Session, Depends(get_db)],
+    session: Annotated[UserSession, Depends(get_current_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+) -> None:
+    """Revoke the session of the token used for this request."""
+    revoke_session(db, session)
+
+    create_audit_log(
+        db=db,
+        event_type=AuditEventType.SESSION_REVOKED,
+        user=current_user,
+        ip_address=client_ip,
+        message=f"User logged out, session_id={session.id}",
+    )
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def logout_all(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+) -> None:
+    """Revoke every active session of the current user, this one included."""
+    stage_revoke_all_sessions(db, current_user.id)
+    db.commit()
+
+    create_audit_log(
+        db=db,
+        event_type=AuditEventType.ALL_SESSIONS_REVOKED,
+        user=current_user,
+        ip_address=client_ip,
+        message="User logged out of all sessions",
     )

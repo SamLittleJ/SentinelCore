@@ -35,6 +35,8 @@ python -m uvicorn app.main:app --reload
 
 API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`.
 
+În Swagger UI, butonul **Authorize** cere emailul în câmpul `username` și parola.
+
 ## Monitorizare
 
 ```bash

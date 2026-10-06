@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Annotated
 
@@ -67,6 +68,18 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    # Seconds until the token expires, as in the OAuth2 token response.
+    expires_in: int
+
+
+class SessionRead(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    ip_address: str | None
+    user_agent: str | None
+    # True for the session of the token used in the request.
+    current: bool
 
 
 class UserRoleUpdate(BaseModel):
@@ -75,3 +88,7 @@ class UserRoleUpdate(BaseModel):
 
 class UserStatusUpdate(BaseModel):
     is_active: StrictBool
+
+
+class SessionsRevoked(BaseModel):
+    revoked_sessions: int

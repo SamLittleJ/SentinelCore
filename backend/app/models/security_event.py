@@ -26,6 +26,7 @@ class SecurityEventType(StrEnum):
     USER_DEACTIVATED = "user_deactivated"
     BRUTE_FORCE_DETECTED = "brute_force_detected"
     LOGIN_BLOCKED = "login_blocked"
+    USER_SESSIONS_REVOKED = "user_sessions_revoked"
 
 
 class SecuritySeverity(StrEnum):

@@ -238,3 +238,21 @@
 - Prometheus și Grafana rulează în Docker Compose cu host networking, ascultând doar pe `127.0.0.1`.
 - Configurația Prometheus și Grafana este versionată în `infra/`, iar dashboard-ul este provizionat automat.
 - Imaginile Docker pentru Prometheus și Grafana sunt fixate la versiuni exacte.
+- `sub` din JWT este id-ul userului, ca string; emailul nu mai identifică userul în token.
+- Token-ul conține și verifică `iss`, `aud`, `jti`, `iat` și `exp`; toate claim-urile sunt obligatorii.
+- `SECRET_KEY` trebuie să aibă cel puțin 32 de bytes, iar `ALGORITHM` acceptă doar HS256, HS384 sau HS512.
+- Fiecare login creează o sesiune în `user_sessions`; `jti` din token este id-ul sesiunii.
+- Logout-ul revocă sesiunea curentă; `logout-all` revocă toate sesiunile userului.
+- Userii își pot lista și revoca propriile sesiuni; sesiunile altor useri răspund `404`.
+- Dezactivarea unui cont revocă toate sesiunile lui, în același commit; reactivarea nu le restaurează.
+- `/auth/token` oferă login prin formular OAuth2 pentru Swagger UI și folosește aceeași logică de login ca `/auth/login`.
+- Timpii sesiunii și ai token-ului vin din ceasul aplicației, pentru că PyJWT respinge `iat` din viitor.
+- Logout-ul și revocarea sesiunilor sunt doar evenimente de audit (`SESSION_REVOKED`, `ALL_SESSIONS_REVOKED`).
+- Sesiunile expirate sau revocate sunt păstrate `SESSION_RETENTION_DAYS` zile (implicit 30), apoi șterse; sesiunile active nu sunt șterse niciodată.
+- Curățarea rulează periodic în procesul API (`SESSION_CLEANUP_INTERVAL_MINUTES`, `0` dezactivează) și poate fi rulată manual cu `python -m app.cli cleanup-sessions`.
+- O curățare eșuată este logată și reîncercată la următorul interval.
+- Adminii pot revoca toate sesiunile unui user prin `DELETE /admin/users/{user_id}/sessions`, cu aceleași reguli ierarhice ca schimbarea statusului.
+- Regulile ierarhice de administrare a conturilor sunt centralizate în `_ensure_can_manage_account()`.
+- Revocarea de către admin creează audit log `ALL_SESSIONS_REVOKED` și security event `USER_SESSIONS_REVOKED`.
+- Migrațiile deja aplicate pe baza de development nu sunt modificate; schimbările noi primesc o migrație nouă.
+- Tipurile din backend sunt verificate integral cu Pyright, nu doar în fișierele deschise în Pylance.

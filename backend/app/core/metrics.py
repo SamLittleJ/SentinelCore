@@ -21,6 +21,11 @@ HTTP_REQUEST_DURATION = Histogram(
     ["method", "route"],
 )
 
+SESSIONS_DELETED = Counter(
+    "sentinelcore_sessions_deleted_total",
+    "Expired or revoked sessions deleted by the cleanup task.",
+)
+
 SECURITY_EVENTS = Counter(
     "sentinelcore_security_events_total",
     "Security events recorded, by type and severity.",

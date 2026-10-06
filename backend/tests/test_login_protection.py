@@ -41,11 +41,11 @@ def fail_logins(client: TestClient, count: int, email: str = EMAIL) -> list[int]
 
 
 def count_security_events(db_session: Session, event_type: SecurityEventType) -> int:
-    return db_session.scalar(
+    return db_session.execute(
         select(func.count(SecurityEvent.id)).where(
             SecurityEvent.event_type == event_type
         )
-    )
+    ).scalar_one()
 
 
 def shift_security_events_back(db_session: Session, minutes: int) -> None:

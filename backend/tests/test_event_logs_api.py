@@ -15,6 +15,9 @@ from app.models.user import User, UserRole
 
 BASE_TIME = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
+# Query string values: a scalar, or a list for repeated parameters.
+QueryParams = dict[str, str | int | list[str]]
+
 
 def create_user(
     client: TestClient,
@@ -220,7 +223,7 @@ def test_security_event_filters(
         email="other@example.com",
     )
 
-    def query(params: dict[str, object]) -> set[int]:
+    def query(params: QueryParams) -> set[int]:
         return set(
             event_ids(
                 client.get("/security/events", params=params, headers=analyst_headers)
@@ -280,7 +283,7 @@ def test_time_range_is_half_open(
 def test_invalid_query_returns_422(
     client: TestClient,
     analyst_headers: dict[str, str],
-    params: dict[str, object],
+    params: QueryParams,
 ) -> None:
     response = client.get("/security/events", params=params, headers=analyst_headers)
 

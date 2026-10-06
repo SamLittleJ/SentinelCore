@@ -57,6 +57,24 @@ LOG_LEVEL=INFO
 LOG_FORMAT=text   # json pentru colectoare de loguri
 ```
 
+## Sesiuni
+
+Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` sau, de către un admin, prin `DELETE /admin/users/{id}/sessions`.
+
+Sesiunile expirate sau revocate de mai mult de `SESSION_RETENTION_DAYS` zile sunt șterse automat de API, la fiecare `SESSION_CLEANUP_INTERVAL_MINUTES` minute. Curățarea poate fi rulată și manual sau din cron:
+
+```bash
+python -m app.cli cleanup-sessions
+```
+
+## Verificare de tipuri
+
+Pylance verifică doar fișierele deschise în editor. Pentru tot backend-ul, cu același motor (Pyright):
+
+```bash
+npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations
+```
+
 ## Migrații
 
 ```bash

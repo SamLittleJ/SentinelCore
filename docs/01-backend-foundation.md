@@ -3454,3 +3454,184 @@ Verificare end-to-end, pe o baza temporara migrata:
 - Grafana provizioneaza datasource-ul si dashboard-ul, iar toate cele 12 panouri returneaza date
 
 Verificarea a gasit o problema: panoul pentru erorile 5xx nu afisa nimic cand nu existau erori, deoarece impartirea unei serii goale nu produce rezultat. Expresia foloseste acum `or vector(0)`, astfel incat afiseaza `0`.
+
+## JWT Hardening and Sessions - Phase 1
+
+### 214. Scopul etapei
+
+Token-ul JWT continea doar `sub` (emailul) si `exp`. Nu exista logout real: un token furat ramanea valid pana la expirare, iar butonul **Authorize** din Swagger nu functiona, deoarece login-ul accepta doar JSON.
+
+Etapa este necesara inainte de frontend, care are nevoie de logout si de un contract stabil pentru token.
+
+### 215. Continutul token-ului
+
+| Claim | Valoare |
+| --- | --- |
+| `iss` | `JWT_ISSUER`, implicit `sentinelcore` |
+| `aud` | `JWT_AUDIENCE`, implicit `sentinelcore-api` |
+| `sub` | id-ul userului, ca string (RFC 7519 cere string) |
+| `jti` | id-ul sesiunii (UUID) |
+| `iat` | momentul emiterii |
+| `exp` | momentul expirarii |
+
+La fiecare request sunt verificate semnatura, algoritmul, emitentul, audienta si expirarea, iar toate cele sase claim-uri sunt obligatorii.
+
+`sub` este acum id-ul userului, nu emailul: id-ul nu se schimba niciodata, pe cand emailul ar putea fi modificat in viitor. Token-urile emise inainte de aceasta etapa sunt refuzate, deci fiecare user trebuie sa se autentifice din nou o data.
+
+Raspunsul de login include `expires_in`, in secunde, ca in raspunsul standard OAuth2.
+
+### 216. Configurare mai stricta
+
+- `SECRET_KEY` trebuie sa aiba cel putin 32 de bytes; altfel aplicatia nu porneste
+- `ALGORITHM` accepta doar `HS256`, `HS384` sau `HS512`; `none` si algoritmii asimetrici sunt respinsi la pornire
+
+Prima regula previne chei slabe pentru HMAC. A doua previne configurari in care token-urile nesemnate sau semnate altfel ar putea fi acceptate.
+
+### 217. Sesiuni
+
+Tabela noua `user_sessions`:
+- `id`: UUID aleator, deci id-urile nu pot fi ghicite
+- `user_id`
+- `created_at`, `expires_at`
+- `revoked_at`: setat la logout sau revocare
+- `ip_address`, `user_agent`
+
+Fiecare login creeaza o sesiune, iar id-ul ei devine `jti` in token. La fiecare request, `get_current_session()` verifica token-ul, apoi userul, apoi ca sesiunea exista, apartine userului din `sub`, nu este revocata si nu a expirat.
+
+Userul inactiv este verificat inaintea sesiunii, astfel incat un cont dezactivat primeste in continuare `403 Inactive user`, nu un `401` generic.
+
+Timpii sesiunii (`created_at`, `expires_at`) si cei din token (`iat`, `exp`) vin din ceasul aplicatiei. PyJWT respinge token-urile cu `iat` in viitor, deci un ceas al bazei de date usor inaintea aplicatiei ar fi invalidat token-uri abia emise.
+
+### 218. Endpoint-uri noi
+
+| Endpoint | Efect |
+| --- | --- |
+| `POST /auth/token` | login prin formular OAuth2 (`username` = email); folosit de Swagger UI |
+| `POST /auth/logout` | revoca sesiunea token-ului curent; `204` |
+| `POST /auth/logout-all` | revoca toate sesiunile userului, inclusiv cea curenta; `204` |
+| `GET /users/me/sessions` | sesiunile active, cu `current: true` pentru cea curenta |
+| `DELETE /users/me/sessions/{session_id}` | revoca una dintre sesiunile proprii; `204` |
+
+`/auth/login` si `/auth/token` folosesc aceeasi functie interna, deci au aceeasi protectie brute-force, aceleasi evenimente si aceeasi creare de sesiune. Esecurile din ambele endpoint-uri se aduna la acelasi prag.
+
+Revocarea unei sesiuni care apartine altui user raspunde `404 Session not found`, la fel ca pentru o sesiune inexistenta, astfel incat id-urile sesiunilor altor useri nu pot fi confirmate.
+
+`/auth/token` necesita dependenta `python-multipart`, folosita de FastAPI pentru formulare.
+
+### 219. Revocare la dezactivare
+
+Dezactivarea unui cont revoca toate sesiunile lui, in acelasi commit cu schimbarea de status si evenimentele aferente. Reactivarea nu le restaureaza: userul trebuie sa se autentifice din nou.
+
+### 220. Evenimente si migratie
+
+Tipuri noi in `AuditEventType`:
+- `SESSION_REVOKED`: logout sau revocarea unei sesiuni proprii
+- `ALL_SESSIONS_REVOKED`: logout de pe toate sesiunile
+
+Logout-ul este un fapt de audit, nu un semnal de securitate, deci nu creeaza security events.
+
+Migratia `232fc184b0d7_add_user_sessions.py` creeaza tabela `user_sessions` si adauga valorile noi. Downgrade-ul remapeaza randurile la `ADMIN_ENDPOINT_ACCESSED`, recreeaza tipul enum si sterge tabela.
+
+Sesiunile expirate raman in tabela. O curatare periodica poate fi adaugata ulterior.
+
+### 221. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 164 passed
+- migratia: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+
+Testele noi (`tests/test_sessions_and_tokens.py`) acopera:
+- continutul token-ului si legatura cu sesiunea
+- 13 variante de token invalid: cheie gresita, emitent sau audienta gresite, claim-uri lipsa, `sub` sau `jti` invalide, token expirat, alt algoritm, token nesemnat (`alg: none`), token in formatul vechi, sesiune inexistenta
+- sesiunea altui user folosita cu `sub` propriu
+- validarea `SECRET_KEY` si a algoritmului
+- lista sesiunilor, logout, logout-all, revocarea unei sesiuni proprii si refuzul revocarii sesiunilor altor useri
+- sesiunile expirate
+- revocarea la dezactivare
+- login-ul prin formular OAuth2, protectia brute-force comuna si configuratia Swagger
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: acceptarea sesiunii altui user, acceptarea sesiunilor revocate, dezactivarea verificarii `aud` si a claim-urilor obligatorii, dezactivarea fara revocarea sesiunilor.
+
+### 222. Curatarea periodica a sesiunilor
+
+Sesiunile expirate sau revocate raman in `user_sessions`, utile pentru investigatii (cine era logat, de unde). Pentru a nu creste nelimitat, sunt sterse dupa o perioada de retentie:
+
+```env
+SESSION_RETENTION_DAYS=30
+SESSION_CLEANUP_INTERVAL_MINUTES=60
+```
+
+`delete_stale_sessions()` sterge sesiunile expirate sau revocate de mai mult de `SESSION_RETENTION_DAYS` zile. Sesiunile active nu sunt sterse niciodata.
+
+Curatarea ruleaza in doua moduri:
+- automat, in procesul API: un task pornit in `lifespan` ruleaza la fiecare `SESSION_CLEANUP_INTERVAL_MINUTES` minute si este oprit la shutdown; `0` il dezactiveaza
+- manual sau din cron: `python -m app.cli cleanup-sessions`
+
+Task-ul periodic ruleaza curatarea intr-un thread separat (`asyncio.to_thread`), deoarece accesul la baza de date este sincron. O rulare esuata, de exemplu cand baza de date este temporar indisponibila, este logata si reincercata la urmatorul interval, fara a opri task-ul.
+
+Fiecare rulare scrie un log `Session cleanup completed`, cu numarul de sesiuni sterse, si incrementeaza metrica `sentinelcore_sessions_deleted_total`.
+
+Cu mai multi workeri uvicorn, fiecare ar rula propriul task. Stergerea este idempotenta, deci rezultatul ramane corect, dar in acel caz este preferabil `SESSION_CLEANUP_INTERVAL_MINUTES=0` si rularea din cron.
+
+### 223. Revocarea sesiunilor unui user de catre admin
+
+Endpoint nou:
+
+```http
+DELETE /admin/users/{user_id}/sessions
+```
+
+Raspuns: `200` cu `{"revoked_sessions": 2}`.
+
+Scop: deconectarea unui user de pe toate dispozitivele, de exemplu dupa o suspiciune de compromitere, fara dezactivarea contului. Userul se poate autentifica din nou imediat.
+
+Regulile sunt aceleasi ca la schimbarea statusului:
+
+| Situatie | Raspuns |
+| --- | --- |
+| Actorul nu este `admin` sau `owner` | 403, `Insufficient permissions` |
+| User inexistent | 404, `User not found` |
+| Propriul cont | 403, `Use /auth/logout-all to revoke your own sessions` |
+| Tinta este `owner` | 403, `Cannot revoke the sessions of an owner` |
+| `admin` asupra altui `admin` | 403, `Only an owner can revoke the sessions of an admin` |
+
+Regulile ierarhice sunt implementate o singura data, in `_ensure_can_manage_account()`, folosita de ambele endpoint-uri; fiecare actiune isi furnizeaza propriile mesaje.
+
+Revocarea si evenimentele sunt salvate intr-un singur commit, prin `_commit_user_change()`:
+- audit log `ALL_SESSIONS_REVOKED`
+- security event nou `USER_SESSIONS_REVOKED`, severitate `INFO`
+- mesaj: `Admin revoked 2 session(s) for user_id=5`
+
+Valoarea noua este adaugata prin migratia `c96113ce371b_add_user_sessions_revoked_security_event.py`. Migratia de sesiuni (`232fc184b0d7`) nu a fost modificata, deoarece era deja aplicata pe baza de development.
+
+### 224. Verificarea tipurilor cu Pyright
+
+Pylance verifica doar fisierele deschise in editor, deci fisierele noi nu erau verificate. Backend-ul a fost verificat integral cu Pyright, motorul pe care este construit Pylance:
+
+```bash
+npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations
+```
+
+Pyright a gasit 8 erori, inclusiv in fisiere din etape anterioare:
+- `auth.py`: `constraint_name` poate fi `None` la o eroare de unicitate
+- `session_service.py`: `rowcount` nu este declarat pe tipul `Result`; numarul de randuri este obtinut acum prin `RETURNING id`, corect si explicit
+- in teste: dictionare de parametri tipate prea larg, un `db.scalar()` care poate intoarce `None`, un mesaj de audit care poate fi `None`
+
+Dupa corecturi: `0 errors, 0 warnings`.
+
+Pyright nu ruleaza inca in CI; poate fi adaugat ca pas separat.
+
+### 225. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 184 passed
+- migratia noua: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+
+Testele noi (`tests/test_session_cleanup_and_admin_revoke.py`) acopera: stergerea doar a sesiunilor vechi, metrica si logul curatarii, continuarea task-ului periodic dupa o eroare, pornirea si oprirea task-ului in `lifespan`, comanda CLI, si endpoint-ul de admin: acces, matricea de roluri permise, evenimentele, cazul fara sesiuni active, toate restrictiile si userul inexistent.
+
+Verificare inversa: fiecare dintre urmatoarele modificari este detectata: nestergerea sesiunilor revocate, lipsa perioadei de retentie, oprirea task-ului la prima eroare, permiterea actiunii unui admin asupra altui admin. Netrimiterea anularii catre task la shutdown blocheaza oprirea aplicatiei, deci testul ramane blocat in loc sa pice.

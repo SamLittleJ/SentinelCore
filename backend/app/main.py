@@ -1,13 +1,35 @@
+import asyncio
+import contextlib
+from collections.abc import AsyncIterator
+
 from fastapi import FastAPI
 
 from app.api.middleware import observe_requests
 from app.api.routes import admin_users, audit, auth, health, metrics, security, users
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.services.session_cleanup import run_session_cleanup_periodically
 
 configure_logging(settings.log_level, settings.log_format)
 
-app = FastAPI(title="SentinelCore API", version="0.1.0")
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    cleanup_task = None
+    if settings.session_cleanup_interval_minutes > 0:
+        cleanup_task = asyncio.create_task(
+            run_session_cleanup_periodically(settings.session_cleanup_interval_minutes)
+        )
+
+    yield
+
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await cleanup_task
+
+
+app = FastAPI(title="SentinelCore API", version="0.1.0", lifespan=lifespan)
 
 app.middleware("http")(observe_requests)
 

@@ -12,6 +12,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
+from app.services.session_service import stage_revoke_all_sessions
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
@@ -156,6 +157,9 @@ def update_user_status(
     message = f"{actor.role.value.capitalize()} {action} user_id={user.id}"
 
     user.is_active = is_active
+    if not is_active:
+        # Committed together with the status change and its events.
+        stage_revoke_all_sessions(db, user.id)
 
     return _commit_user_change(
         db=db,
@@ -174,3 +178,29 @@ def update_user_status(
         message=message,
         ip_address=ip_address,
     )
+
+
+def revoke_all_user_sessions(
+    db: Session,
+    user: User,
+    actor: User,
+    ip_address: str | None = None,
+) -> int:
+    """Revoke every active session of `user` on behalf of `actor`, together
+    with the audit and security events. Returns the number revoked."""
+    revoked = stage_revoke_all_sessions(db, user.id)
+    message = (
+        f"{actor.role.value.capitalize()} revoked {revoked} session(s) "
+        f"for user_id={user.id}"
+    )
+
+    _commit_user_change(
+        db=db,
+        user=user,
+        actor=actor,
+        audit_event_type=AuditEventType.ALL_SESSIONS_REVOKED,
+        security_event_type=SecurityEventType.USER_SESSIONS_REVOKED,
+        message=message,
+        ip_address=ip_address,
+    )
+    return revoked
