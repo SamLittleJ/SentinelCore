@@ -10,7 +10,7 @@ class AuditLogRead(BaseModel):
     event_type: AuditEventType
     user_id: int | None
     email: str | None
-    message: str
+    message: str | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

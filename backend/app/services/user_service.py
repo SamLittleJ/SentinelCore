@@ -1,7 +1,8 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, verify_password
+from app.core.security import DUMMY_PASSWORD_HASH, hash_password, verify_password
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 
@@ -24,7 +25,13 @@ def create_user(db: Session, user_in: UserCreate) -> User:
         role=UserRole.USER,
     )
     db.add(user)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+
     db.refresh(user)
     return user
 
@@ -32,6 +39,7 @@ def create_user(db: Session, user_in: UserCreate) -> User:
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = get_user_by_email(db, email)
     if not user:
+        verify_password(password, DUMMY_PASSWORD_HASH)
         return None
 
     if not verify_password(password, user.hashed_password):

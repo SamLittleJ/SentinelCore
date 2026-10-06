@@ -257,7 +257,7 @@ La acest moment:
 - testele folosesc baza separată `sentinelcore_test`
 - dependența `get_db` este suprascrisă în teste
 - backend-ul are 11 teste automate validate
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale\
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale
 - backend-ul are workflow CI în GitHub Actions 
 - workflow-ul CI rulează automat la modificări relevante în `backend/**` 
 - workflow-ul poate fi rulat manual prin `workflow_dispatch` 
@@ -278,7 +278,8 @@ La acest moment:
 - workflow-ul Backend CI rulează Ruff înainte de testele pytest 
 - pipeline-ul backend este verde pentru Ruff și pytest
 - Bandit este introdus pentru scanarea de securitate a codului Python 
-- Bandit rulează local și în GitHub Actions - Gitleaks este introdus pentru scanarea secretelor în repository 
+- Bandit rulează local și în GitHub Actions 
+- Gitleaks este introdus pentru scanarea secretelor în repository 
 - Gitleaks rulează local prin Docker și în CI prin Docker 
 - Gitleaks scanează istoricul Git prin `fetch-depth: 0` 
 - false positive-ul Bandit pentru `token_type="bearer"` a fost tratat punctual cu `# nosec B106` 
@@ -301,6 +302,13 @@ La acest moment:
 - vizualizarea detaliilor unui user generează security event 
 - endpoint-ul `GET /admin/users/{user_id}` este testat automat 
 - backend-ul are 16 teste automate validate
+- Alembic vede din nou toate modelele; `alembic check` confirmă că modelele și schema DB sunt sincronizate
+- utilizatorii inactivi sunt blocați la login și pe endpoint-urile autentificate
+- login-ul are timp de răspuns egal pentru email existent și inexistent
+- register-ul tratează duplicatele simultane cu `400`, nu `500`
+- uneltele de dezvoltare sunt separate în extra-ul `dev`, iar dependențele au versiuni minime
+- repository-ul are `README.md` și `backend/README.md`
+- backend-ul are 21 de teste automate validate
 ---
 
 ## 11. Current Sprint
@@ -369,26 +377,8 @@ Standardul urmarit:
 
 ## 15. Immediate Next Step
 
-Pasul imediat dupa aceasta fundatie este continuarea Sprintului 1 prin:
+Pasul imediat este finalizarea modulului Admin User Management prin Phase 3:
 
-- configurarea conexiunii la baza de date
-- definirea modelului User
-- pregatirea pentru register / login
-
-Acestea vor fi facute etapizat, nu toate deodata.
-
----
-
-# Ce e bun in documentul asta
-
-Fixeaza:
-
-- ce este proiectul
-- ce nu este proiectul
-- de ce ai ales monorepo
-- ce intra in MVP
-- ce nu intra in MVP
-- unde esti acum
-- care e ordinea corecta
-
-Adica reduce haosul.
+- schimbarea rolului unui utilizator, permisa doar pentru `owner`
+- audit log si security event pentru schimbarea de rol
+- validare prin CI si Pull Request

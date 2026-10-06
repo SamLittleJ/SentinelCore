@@ -1,6 +1,8 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from psycopg.errors import UniqueViolation
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -18,6 +20,11 @@ from app.services.user_service import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+DUPLICATE_USER_DETAILS = {
+    "ix_users_email": "Email already registered",
+    "ix_users_username": "Username already taken",
+}
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -37,7 +44,19 @@ def register_user(
             detail="Username already taken",
         )
 
-    user = create_user(db, user_in)
+    # The checks above can race with a concurrent registration; the unique
+    # indexes are the final guard.
+    try:
+        user = create_user(db, user_in)
+    except IntegrityError as exc:
+        if not isinstance(exc.orig, UniqueViolation):
+            raise
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=DUPLICATE_USER_DETAILS.get(
+                exc.orig.diag.constraint_name, "User already exists"
+            ),
+        ) from exc
 
     create_audit_log(
         db=db,
@@ -80,6 +99,27 @@ def login_user(user_in: UserLogin, db: Annotated[Session, Depends(get_db)]) -> T
             detail="Invalid email or password",
         )
 
+    if not user.is_active:
+        create_audit_log(
+            db=db,
+            event_type=AuditEventType.LOGIN_FAILED,
+            user=user,
+            message=f"Login attempt for inactive user: {user.email}",
+        )
+
+        create_security_event(
+            db=db,
+            event_type=SecurityEventType.LOGIN_FAILED,
+            severity=SecuritySeverity.WARN,
+            user=user,
+            message=f"Login attempt for inactive user: {user.email}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user",
+        )
+
     create_audit_log(
         db=db,
         event_type=AuditEventType.LOGIN_SUCCESS,
@@ -99,5 +139,6 @@ def login_user(user_in: UserLogin, db: Annotated[Session, Depends(get_db)]) -> T
 
     return Token(
         access_token=access_token,
-        token_type="bearer",  # nosec B106 - OAuth2 token type, not a password or secret.
+        # OAuth2 token type, not a password or secret.
+        token_type="bearer",  # nosec B106
     )

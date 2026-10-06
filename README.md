@@ -1,1 +1,43 @@
+# SentinelCore
 
+Platformă API-first pentru Identity and Access Management, audit logging și monitorizarea evenimentelor de securitate (SIEM-light), construită ca monolit modular.
+
+## Structura repository-ului
+
+```text
+.
+├── backend/              # API FastAPI, modele SQLAlchemy, migrații Alembic, teste
+├── frontend/             # aplicația web (React + TypeScript + Vite), încă la stadiul de template
+├── docs/                 # documentația proiectului, pe etape
+├── .github/workflows/    # CI backend: Ruff, Bandit, pytest, Gitleaks
+└── docker-compose.yml    # PostgreSQL pentru development local
+```
+
+## Pornire rapidă
+
+Cerințe: Docker, Python 3.12+, Node.js (doar pentru frontend).
+
+```bash
+# PostgreSQL local și baza de date separată pentru teste
+docker compose up -d
+docker exec sentinelcore-postgres createdb -U sentinelcore sentinelcore_test
+
+# Backend
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+cp .env.example .env
+python -m alembic upgrade head
+python -m uvicorn app.main:app --reload
+```
+
+API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`.
+
+Detalii despre backend, teste și verificări: [backend/README.md](backend/README.md).
+
+## Documentație
+
+- [00 - Project Foundation](docs/00-project-foundation.md): scop, arhitectură, roluri, MVP și stadiul curent
+- [01 - Backend Foundation](docs/01-backend-foundation.md): jurnalul tehnic al fiecărei etape din backend
+- [02 - Decisions Log](docs/02-decisions-log.md): deciziile tehnice luate pe parcurs

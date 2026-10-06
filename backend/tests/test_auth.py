@@ -1,4 +1,14 @@
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.api.routes import auth
+from app.core.security import DUMMY_PASSWORD_HASH
+from app.models.audit_log import AuditEventType, AuditLog
+from app.models.security_event import SecurityEvent, SecurityEventType
+from app.models.user import User
+from app.services import user_service
 
 
 def test_register_creates_user(client: TestClient) -> None:
@@ -81,3 +91,112 @@ def test_login_wrong_password_returns_401(client: TestClient) -> None:
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid email or password"
+
+
+def test_login_unknown_email_returns_401_and_still_verifies_a_hash(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verified_hashes: list[str] = []
+    real_verify_password = user_service.verify_password
+
+    def spy_verify_password(password: str, hashed_password: str) -> bool:
+        verified_hashes.append(hashed_password)
+        return real_verify_password(password, hashed_password)
+
+    monkeypatch.setattr(user_service, "verify_password", spy_verify_password)
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "nobody@example.com", "password": "testpassword"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid email or password"
+    assert verified_hashes == [DUMMY_PASSWORD_HASH]
+
+
+def test_login_inactive_user_returns_403_and_records_failed_login(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    client.post(
+        "/auth/register",
+        json={
+            "username": "testuser",
+            "email": "testuser@example.com",
+            "password": "testpassword",
+        },
+    )
+    user = db_session.scalar(select(User).where(User.email == "testuser@example.com"))
+    assert user is not None
+    user.is_active = False
+    db_session.commit()
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "testuser@example.com", "password": "testpassword"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Inactive user"
+    assert "access_token" not in response.json()
+
+    expected_message = "Login attempt for inactive user: testuser@example.com"
+    audit_messages = db_session.scalars(
+        select(AuditLog.message).where(
+            AuditLog.event_type == AuditEventType.LOGIN_FAILED
+        )
+    ).all()
+    security_messages = db_session.scalars(
+        select(SecurityEvent.message).where(
+            SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED
+        )
+    ).all()
+
+    assert audit_messages == [expected_message]
+    assert security_messages == [expected_message]
+
+
+@pytest.mark.parametrize(
+    ("second_user", "expected_detail"),
+    [
+        (
+            {"username": "otheruser", "email": "testuser@example.com"},
+            "Email already registered",
+        ),
+        (
+            {"username": "testuser", "email": "other@example.com"},
+            "Username already taken",
+        ),
+    ],
+)
+def test_register_duplicate_that_passes_prechecks_returns_400(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    second_user: dict[str, str],
+    expected_detail: str,
+) -> None:
+    client.post(
+        "/auth/register",
+        json={
+            "username": "testuser",
+            "email": "testuser@example.com",
+            "password": "testpassword",
+        },
+    )
+
+    # Simulate a concurrent registration: the pre-checks see no existing user,
+    # so only the database unique indexes can reject the duplicate.
+    monkeypatch.setattr(auth, "get_user_by_email", lambda db, email: None)
+    monkeypatch.setattr(auth, "get_user_by_username", lambda db, username: None)
+
+    response = client.post(
+        "/auth/register",
+        json={**second_user, "password": "testpassword"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == expected_detail
+    assert db_session.scalar(select(func.count()).select_from(User)) == 1

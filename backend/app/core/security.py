@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -6,6 +7,10 @@ from pwdlib import PasswordHash
 from app.core.config import settings
 
 password_hash = PasswordHash.recommended()
+
+# Verified against when no user matches, so a login for an unknown email
+# costs the same hashing time as a login for an existing one.
+DUMMY_PASSWORD_HASH = password_hash.hash(secrets.token_urlsafe(32))
 
 
 def hash_password(password: str) -> str:

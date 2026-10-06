@@ -160,9 +160,9 @@ Baza de date locala a fost pornita si verificata cu succes.
 ### 10. Test de conexiune reala la baza de date
 Conexiunea reala la PostgreSQL a fost validata prin executarea unei interogari simple:
 
-'''sql
+```sql
 SELECT 1
-'''
+```
 
 Rezultatul a confirmat:
 - server PostgreSQL functional
@@ -189,9 +189,9 @@ Acest model reprezinta prima entitate centrala a sistemului SentinelCore
 
 ### 12. Crearea primei tabele in baza de date
 Tabela **users** a fost creata in PostgreSQL folosind:
-'''
+```python
 Base.metadata.create_all(bind=engine)
-'''
+```
 Crearea a fost verificate direct in PostgreSQL cu:
 - \dt
 - \d users
@@ -519,7 +519,7 @@ Scop:
 - pregatirea interfetei pentru afisarea rolului in frontend mai tarziu
 
 ### 38. Introducerea autorizarii pe rol
-Fisierul `app/api/deps.py` a fost extins cu functia `require_roles()`
+Fisierul `app/api/deps.py` a fost extins cu functia `require_role()`
 
 Aceasta:
 - primeste unul sau mai multe roluri permise
@@ -534,7 +534,7 @@ Scop:
 ### 39. Implementarea unui endpoint admin-only
 Fisierul `app/api/routes/users.py` a fost extins cu endpoint-ul:
 ```http
-GET /user/admin-only
+GET /users/admin-only
 ```
 Acesta:
 - necesita utilizator autentificat
@@ -549,7 +549,7 @@ Rezultate confirmate:
 
 Aceasta confirma:
 - functionarea corecta a dependentei `get_current_user()`
-- functionarea corecta a dependentei `require_roles()`
+- functionarea corecta a dependentei `require_role()`
 - diferentierea clara dintre autentificare si autorizare
 
 ### 41. Stare actuala a backend-ului
@@ -624,7 +624,7 @@ In etapa actuala, valorile enum-ului sunt salvate in baza de date cu numele memb
 Tabela `audit_logs` a fost creata in PostgreSQL folosind mecanismul temporar:
 
 ```
-Base.metadata.create_alll(bind=engine)
+Base.metadata.create_all(bind=engine)
 ```
 
 Pentru ca SQLAlchemy sa detecteze modelul, `AuditLog` a fost importat in `app/main.py`.
@@ -807,7 +807,7 @@ Endpoint-ul accepta paramentrul: ```limit``` pentru controlarea numarului de rez
 
 ### 56. Protejarea endpoint-ului de audit prin RBAC
 
-Endpoint-ul `GET /admin/aduit-logs` este protejat prin `require_role(...)`.
+Endpoint-ul `GET /admin/audit-logs` este protejat prin `require_role(...)`.
 
 Rolurile permise sunt:
 
@@ -838,7 +838,7 @@ In acest moment backend-ul are:
 
 - audit logs salvate in PostgreSQL
 - audit logs consultabile prin API
-- endpoint `GET /admin/aduit-logs`
+- endpoint `GET /admin/audit-logs`
 - protectie RBAC pentru acces la audit logs
 - validare functionala pentru admin si user normal
 
@@ -992,7 +992,7 @@ Endpoint-ul accepta parametrul: ```limit``` pentru limitarea numarului de evenim
 
 ### 67. Protejarea endpoint-ului de security events prin RBAC
 
-Endpoint-ul `GET /security/events` este protejat prin `require_roles(...)`.
+Endpoint-ul `GET /security/events` este protejat prin `require_role(...)`.
 
 Rolurile permise sunt:
 - `admin`
@@ -1053,7 +1053,7 @@ In acest moment backend-ul are:
 - model ORM `SecurityEvent`
 - tabelă `users`
 - tabelă `audit_logs`
-- tabelă `securityy_events`
+- tabelă `security_events`
 - hashing și verificare de parolă
 - generare și decodare JWT
 - identificarea utilizatorului curent din token
@@ -1110,13 +1110,13 @@ Aceasta configurare permite Alembic sa se conecteze la baza de date locala pentr
 
 In `migrations/env.py`, Alembic a fost conectat la metadata SQLAlchemy.
 
-A fost importat `Base`: ```from app.core.database import Base``` si au fost importate modelele principale:
+A fost importat `Base`: ```from app.core.database import Base``` si au fost importate modulele cu modelele principale:
 
+```python
+from app.models import audit_log, security_event, user  # noqa: F401
 ```
-from app.models.user import User
-from app.models.audit_log import AuditLog
-from app.models.security_event import SecurityEvent
-```
+
+Importul este necesar chiar daca modulele nu sunt folosite direct: doar importate, modelele se inregistreaza in `Base.metadata`. Fara el, `--autogenerate` vede o schema goala si ar propune stergerea tuturor tabelelor. Comentariul `# noqa: F401` impiedica Ruff sa elimine importul ca nefolosit.
 
 Apoi `target_metadata` a fost setat la: ```target_metadata = Base.metadata```.
 
@@ -1215,7 +1215,7 @@ Fisierul `pyproject.toml` a fost actualizat pentru testare.
 A fost adaugata configuratia:
 
 ```toml
-[tol.pytest.ini_options]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 ```
@@ -1432,7 +1432,7 @@ Acest test confirma ca endpoint-ul este protejat corect si nu permite acces anon
 
 A fost testat endpoint-ul:
 ```http
-GET /usres/admin-only
+GET /users/admin-only
 ```
 
 Scenarii valide:
@@ -1611,11 +1611,10 @@ on:
 
   pull_request:
     branches:
-      - mina
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
+      - main
 ```
+
+Initial, filtrul `paths` exista si pe `pull_request`. Ulterior a fost eliminat, astfel incat orice Pull Request catre `main` ruleaza CI-ul.
 
 A fost postrat si `workflow_dispatch`, pentru a permite rularea manuala a workflow-ului din interfata GitHub Actions.
 
@@ -1626,8 +1625,10 @@ Pentru ca testele backend folosesc baza de date, workflow-ul porneste automat un
 Serviciul foloseste imaginea:
 
 ```yml
-postgres: 16
+postgres:16
 ```
+
+Ulterior, imaginea a fost aliniata la `postgres:17`, aceeasi versiune folosita local in Docker Compose.
 
 Configuratia principala:
 
@@ -1807,7 +1808,7 @@ Aceasta marcheaza trecerea de la simpla rulare a testelor la un prim standard au
 In `backend/pyproject.toml` a fost adaugata dependenta:
 
 ```toml
-"ruf",
+"ruff",
 ```
 
 A fost adaugata si configuratia Ruff:
@@ -2114,7 +2115,7 @@ Possible hardcoded password: 'bearer'
 Locatia raportata era in endpoint-ul de login, la raspunsul:
 
 ```python
-return Tokne(access_token=accesss_token, token_type="bearer")
+return Token(access_token=access_token, token_type="bearer")
 ```
 
 ### 130. Tratarea false positive-ului Bandit B106
@@ -2128,7 +2129,8 @@ Rezolvarea a fost facuta punctual, prin adaugarea comentariului:
 ```python
 return Token(
   access_token = access_token,
-  token_type="bearer", # nosec B106 - OAuth2 token type, not a password or secret.
+  # OAuth2 token type, not a password or secret.
+  token_type="bearer",  # nosec B106
 )
 ```
 
@@ -2673,7 +2675,7 @@ Nu returnam `None`, nu returnam lista goala si nu ascundem eroarea.
 
 Cand un admin sau owner consulta detaliile unui user, aplicatia creeaza un audit log.
 
-Eveniment folosit: `AuditEventType.ADMIN__ENDPOINT_ACCESSED`
+Eveniment folosit: `AuditEventType.ADMIN_ENDPOINT_ACCESSED`
 
 Mesaj: `Admin viewed user details for user_id={target_user.id}`
 
@@ -2695,7 +2697,7 @@ Acest eveniment nu este incident, dar reprezinta o actiune administrativa releva
 
 ### 165. Teste automate pentru `GET /admin/users/{user_id}`
 
-Au fost adaugate teste in: `teste/test_protected_routes.py`
+Au fost adaugate teste in: `tests/test_protected_routes.py`
 
 Scenarii validate:
 - user normal -> 403 Forbidden
@@ -2803,3 +2805,81 @@ In acest moment backend-ul SentinelCore are:
 - CI verde dupa Pull Request
 
 Aceasta etapa consolideaza modulul Admin User Management si pregateste terenul pentru actiuni administrative mai sensibile, precum schimbarea rolurilor.
+## Project Cleanup
+
+### 175. Scopul etapei
+
+Inainte de continuarea dezvoltarii, proiectul a fost verificat integral si au fost corectate problemele gasite. Lucrul a fost facut pe branch separat, `chore/project-cleanup`, creat din `main`.
+
+### 176. Alembic vedea o schema goala
+
+`migrations/env.py` importa doar `Base`, nu si modulele cu modele. Un model se inregistreaza in `Base.metadata` doar cand modulul lui este importat, asa ca la rularea Alembic `Base.metadata.tables` era gol. Urmatorul `alembic revision --autogenerate` ar fi propus stergerea tuturor tabelelor.
+
+Cauza probabila: importurile au fost eliminate de Ruff ca nefolosite (`F401`).
+
+Rezolvare:
+
+```python
+from app.models import audit_log, security_event, user  # noqa: F401
+```
+
+Verificare: `python -m alembic check` -> `No new upgrade operations detected.`
+
+Testele nu puteau prinde problema, deoarece creeaza schema prin `create_all()`, nu prin migratii. `alembic check` a fost adaugat in `backend/README.md` ca verificare manuala.
+
+### 177. Utilizatori inactivi
+
+Campul `is_active` exista in model, dar nu era verificat nicaieri.
+
+Comportament nou:
+- login cu parola corecta pentru un user inactiv -> `403 Forbidden`, `Inactive user`
+- tentativa genereaza audit log si security event `LOGIN_FAILED`, severitate `WARN`
+- un token emis inainte de dezactivare este refuzat de `get_current_user()` cu `403 Inactive user`
+
+Mesajul `Inactive user` apare doar dupa verificarea parolei, deci nu dezvaluie starea contului cuiva care nu cunoaste parola.
+
+Momentan nu exista un endpoint pentru dezactivare; in teste, `is_active` este setat direct in baza de date de test.
+
+### 178. Timp de raspuns egal la login
+
+Pentru un email inexistent, `authenticate_user()` returna imediat, fara verificarea hash-ului. Pentru un email existent se calcula hash-ul Argon2, ceea ce dureaza vizibil mai mult. Diferenta de timp permitea aflarea emailurilor inregistrate.
+
+Rezolvare: in `app/core/security.py` este generat la pornire `DUMMY_PASSWORD_HASH`, dintr-o valoare aleatoare. Pentru un email inexistent, parola este verificata contra acestui hash, deci ambele cazuri costa la fel.
+
+Observatie: `POST /auth/register` raspunde in continuare cu `Email already registered`, deci existenta unui email poate fi aflata prin register. Aceasta este o limitare acceptata in etapa actuala.
+
+### 179. Inregistrari simultane
+
+Register verifica duplicatele inainte de insert. Doua request-uri simultane cu acelasi email puteau trece ambele de verificare, iar al doilea primea `500 Internal Server Error` de la indexul unic din PostgreSQL.
+
+Rezolvare:
+- `create_user()` face `rollback` daca `commit` esueaza
+- endpoint-ul prinde `IntegrityError` de tip `UniqueViolation` si raspunde cu `400`
+- mesajul este ales dupa indexul incalcat: `ix_users_email` -> `Email already registered`, `ix_users_username` -> `Username already taken`
+
+Testul simuleaza cursa dezactivand verificarile prealabile prin `monkeypatch`, astfel incat doar indexurile unice pot respinge duplicatul.
+
+### 180. Dependente si alte corecturi
+
+- uneltele de dezvoltare (`pytest`, `httpx`, `ruff`, `bandit`) au fost mutate in `[project.optional-dependencies] dev`
+- instalarea pentru dezvoltare si CI devine `python -m pip install -e ".[dev]"`
+- dependentele au limite minime egale cu versiunile validate local
+- `ruff` este fixat exact (`ruff==0.15.17`), deoarece versiunile noi pot schimba formatarea sau adauga reguli si ar putea pica CI-ul fara modificari de cod
+- dependenta duplicata `pwdlib` / `pwdlib[argon2]` a fost redusa la `pwdlib[argon2]`
+- CI-ul foloseste `postgres:17`, aceeasi versiune ca Docker Compose
+- explicatia pentru `# nosec B106` a fost mutata pe randul anterior; Bandit interpreta textul de dupa `nosec` ca ID-uri de reguli si emitea warning-uri
+- `AuditLogRead.message` accepta `None`, la fel ca coloana din baza de date
+- adnotarile `Mapped[DateTime]` au devenit `Mapped[datetime]`
+- typo-uri corectate in `.env.example` (`postgresql+psycopg://`) si `.gitignore` (`__pycache__/`)
+- documentatia a fost aliniata cu codul (`require_role()`, rute, configuratia CI)
+- au fost scrise `README.md` si `backend/README.md`
+
+### 181. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified, fara warning-uri
+- alembic check -> No new upgrade operations detected
+- pytest -> 21 passed
+
+Testele noi au fost verificate si invers: cu reparatiile dezactivate temporar, toate cele 5 teste noi pica.

@@ -1,8 +1,8 @@
-- monorepor in loc de doua repo-uri
+- monorepo in loc de doua repo-uri
 - modular monolith in loc de microservicii
 - web-first in MVP
 - venv separat in backend
-- rulare backend cu `python -m uvicorn`w
+- rulare backend cu `python -m uvicorn`
 - configuratia backend-ului este centralizata prin `app/core/config.py` folosing `pydantic-settings`
 - baza de date locala pentru development ruleaza cu Docker Compose folosind PostgreSQL
 - SQLAlchemy este folosit ca fundatie ORM
@@ -23,7 +23,7 @@
 - MVP-ul RBAC foloseste un camp `role` in modelul `User`.
 - Rolurile sunt definite prin enum-ul `UserRole`.
 - Rolul implicit la register este `user`.
-- Autorizarea pe rol se face prin dependenta `require_roles()`.
+- Autorizarea pe rol se face prin dependenta `require_role()`.
 - Endpoint-urile protejate pe rol returneaza `403 Forbidden` cand utilizatorul nu are permisiunea necesara.
 - Endpoint-ul `GET /users/admin-only` este folosit pentru validarea fundatiei RBAC.
 - Modificarile de schema locale sunt inca validate prin reset local si `create_all()`, nu prin migratii Alembic.
@@ -94,9 +94,9 @@
 - A fost introdus workflow-ul `Backend CI` în GitHub Actions. 
 - Workflow-ul este definit în `.github/workflows/backend-ci.yml`. 
 - CI-ul rulează automat la `push` și `pull_request` pe branch-ul `main`. 
-- Trigger-ul este limitat prin `paths` la modificări în `backend/**` și `.github/workflows/backend-ci.yml`. 
+- Pentru `push`, trigger-ul este limitat prin `paths` la modificări în `backend/**` și `.github/workflows/backend-ci.yml`; pentru `pull_request`, filtrul `paths` a fost eliminat. 
 - A fost păstrat `workflow_dispatch` pentru rulare manuală din GitHub Actions. 
-- Workflow-ul pornește un serviciu PostgreSQL folosind imaginea `postgres:16`. 
+- Workflow-ul pornește un serviciu PostgreSQL folosind imaginea `postgres:17`, aceeasi versiune ca in Docker Compose. 
 - Baza de date folosită în CI este `sentinelcore_test`. 
 - Variabila `TEST_DATABASE_URL` indică explicit către baza de date de test. 
 - Variabila `DATABASE_URL` este setată în CI pentru ca aplicația să se poată importa corect. 
@@ -175,4 +175,12 @@
 - Vizualizarea detaliilor unui user generează security event cu severitate `INFO`. 
 - Endpoint-ul este testat pentru user normal, user admin și user inexistent. 
 - Numărul testelor backend a crescut de la 13 la 16. 
-- Implementarea a fost făcută pe branch separat și validată prin Pull Request.
+- Implementarea a fost făcută pe branch separat și validată prin Pull Request.- `migrations/env.py` importă explicit modulele cu modele, cu `# noqa: F401`, pentru ca `--autogenerate` să vadă schema completă.
+- `python -m alembic check` este folosit pentru a verifica sincronizarea dintre modele și schema DB.
+- Utilizatorii cu `is_active = False` primesc `403 Inactive user` la login și pe orice endpoint autentificat.
+- Login-ul pentru un user inactiv este înregistrat ca `LOGIN_FAILED`, cu severitate `WARN`.
+- Pentru un email inexistent, login-ul verifică parola contra unui hash fictiv, ca timpul de răspuns să nu dezvăluie existența contului.
+- Duplicatele la register sunt prinse și la nivel de index unic; `UniqueViolation` este transformat în `400`, nu `500`.
+- Uneltele de dezvoltare sunt în extra-ul `dev`; instalarea pentru development și CI este `pip install -e ".[dev]"`.
+- Dependențele au limite minime; `ruff` este fixat exact pentru a evita schimbări neașteptate în CI.
+- CI-ul și Docker Compose folosesc aceeași versiune PostgreSQL, `postgres:17`.

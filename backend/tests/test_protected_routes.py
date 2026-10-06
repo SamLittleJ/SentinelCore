@@ -69,6 +69,27 @@ def test_users_me_without_token_returns_401(client: TestClient) -> None:
     assert response.status_code == 401
 
 
+def test_users_me_with_token_of_deactivated_user_returns_403(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    register_user(client)
+    token = login_user(client)
+
+    user = db_session.scalar(select(User).where(User.email == "test@example.com"))
+    assert user is not None
+    user.is_active = False
+    db_session.commit()
+
+    response = client.get(
+        "/users/me",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Inactive user"
+
+
 def test_admin_only_with_regular_user_returns_403(client: TestClient) -> None:
     register_user(client)
     token = login_user(client)
