@@ -16,6 +16,7 @@ def create_security_event(
     message: str,
     user: User | None = None,
     email: str | None = None,
+    ip_address: str | None = None,
     source: str = "backend",
 ) -> SecurityEvent:
     security_event = SecurityEvent(
@@ -23,6 +24,7 @@ def create_security_event(
         severity=severity,
         user_id=user.id if user else None,
         email=email if email else (user.email if user else None),
+        ip_address=ip_address,
         source=source,
         message=message,
     )

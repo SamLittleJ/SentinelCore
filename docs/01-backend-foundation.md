@@ -3116,3 +3116,104 @@ python -m alembic upgrade head
 Testele noi acopera: fiecare regula respinsa cu `422`, valorile-limita acceptate, salvarea lowercase, duplicatele care difera doar prin litere mari/mici, login case-insensitive, parola prea lunga la login si login-ul unui cont cu parola mai scurta decat politica noua.
 
 Verificare inversa: cu schemele anterioare, 12 din cele 19 teste noi pica. Celelalte 7 confirma ca regulile nu sunt prea stricte si trec in ambele variante.
+
+## Brute-Force Detection - Phase 1
+
+### 192. Scopul etapei
+
+Pana acum, login-urile esuate erau inregistrate ca `LOGIN_FAILED` cu severitate `WARN`, dar nimic nu reactiona la ele. Un atacator putea incerca parole nelimitat.
+
+Aceasta etapa introduce prima detectie reala din zona SIEM-light: prea multe esecuri pentru acelasi email genereaza un incident si blocheaza temporar login-ul. Este prima utilizare a severitatii `INCIDENT`.
+
+### 193. Reguli
+
+Valorile implicite, configurabile din `.env`:
+
+```env
+LOGIN_MAX_FAILED_ATTEMPTS=5
+LOGIN_FAILURE_WINDOW_MINUTES=15
+LOGIN_LOCKOUT_MINUTES=15
+```
+
+- la al 5-lea esec in 15 minute pentru acelasi email, login-ul pe acel email este blocat 15 minute
+- incercarea care atinge pragul primeste deja `429 Too Many Requests`
+- in timpul blocarii, orice incercare primeste `429`, chiar si cu parola corecta
+- raspunsul contine header-ul `Retry-After` cu secundele ramase
+- in timpul blocarii, parola nu este verificata deloc, astfel incat incercarile nu ofera nicio informatie
+- un login reusit reseteaza numaratoarea
+- dupa expirarea unei blocari, esecurile anterioare ei nu mai sunt numarate
+- emailurile inexistente sunt blocate identic, deci blocarea nu dezvaluie existenta unui cont
+- login-urile esuate ale unui cont inactiv sunt numarate la fel
+
+Dezavantaj cunoscut: un atacator poate bloca temporar contul unei victime trimitand parole gresite. Blocarea este temporara, iar varianta pe email a fost aleasa constient, in locul blocarii pe email + IP, care ar fi fost ocolita de un atacator cu mai multe IP-uri.
+
+### 194. Starea este derivata din security events
+
+Nu exista tabela sau coloana separata pentru numararea esecurilor. Serviciul `app/services/login_protection_service.py` foloseste evenimentele deja inregistrate:
+- numarul de esecuri = `LOGIN_FAILED` pentru email, dupa cel mai recent dintre: inceputul ferestrei, ultimul `LOGIN_SUCCESS`, ultimul `BRUTE_FORCE_DETECTED`
+- blocarea este activa daca ultimul `BRUTE_FORCE_DETECTED` este mai recent decat durata de blocare
+
+Timpul este citit din baza de date (`SELECT now()`), acelasi ceas care completeaza `created_at`, astfel incat comparatiile nu amesteca ceasul aplicatiei cu cel al bazei de date.
+
+Pentru aceste interogari a fost adaugat indexul compus `ix_security_events_email_type_created` pe `(email, event_type, created_at)`.
+
+### 195. Evenimente noi
+
+| Situatie | Audit log | Security event | Severitate |
+| --- | --- | --- | --- |
+| Pragul este atins | `LOGIN_LOCKED` | `BRUTE_FORCE_DETECTED` | `INCIDENT` |
+| Incercare in timpul blocarii | `LOGIN_BLOCKED` | `LOGIN_BLOCKED` | `WARN` |
+
+Denumirile urmeaza separarea existenta: audit log-ul descrie faptul (login blocat), iar security event-ul interpretarea (atac brute-force detectat).
+
+Incidentul este legat de contul atacat prin `user_id` atunci cand contul exista, chiar daca incercarile nu l-au autentificat.
+
+### 196. Adresa IP in evenimente
+
+Tabelele `audit_logs` si `security_events` au acum coloana `ip_address` (`String(45)`, suficient pentru IPv6). Toate evenimentele inregistreaza IP-ul clientului: register, login, endpoint-urile administrative si schimbarile de rol/status.
+
+IP-ul este obtinut prin dependenta `get_client_ip()` din `app/api/deps.py`, din `request.client.host`. Valorile care nu sunt adrese IP valide sunt salvate ca `NULL` (de exemplu `testclient` in teste).
+
+Header-ul `X-Forwarded-For` nu este citit direct, deoarece poate fi falsificat de client. Daca aplicatia ruleaza in spatele unui reverse proxy, uvicorn trebuie pornit cu `--proxy-headers` si `--forwarded-allow-ips`, iar `request.client` va contine IP-ul real.
+
+`AuditLogRead` si `SecurityEventRead` expun campul `ip_address`.
+
+IP-ul pregateste o detectie viitoare: multe emailuri diferite incercate de pe acelasi IP (password spraying).
+
+### 197. Migratia
+
+Migratia `449c22b3652c_add_login_protection_events_and_ip_.py`:
+- adauga valorile noi in `audit_event_types` si `security_event_types`
+- adauga coloana `ip_address` in ambele tabele
+- creeaza indexul compus
+
+Downgrade-ul sterge indexul si coloanele, remapeaza randurile cu tipurile noi la `LOGIN_FAILED` si recreeaza tipurile enum fara valorile noi.
+
+Verificare pe baza temporara: `upgrade`, `alembic check`, randuri cu valorile noi, `downgrade`, din nou `upgrade` si `alembic check`.
+
+### 198. Problema intalnita in teste: prepared statements
+
+Dupa adaugarea noilor interogari, doua teste picau intermitent cu:
+
+```
+cache lookup failed for type ...
+```
+
+Cauza: psycopg pregateste pe server (prepared statement) o interogare executata de cel putin 5 ori pe aceeasi conexiune. Interogarea ramane legata de identificatorul intern (OID) al tipului enum. Fixture-ul de test recreeaza schema la fiecare test, deci tipurile enum primesc OID-uri noi, iar conexiunile refolosite din pool pastrau interogari legate de tipuri sterse.
+
+Rezolvare: in `tests/conftest.py`, dupa recrearea schemei, este apelat `test_engine.dispose()`, astfel incat fiecare test porneste pe conexiuni noi.
+
+Problema apare doar in teste, deoarece aplicatia reala nu recreeaza tipurile enum in timp ce ruleaza.
+
+### 199. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 86 passed
+
+Testele noi (`tests/test_login_protection.py`) acopera: atingerea pragului si incidentul, refuzul parolei corecte in timpul blocarii fara verificarea ei, blocarea emailurilor inexistente, expirarea blocarii, fereastra de timp, resetarea dupa login reusit, ignorarea esecurilor dinaintea unei blocari expirate, izolarea pe email, pragurile din configurare, inregistrarea IP-ului (IPv4 si IPv6) si expunerea lui prin API.
+
+Timpul scurs este simulat prin mutarea `created_at` al evenimentelor in trecut.
+
+Verificare inversa: fara verificarea blocarii pica 3 teste, fara prag pica 6, iar fara resetarea dupa login reusit / blocare pica 2.

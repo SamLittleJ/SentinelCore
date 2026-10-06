@@ -31,6 +31,18 @@ python -m uvicorn app.main:app --reload
 
 `.[dev]` instalează și uneltele de dezvoltare: pytest, httpx, Ruff și Bandit. Pentru rularea aplicației este suficient `python -m pip install -e .`.
 
+## Protecție la brute-force
+
+Login-urile eșuate repetate pentru același email blochează temporar login-ul pe acel email. Pragurile sunt configurabile în `.env`:
+
+```env
+LOGIN_MAX_FAILED_ATTEMPTS=5
+LOGIN_FAILURE_WINDOW_MINUTES=15
+LOGIN_LOCKOUT_MINUTES=15
+```
+
+În spatele unui reverse proxy, pornește uvicorn cu `--proxy-headers --forwarded-allow-ips=<IP-ul proxy-ului>`, altfel toate evenimentele vor înregistra IP-ul proxy-ului.
+
 ## Migrații
 
 ```bash

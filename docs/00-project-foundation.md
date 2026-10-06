@@ -325,6 +325,9 @@ La acest moment:
 - input-ul de register și login este validat: lungimi și caractere pentru username, parolă de 12-128 caractere
 - emailurile și username-urile sunt tratate fără diferență între litere mari și mici
 - backend-ul are 74 de teste automate validate
+- prima detecție SIEM-light este implementată: login-urile eșuate repetate pe același email generează un incident `BRUTE_FORCE_DETECTED` și blochează temporar login-ul
+- audit logs și security events înregistrează adresa IP a clientului
+- backend-ul are 86 de teste automate validate
 ---
 
 ## 11. Current Sprint

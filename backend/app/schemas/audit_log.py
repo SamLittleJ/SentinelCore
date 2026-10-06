@@ -10,6 +10,7 @@ class AuditLogRead(BaseModel):
     event_type: AuditEventType
     user_id: int | None
     email: str | None
+    ip_address: str | None
     message: str | None
     created_at: datetime
 

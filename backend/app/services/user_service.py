@@ -75,6 +75,7 @@ def _commit_user_change(
     audit_event_type: AuditEventType,
     security_event_type: SecurityEventType,
     message: str,
+    ip_address: str | None,
 ) -> User:
     """Commit a staged change to `user` together with its audit and security
     events, so either all three are stored or none are."""
@@ -84,6 +85,7 @@ def _commit_user_change(
                 event_type=audit_event_type,
                 user_id=actor.id,
                 email=actor.email,
+                ip_address=ip_address,
                 message=message,
             ),
             SecurityEvent(
@@ -91,6 +93,7 @@ def _commit_user_change(
                 severity=SecuritySeverity.INFO,
                 user_id=actor.id,
                 email=actor.email,
+                ip_address=ip_address,
                 source="backend",
                 message=message,
             ),
@@ -112,6 +115,7 @@ def update_user_role(
     user: User,
     new_role: UserRole,
     actor: User,
+    ip_address: str | None = None,
 ) -> User:
     previous_role = user.role
 
@@ -132,6 +136,7 @@ def update_user_role(
         audit_event_type=AuditEventType.USER_ROLE_CHANGED,
         security_event_type=SecurityEventType.USER_ROLE_CHANGED,
         message=message,
+        ip_address=ip_address,
     )
 
 
@@ -140,6 +145,7 @@ def update_user_status(
     user: User,
     is_active: bool,
     actor: User,
+    ip_address: str | None = None,
 ) -> User:
     if user.is_active == is_active:
         return user  # No change needed
@@ -164,4 +170,5 @@ def update_user_status(
             else SecurityEventType.USER_DEACTIVATED
         ),
         message=message,
+        ip_address=ip_address,
     )

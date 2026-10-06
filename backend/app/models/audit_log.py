@@ -15,6 +15,8 @@ class AuditEventType(StrEnum):
     USER_ROLE_CHANGED = "user_role_changed"
     USER_ACTIVATED = "user_activated"
     USER_DEACTIVATED = "user_deactivated"
+    LOGIN_LOCKED = "login_locked"
+    LOGIN_BLOCKED = "login_blocked"
 
 
 class AuditLog(Base):
@@ -30,6 +32,7 @@ class AuditLog(Base):
         nullable=True,
     )
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

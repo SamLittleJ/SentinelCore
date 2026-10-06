@@ -29,6 +29,10 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_
 def db_session() -> Generator[Session]:
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
+    # Recreating the schema gives enum types new OIDs. Pooled connections may
+    # hold server-side prepared statements bound to the old ones, so start
+    # each test on fresh connections.
+    test_engine.dispose()
 
     db = TestingSessionLocal()
 

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, require_role
+from app.api.deps import get_client_ip, get_db, require_role
 from app.models.audit_log import AuditEventType
 from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 @router.get("", response_model=list[UserRead])
 def read_users(
     db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[
         User,
         Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
@@ -32,6 +33,7 @@ def read_users(
 ) -> list[User]:
     create_audit_log(
         db=db,
+        ip_address=client_ip,
         user=current_user,
         event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
         message="Admin listed users",
@@ -39,6 +41,7 @@ def read_users(
 
     create_security_event(
         db=db,
+        ip_address=client_ip,
         user=current_user,
         event_type=SecurityEventType.ADMIN_ACCESS,
         severity=SecuritySeverity.INFO,
@@ -52,6 +55,7 @@ def read_users(
 def read_user_by_id(
     user_id: int,
     db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[
         User,
         Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
@@ -67,6 +71,7 @@ def read_user_by_id(
 
     create_audit_log(
         db=db,
+        ip_address=client_ip,
         user=current_user,
         event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
         message=f"Admin viewed user details for user_id={target_user.id}",
@@ -74,6 +79,7 @@ def read_user_by_id(
 
     create_security_event(
         db=db,
+        ip_address=client_ip,
         user=current_user,
         event_type=SecurityEventType.ADMIN_ACCESS,
         severity=SecuritySeverity.INFO,
@@ -88,6 +94,7 @@ def change_user_role(
     user_id: int,
     role_in: UserRoleUpdate,
     db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[
         User,
         Depends(require_role(UserRole.OWNER)),
@@ -121,6 +128,7 @@ def change_user_role(
 
     return update_user_role(
         db=db,
+        ip_address=client_ip,
         user=target_user,
         new_role=role_in.role,
         actor=current_user,
@@ -132,6 +140,7 @@ def change_user_status(
     user_id: int,
     status_in: UserStatusUpdate,
     db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[
         User,
         Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
@@ -165,6 +174,7 @@ def change_user_status(
 
     return update_user_status(
         db=db,
+        ip_address=client_ip,
         user=target_user,
         is_active=status_in.is_active,
         actor=current_user,

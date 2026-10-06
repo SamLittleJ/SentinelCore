@@ -1,7 +1,8 @@
+import ipaddress
 from collections.abc import Callable, Generator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import InvalidTokenError
 from sqlalchemy.orm import Session
@@ -20,6 +21,21 @@ def get_db() -> Generator:
         yield db
     finally:
         db.close()
+
+
+def get_client_ip(request: Request) -> str | None:
+    """Return the client's IP address, or None if it is not a valid IP.
+
+    Behind a reverse proxy, run uvicorn with --proxy-headers and
+    --forwarded-allow-ips so request.client reflects the real client.
+    """
+    if request.client is None:
+        return None
+
+    try:
+        return str(ipaddress.ip_address(request.client.host))
+    except ValueError:
+        return None
 
 
 def get_current_user(

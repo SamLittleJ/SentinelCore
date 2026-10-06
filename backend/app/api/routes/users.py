@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db, require_role
+from app.api.deps import get_client_ip, get_current_user, get_db, require_role
 from app.models.audit_log import AuditEventType
 from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
@@ -24,12 +24,14 @@ def read_current_user(
 @router.get("/admin-only")
 def read_admin_only(
     db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[
         User, Depends(require_role(UserRole.ADMIN, UserRole.OWNER))
     ],
 ) -> dict:
     create_audit_log(
         db=db,
+        ip_address=client_ip,
         event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
         user=current_user,
         message=f"Admin endpoint accessed by user: {current_user.email}",
@@ -37,6 +39,7 @@ def read_admin_only(
 
     create_security_event(
         db=db,
+        ip_address=client_ip,
         event_type=SecurityEventType.ADMIN_ACCESS,
         severity=SecuritySeverity.INFO,
         user=current_user,

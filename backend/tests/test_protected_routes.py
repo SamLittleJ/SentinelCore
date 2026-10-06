@@ -756,14 +756,35 @@ def test_change_user_status_updates_target_and_records_events(
 
 
 @pytest.mark.parametrize(
-    ("actor_role", "target", "expected_detail"),
+    ("actor_role", "target_is_actor", "target_role", "expected_detail"),
     [
-        (UserRole.ADMIN, "self", "Users cannot change their own status"),
-        (UserRole.OWNER, "self", "Users cannot change their own status"),
-        (UserRole.ADMIN, UserRole.OWNER, "Cannot change the status of an owner"),
-        (UserRole.OWNER, UserRole.OWNER, "Cannot change the status of an owner"),
         (
             UserRole.ADMIN,
+            True,
+            UserRole.ADMIN,
+            "Users cannot change their own status",
+        ),
+        (
+            UserRole.OWNER,
+            True,
+            UserRole.OWNER,
+            "Users cannot change their own status",
+        ),
+        (
+            UserRole.ADMIN,
+            False,
+            UserRole.OWNER,
+            "Cannot change the status of an owner",
+        ),
+        (
+            UserRole.OWNER,
+            False,
+            UserRole.OWNER,
+            "Cannot change the status of an owner",
+        ),
+        (
+            UserRole.ADMIN,
+            False,
             UserRole.ADMIN,
             "Only an owner can change the status of an admin",
         ),
@@ -773,14 +794,15 @@ def test_change_user_status_restrictions_leave_target_unchanged(
     client: TestClient,
     db_session: Session,
     actor_role: UserRole,
-    target: UserRole | str,
+    target_is_actor: bool,
+    target_role: UserRole,
     expected_detail: str,
 ) -> None:
     actor_id = create_user_with_role(client, db_session, "actor", actor_role)
-    if target == "self":
+    if target_is_actor:
         target_id = actor_id
     else:
-        target_id = create_user_with_role(client, db_session, "target", target)
+        target_id = create_user_with_role(client, db_session, "target", target_role)
     token = login_user(client, email="actor@example.com")
 
     response = client.patch(

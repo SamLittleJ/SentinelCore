@@ -208,3 +208,14 @@
 - Login-ul limitează parola doar la maximum 128 caractere, pentru compatibilitate cu conturile existente.
 - Regulile de input sunt definite ca tipuri `Annotated` reutilizabile în `app/schemas/user.py`.
 - Emailurile și username-urile existente sunt aduse la litere mici prin migrație; conflictele opresc migrația și se rezolvă manual.
+- Brute-force detection: 5 login-uri eșuate în 15 minute pentru același email blochează login-ul pe acel email timp de 15 minute; valorile sunt configurabile din `.env`.
+- Blocarea este pe email, nu pe email + IP, pentru a nu fi ocolită prin schimbarea IP-ului; riscul de blocare temporară a unei victime este acceptat.
+- În timpul blocării, răspunsul este `429` cu `Retry-After`, iar parola nu este verificată.
+- Emailurile inexistente sunt blocate identic, pentru a nu dezvălui existența conturilor.
+- Starea blocării este derivată din `security_events`, fără tabele sau coloane separate.
+- Comparațiile de timp pentru blocare folosesc ceasul bazei de date.
+- Incidentul folosește `BRUTE_FORCE_DETECTED` cu severitate `INCIDENT`; audit log-ul folosește `LOGIN_LOCKED`.
+- Încercările din timpul blocării sunt înregistrate ca `LOGIN_BLOCKED`, cu severitate `WARN`.
+- Toate audit logs și security events înregistrează `ip_address`, din `request.client.host`; `X-Forwarded-For` nu este citit direct.
+- În spatele unui reverse proxy, IP-ul real se obține prin `--proxy-headers` și `--forwarded-allow-ips` în uvicorn.
+- În teste, conexiunile sunt recreate după recrearea schemei, pentru a evita prepared statements legate de tipuri enum șterse.

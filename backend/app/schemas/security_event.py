@@ -11,6 +11,7 @@ class SecurityEventRead(BaseModel):
     severity: SecuritySeverity
     user_id: int | None
     email: str | None
+    ip_address: str | None
     source: str
     message: str
     created_at: datetime
