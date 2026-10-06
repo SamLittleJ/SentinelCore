@@ -10,7 +10,7 @@ type SectionTitleKey = 'nav.securityEvents' | 'nav.auditLog' | 'nav.users'
 export function PlaceholderPage({ title }: { title: SectionTitleKey }) {
   const { t } = useTranslation()
   return (
-    <div className="flex max-w-3xl flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <h1 className="text-xl font-semibold">{t(title)}</h1>
       <p className="text-muted-foreground">{t('placeholder.body')}</p>
     </div>
@@ -20,7 +20,7 @@ export function PlaceholderPage({ title }: { title: SectionTitleKey }) {
 export function OrganizationOverviewPage() {
   const { t } = useTranslation()
   return (
-    <div className="flex max-w-3xl flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <h1 className="text-xl font-semibold">{t('orgOverview.title')}</h1>
       <p className="text-muted-foreground">{t('orgOverview.subtitle')}</p>
       <p className="text-muted-foreground">{t('placeholder.body')}</p>

@@ -37,7 +37,7 @@ export function MyOverviewPage() {
   ]
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold text-balance">
         {t('overview.greeting', { name: user.username })}
       </h1>

@@ -190,3 +190,9 @@ Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit:
 Optiunea `baseUrl` a fost scoasa din `tsconfig.json` si `tsconfig.app.json`: TypeScript 6, folosit de VS Code, o marca drept depreciata (eroare), iar din TypeScript 4.1 alias-ul `@/*` din `paths` functioneaza si fara ea. Proiectul a fost verificat atat cu TypeScript 5.9, cat si cu TypeScript 6.
 
 Bundle-ul JavaScript are aproximativ 564 KB. Impartirea lui pe pagini ramane pentru etapa 3, cand vor exista paginile perspectivei Organizatia.
+
+### 19. Ajustare de layout: continut centrat
+
+Pe monitoare late, continutul statea lipit de bara laterala, iar jumatatea dreapta a ecranului ramanea goala. Acum toate paginile sunt intr-o singura coloana de cel mult 1024 px (`max-w-5xl`), centrata in spatiul de langa bara laterala. Latimea este aceeasi pe toate paginile, ca titlul sa nu-si schimbe pozitia la navigare; paginile nu mai au latimi proprii.
+
+Spatiul de deasupra continutului a crescut la 48 px pe ecrane mari (32 px pe telefon), iar cel de jos la 48 px.
