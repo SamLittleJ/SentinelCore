@@ -3050,3 +3050,69 @@ A fost adaugat testul de esec al tranzactiei, ramas in asteptare din Phase 3, pe
 - pytest -> 55 passed
 
 Testele noi acopera: lipsa token-ului, roluri fara drept de acces, matricea de schimbari permise, toate restrictiile, user inexistent, valori non-boolean, status neschimbat, esecul tranzactiei si pierderea imediata a accesului pentru un cont dezactivat.
+
+## Input Validation - Phase 1
+
+### 188. Problema
+
+Schemele de input acceptau orice string:
+- un username mai lung de 50 de caractere ajungea in PostgreSQL, depasea coloana `String(50)` si producea `500 Internal Server Error`
+- username-ul si parola goale erau acceptate cu `201 Created`
+- `Test@x.com` si `test@x.com` puteau fi conturi diferite, la fel `Admin` si `admin`
+
+### 189. Reguli introduse
+
+Regulile sunt definite in `app/schemas/user.py`, ca tipuri reutilizabile cu `Annotated`.
+
+**Username** (`Username`):
+- 3-50 caractere; 50 corespunde coloanei `users.username`
+- doar litere ASCII, cifre, `_`, `.` si `-`
+- transformat in litere mici, astfel incat `Admin` si `admin` nu pot coexista
+
+**Email** (`NormalizedEmail`):
+- validat de `EmailStr`
+- transformat in litere mici, la register si la login
+
+**Parola la register** (`NewPassword`):
+- minimum 12 caractere
+- maximum 128 caractere, pentru a limita costul hashing-ului Argon2 pe request
+- fara reguli de compozitie (majuscule, simboluri), conform recomandarilor NIST si OWASP
+
+**Parola la login** (`LoginPassword`):
+- doar maximum 128 caractere
+- fara minimum, pentru ca un cont creat inainte de politica noua sa se poata autentifica
+
+Input-ul invalid este respins cu `422`, inainte de orice acces la baza de date.
+
+Observatie: in Pydantic, `pattern` este verificat pe valoarea primita, inainte de `to_lower`. De aceea pattern-ul accepta si majuscule (`^[A-Za-z0-9_.-]+$`), iar valoarea salvata este oricum lowercase.
+
+### 190. Migratia pentru datele existente
+
+Dupa normalizarea input-ului, un cont existent salvat ca `Test@x.com` nu ar mai fi fost gasit la login, deoarece cautarea se face dupa `test@x.com`.
+
+Migratia `7242f1f7b69b_lowercase_user_emails_and_usernames.py` transforma `users.email` si `users.username` in litere mici.
+
+Daca doua conturi ar deveni identice, de exemplu `Dup@x.com` si `dup@x.com`, migratia se opreste cu un mesaj care listeaza valorile in conflict. Tranzactia este anulata, datele raman neatinse, iar baza ramane la versiunea anterioara. Conflictele trebuie rezolvate manual, deoarece unirea automata a doua conturi nu este sigura.
+
+Downgrade-ul nu modifica datele: forma originala nu este salvata, iar valorile lowercase raman valide si in revizia anterioara.
+
+Username-urile existente care nu respecta noile reguli nu sunt modificate. Login-ul se face dupa email, deci aceste conturi raman utilizabile.
+
+Migratia a fost verificata pe o baza temporara: date mixed-case, `downgrade -> upgrade` si cazul de conflict.
+
+Aplicare locala:
+
+```bash
+python -m alembic upgrade head
+```
+
+### 191. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 74 passed
+
+Testele noi acopera: fiecare regula respinsa cu `422`, valorile-limita acceptate, salvarea lowercase, duplicatele care difera doar prin litere mari/mici, login case-insensitive, parola prea lunga la login si login-ul unui cont cu parola mai scurta decat politica noua.
+
+Verificare inversa: cu schemele anterioare, 12 din cele 19 teste noi pica. Celelalte 7 confirma ca regulile nu sunt prea stricte si trec in ambele variante.

@@ -322,6 +322,9 @@ La acest moment:
 - prima migrație Alembic după schema inițială adaugă noile tipuri de evenimente
 - testul de eșec al tranzacției, rămas din Phase 3, este implementat
 - backend-ul are 55 de teste automate validate
+- input-ul de register și login este validat: lungimi și caractere pentru username, parolă de 12-128 caractere
+- emailurile și username-urile sunt tratate fără diferență între litere mari și mici
+- backend-ul are 74 de teste automate validate
 ---
 
 ## 11. Current Sprint

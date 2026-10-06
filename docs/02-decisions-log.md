@@ -202,3 +202,9 @@
 - Valorile noi de enum sunt adăugate prin migrații scrise manual; `--autogenerate` nu detectează modificări ale valorilor unui enum.
 - Downgrade-ul pentru valori de enum recreează tipul PostgreSQL și remapează rândurile la tipurile generice anterioare.
 - Modificarea userului și evenimentele asociate sunt salvate printr-un singur commit, prin `_commit_user_change()`.
+- Username-ul are 3-50 caractere, doar `A-Z`, `a-z`, `0-9`, `_`, `.`, `-`, și este salvat în litere mici.
+- Email-ul este salvat și căutat în litere mici.
+- Parola la register are 12-128 caractere, fără reguli de compoziție.
+- Login-ul limitează parola doar la maximum 128 caractere, pentru compatibilitate cu conturile existente.
+- Regulile de input sunt definite ca tipuri `Annotated` reutilizabile în `app/schemas/user.py`.
+- Emailurile și username-urile existente sunt aduse la litere mici prin migrație; conflictele opresc migrația și se rezolvă manual.
