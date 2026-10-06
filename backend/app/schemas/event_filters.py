@@ -14,18 +14,13 @@ DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
 
 
-class EventFilters(BaseModel):
-    """Query filters shared by audit logs and security events."""
+class EventPageFilters(BaseModel):
+    """Time range and cursor shared by every event listing."""
 
     # Reject unknown query parameters, so a mistyped filter fails loudly
     # instead of silently returning unfiltered results.
     model_config = ConfigDict(extra="forbid")
 
-    user_id: int | None = None
-    email: Annotated[str, StringConstraints(to_lower=True, max_length=255)] | None = (
-        None
-    )
-    ip_address: IPvAnyAddress | None = None
     # Half-open interval: since <= created_at < until.
     since: AwareDatetime | None = None
     until: AwareDatetime | None = None
@@ -44,3 +39,13 @@ class EventFilters(BaseModel):
         if not used:
             return "no filters"
         return ", ".join(f"{name}={value}" for name, value in sorted(used.items()))
+
+
+class EventFilters(EventPageFilters):
+    """Query filters shared by audit logs and security events."""
+
+    user_id: int | None = None
+    email: Annotated[str, StringConstraints(to_lower=True, max_length=255)] | None = (
+        None
+    )
+    ip_address: IPvAnyAddress | None = None

@@ -3,7 +3,9 @@ import { Navigate, type RouteObject } from 'react-router'
 import { AppShell } from '@/components/layout/AppShell'
 import { RequireAuth, RequireOrganizationAccess } from '@/features/auth/guards'
 import { LoginPage } from '@/pages/LoginPage'
+import { MyActivityPage } from '@/pages/MyActivityPage'
 import { MyOverviewPage } from '@/pages/MyOverviewPage'
+import { MySessionsPage } from '@/pages/MySessionsPage'
 import { NotFoundPage, OrganizationOverviewPage, PlaceholderPage } from '@/pages/SimplePages'
 
 // Shared by the browser router (main.tsx) and the memory router in tests.
@@ -17,8 +19,8 @@ export const appRoutes: RouteObject[] = [
         children: [
           { index: true, element: <Navigate to="/me" replace /> },
           { path: 'me', element: <MyOverviewPage /> },
-          { path: 'me/sessions', element: <PlaceholderPage title="nav.mySessions" /> },
-          { path: 'me/activity', element: <PlaceholderPage title="nav.myActivity" /> },
+          { path: 'me/sessions', element: <MySessionsPage /> },
+          { path: 'me/activity', element: <MyActivityPage /> },
           {
             path: 'org',
             element: <RequireOrganizationAccess />,

@@ -124,8 +124,69 @@ Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit:
 
 ### 12. Ce urmeaza
 
-- **Etapa 2, Contul meu**: un endpoint in backend pentru activitatea propriului cont (acum doar adminii si analistii pot citi evenimentele), apoi sesiunile cu revocare, activitatea recenta si alertele
+Etapa 2 este descrisa mai jos. Urmeaza:
 - **Etapa 3, Organizatia**: evenimente de securitate si jurnal de audit, cu filtrele si paginarea existente, plus administrarea utilizatorilor
 - **Etapa 4**: dashboard-uri cu carduri si grafice
 
-Bundle-ul JavaScript are acum aproximativ 545 KB; cand vor exista pagini reale, acestea vor fi incarcate la cerere (code splitting).
+## Etapa 2: Contul meu
+
+### 13. Ce a fost construit
+
+Backend-ul a primit doua endpoint-uri (detalii in `docs/01-backend-foundation.md`, sectiunea "My Account API - Phase 1"):
+- `GET /users/me/activity`: evenimentele de securitate despre propriul cont
+- `DELETE /users/me/sessions`: deconectarea celorlalte dispozitive
+
+Frontend-ul are trei pagini reale in perspectiva "Contul meu".
+
+### 14. Prezentare
+
+Deasupra profilului apare un rezumat de securitate:
+- **Sesiuni active**, cu link catre gestionarea lor
+- **Autentificarea anterioara**: cand si de pe ce IP. Cea mai noua autentificare este chiar sesiunea curenta, asa ca este afisata cea dinaintea ei: daca utilizatorul nu o recunoaste, contul poate fi compromis
+- **Alerte din ultimele 30 de zile**: avertismentele si incidentele. Se citeste o singura pagina de 50; daca exista mai multe, numarul apare ca "50+"
+
+Sub rezumat sunt ultimele 5 alerte si un link catre activitate, filtrata pe alerte. Daca una dintre cereri esueaza, doar cifra respectiva apare ca "Indisponibil"; restul paginii functioneaza.
+
+### 15. Sesiunile mele
+
+- sesiunea din acest browser apare prima, marcata "Aceasta sesiune", cu butonul "Deconecteaza-te"
+- fiecare sesiune arata dispozitivul, IP-ul, cand a inceput si cand expira
+- celelalte sesiuni pot fi inchise individual sau toate odata; ambele actiuni cer confirmare in pagina, fara dialoguri
+- daca o sesiune era deja inchisa (`404`), pagina explica asta si reincarca lista
+
+Dispozitivul este dedus din `User-Agent` (de exemplu "Firefox pe Linux", "Chrome pe Android"). Header-ul este trimis de client si poate fi falsificat, deci este doar un indiciu; textul complet apare la trecerea mouse-ului peste nume. Clientii necunoscuti, de exemplu scripturile, apar ca "Dispozitiv necunoscut".
+
+Butoanele "Inchide sesiunea" se repeta pe fiecare rand, asa ca fiecare este legat prin `aria-describedby` de numele dispozitivului, pentru cititoarele de ecran.
+
+### 16. Activitatea mea
+
+- tabel cu evenimentul, severitatea, IP-ul si data; data relativa apare la trecerea mouse-ului
+- filtru "Tot" / "Doar alerte", pastrat in adresa (`/me/activity?filter=alerts`), deci linkul din Prezentare deschide direct alertele; o valoare necunoscuta este ignorata
+- paginile mai vechi se incarca la cerere, cu cursorul primit de la API
+
+Evenimentele sunt descrise dupa tip, in limba interfetei. Severitatea apare mereu ca icon si cuvant, nu doar prin culoare.
+
+### 17. Componente noi
+
+- `SeverityBadge`: severitatea cu icon, text si culorile de severitate ale temei; va fi refolosita in perspectiva Organizatia
+- `ActivityTable`: tabelul de evenimente, folosit in Prezentare si in Activitate
+- `lib/format.ts`: date absolute si relative ("acum 5 minute", "peste 25 de minute"), in limba interfetei; dupa 30 de zile se afiseaza data exacta
+
+### 18. Validarea locala
+
+- eslint -> fara probleme
+- tsc -> fara erori
+- vitest -> 83 passed
+- build -> reusit
+
+Testele noi acopera: recunoasterea dispozitivelor, formatarea datelor relative, ordinea si continutul sesiunilor, inchiderea unei sesiuni cu confirmare si anulare, sesiunea deja inchisa, eroarea la inchidere, inchiderea celorlalte sesiuni, deconectarea din pagina, descrierea evenimentelor, filtrul de alerte si pastrarea lui in adresa, paginarea, starile goale, rezumatul din Prezentare si comportamentul cand o cerere esueaza.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: sesiunea curenta neadusa prima, paginarea fara cursor, lipsa semnului "+" pentru mai mult de o pagina de alerte, filtrul de alerte fara severitati, afisarea sesiunii curente ca "autentificare anterioara".
+
+Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit:
+- prin proxy: istoricul propriu contine autentificarile reusite si esuate, `user_id` ca parametru primeste `422`, deconectarea celorlalte dispozitive fara CSRF `403`, cu CSRF `200`, cu sesiunea curenta pastrata si audit log `OTHER_SESSIONS_REVOKED`
+- capturi reale in Firefox ale celor trei pagini, in tema intunecata, si ale paginii de sesiuni in tema luminoasa; dupa ele, tabelul de alerte din Prezentare a fost intins pe toata latimea, ca sa se alinieze cu rezumatul
+
+Optiunea `baseUrl` a fost scoasa din `tsconfig.json` si `tsconfig.app.json`: TypeScript 6, folosit de VS Code, o marca drept depreciata (eroare), iar din TypeScript 4.1 alias-ul `@/*` din `paths` functioneaza si fara ea. Proiectul a fost verificat atat cu TypeScript 5.9, cat si cu TypeScript 6.
+
+Bundle-ul JavaScript are aproximativ 564 KB. Impartirea lui pe pagini ramane pentru etapa 3, cand vor exista paginile perspectivei Organizatia.

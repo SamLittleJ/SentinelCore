@@ -1106,6 +1106,8 @@ sqlalchemy.url = postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/s
 
 Aceasta configurare permite Alembic sa se conecteze la baza de date locala pentru generarea si aplicarea migratiilor.
 
+> Actualizare (etapa „Contul meu”): URL-ul nu mai este scris in `alembic.ini`. `migrations/env.py` il ia din `settings.database_url`, adica din `DATABASE_URL` (mediu sau `.env`), aceeasi setare folosita de aplicatie. Inainte, `DATABASE_URL=... alembic upgrade head` era ignorat si migratia rula mereu pe baza `sentinelcore`.
+
 ### 75. Conectarea Alembic la modelele SQLAlchemy
 
 In `migrations/env.py`, Alembic a fost conectat la metadata SQLAlchemy.
@@ -3699,3 +3701,69 @@ In development, frontend-ul va rula pe Vite si va trimite cererile `/api` catre 
 Testele noi (`tests/test_cookie_auth.py`) acopera: atributele cookie-urilor si lipsa token-ului din body, legarea token-ului CSRF de sesiune, autentificarea prin cookie, respingerea body-urilor non-JSON la login, protectia brute-force comuna, setarea `Secure`, toate variantele de token CSRF invalid, cereri reusite cu token CSRF, metodele sigure, cererile Bearer fara CSRF, prioritatea header-ului, cookie-uri invalide, logout-ul cu stergerea cookie-urilor si revocarea reala a token-ului.
 
 Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea verificarii CSRF, un token CSRF nelegat de sesiune, cookie de sesiune citibil din JavaScript, logout fara stergerea cookie-urilor, cookie-ul preferat in locul header-ului.
+
+## My Account API - Phase 1
+
+### 233. Scopul etapei
+
+Pana acum, evenimentele de securitate puteau fi citite doar de `admin`, `owner` si `security_analyst`. Perspectiva "Contul meu" din frontend are nevoie ca orice utilizator sa-si vada propriul istoric si sa se poata deconecta de pe celelalte dispozitive.
+
+### 234. Activitatea propriului cont
+
+```http
+GET /users/me/activity
+```
+
+Intoarce evenimentele de securitate despre contul curent, cu aceeasi paginare prin cursor ca listele de administrare (`items`, `next_cursor`, `before_id`, `limit`). Filtre acceptate: `event_type`, `severity`, `since`, `until`. Orice alt parametru (de exemplu `user_id` sau `email`) primeste `422`, deci endpoint-ul nu poate fi folosit pentru a citi evenimentele altcuiva.
+
+Ce intra in istoric:
+- evenimentele legate de cont prin `user_id`
+- incercarile de login esuate sau blocate care contin doar emailul contului: o parola gresita nu leaga incercarea de user, dar proprietarul contului trebuie sa o vada
+- dintre acestea din urma, doar cele de dupa crearea contului; incercarile facute pe acel email inainte de inregistrare raman ascunse
+
+Raspunsul contine doar `id`, `event_type`, `severity`, `ip_address` si `created_at`. Campul `message` este omis: este scris pentru operatori, in engleza, si poate numi alte conturi (de exemplu "Owner changed role for user_id=12"). Frontend-ul descrie evenimentele dupa tip, in limba interfetei.
+
+Citirea propriului istoric nu este auditata: nu expune datele altcuiva, iar un rand de audit la fiecare deschidere a paginii ar ingropa intrarile care conteaza.
+
+Evenimentele de administrare sunt inregistrate pe actor. Un admin vede in istoricul sau "Ai schimbat rolul unui utilizator"; utilizatorul afectat nu vede inca schimbarea, pentru ca evenimentele nu au un camp pentru tinta. Este o limitare cunoscuta, notata pentru o etapa viitoare.
+
+### 235. Deconectarea celorlalte dispozitive
+
+```http
+DELETE /users/me/sessions
+```
+
+Revoca toate sesiunile active ale utilizatorului, cu exceptia celei din care vine cererea, si raspunde `{"revoked_sessions": N}`. Spre deosebire de `/auth/logout-all`, utilizatorul ramane conectat. Creeaza audit log de tip nou `OTHER_SESSIONS_REVOKED`.
+
+`stage_revoke_all_sessions()` primeste un parametru optional `keep_session_id`, deci aceeasi functie serveste logout-all, revocarea de catre admin si aceasta actiune.
+
+### 236. Refactorizarea filtrelor
+
+`EventFilters` a fost impartit:
+- `EventPageFilters`: intervalul de timp si cursorul, comune tuturor listelor
+- `EventFilters`: adauga `user_id`, `email` si `ip_address`, doar pentru listele de administrare
+
+`fetch_event_page()` aplica acum doar intervalul si cursorul; filtrele de identitate sunt construite de `event_filter_conditions()`. Astfel, `MyActivityFilters` nu mosteneste filtre care ar permite citirea altor conturi.
+
+### 237. Migratii
+
+- `OTHER_SESSIONS_REVOKED` in `audit_event_types`; la downgrade, randurile devin `ALL_SESSIONS_REVOKED`
+- index pe `security_events.user_id`, folosit de istoricul propriu si de filtrul `user_id`
+
+### 238. Problema intalnita: Alembic ignora `DATABASE_URL`
+
+URL-ul bazei de date era scris direct in `alembic.ini`, iar `migrations/env.py` nu citea setarile aplicatiei. O comanda precum `DATABASE_URL=...temp alembic upgrade head` rula deci pe baza de development. Asa a fost descoperit: verificarea migratiilor pe o baza temporara a aplicat migratiile pe baza `sentinelcore`. Downgrade-ul imediat a readus-o la starea initiala, fara pierderi de date.
+
+Acum `env.py` seteaza URL-ul din `settings.database_url`, iar `alembic.ini` nu mai contine nicio conexiune. Verificarea a fost reluata pe o baza temporara: upgrade complet, `alembic check` fara diferente fata de modele, downgrade, din nou upgrade; baza de development a ramas neatinsa.
+
+### 239. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 223 passed
+
+Testele noi (`tests/test_my_account.py`) acopera: autentificarea obligatorie, ordinea evenimentelor, includerea incercarilor esuate care contin doar emailul, ascunderea evenimentelor altor conturi si a celor de dinainte de crearea contului, campurile din raspuns, filtrele, paginarea, respingerea filtrelor de identitate, lipsa auditului la citire, revocarea celorlalte sesiuni cu pastrarea celei curente, izolarea fata de alti useri si cerinta CSRF pentru cererile prin cookie.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea limitei de timp pentru incercarile pe email, potrivirea oricarui email, revocarea inclusiv a sesiunii curente.

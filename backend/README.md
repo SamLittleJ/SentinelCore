@@ -66,6 +66,16 @@ LOG_FORMAT=text   # json pentru colectoare de loguri
 
 Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` sau, de către un admin, prin `DELETE /admin/users/{id}/sessions`.
 
+Un utilizator se poate deconecta de pe celelalte dispozitive, rămânând conectat pe cel curent, prin `DELETE /users/me/sessions`. Istoricul de securitate al propriului cont este disponibil la `GET /users/me/activity`.
+
+## Migrații
+
+Alembic folosește aceeași setare `DATABASE_URL` ca aplicația, din mediu sau din `.env`. Pentru o bază temporară:
+
+```bash
+DATABASE_URL=postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/alta_baza python -m alembic upgrade head
+```
+
 Sesiunile expirate sau revocate de mai mult de `SESSION_RETENTION_DAYS` zile sunt șterse automat de API, la fiecare `SESSION_CLEANUP_INTERVAL_MINUTES` minute. Curățarea poate fi rulată și manual sau din cron:
 
 ```bash

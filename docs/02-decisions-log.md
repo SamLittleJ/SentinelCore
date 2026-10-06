@@ -274,3 +274,13 @@
 - Parametrul `next` de după login acceptă doar căi interne, pentru a preveni open redirect.
 - Orice răspuns `401` primit în timpul folosirii trimite utilizatorul la login; logout-ul golește tot cache-ul de date.
 - CI-ul frontend rulează `npm audit`, lint, verificarea tipurilor, testele și build-ul.
+- Orice utilizator își vede propriul istoric de securitate prin `GET /users/me/activity`; endpoint-ul nu acceptă filtre de identitate.
+- Istoricul propriu include încercările de login eșuate sau blocate care conțin doar emailul contului, dar numai pe cele de după crearea contului.
+- Istoricul propriu nu conține câmpul `message`; frontend-ul descrie evenimentele după tip, în limba interfeței.
+- Citirea propriului istoric nu este auditată.
+- `DELETE /users/me/sessions` deconectează celelalte dispozitive și păstrează sesiunea curentă; are audit log propriu, `OTHER_SESSIONS_REVOKED`.
+- Alembic citește `DATABASE_URL` din setările aplicației; `alembic.ini` nu conține nicio conexiune.
+- În interfață, "alertele" sunt evenimentele cu severitate `warn` sau `incident`.
+- Acțiunile care închid sesiuni cer confirmare în pagină, nu prin dialoguri.
+- Dispozitivul unei sesiuni este dedus din `User-Agent` și prezentat doar ca indiciu.
+- Filtrele paginilor sunt păstrate în adresă, ca să poată fi trimise ca link.

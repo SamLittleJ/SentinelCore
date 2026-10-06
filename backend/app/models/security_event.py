@@ -61,9 +61,11 @@ class SecurityEvent(Base):
         index=True,
     )
 
+    # Indexed for the per-account activity view and the user_id filter.
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
+        index=True,
     )
 
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)

@@ -59,17 +59,25 @@ def revoke_session(db: Session, session: UserSession) -> None:
     db.commit()
 
 
-def stage_revoke_all_sessions(db: Session, user_id: int) -> int:
-    """Mark every active session of `user_id` as revoked, without committing,
-    so callers can commit it together with related changes.
+def stage_revoke_all_sessions(
+    db: Session,
+    user_id: int,
+    keep_session_id: uuid.UUID | None = None,
+) -> int:
+    """Mark every active session of `user_id` as revoked, except
+    `keep_session_id`, without committing, so callers can commit it together
+    with related changes.
 
     Returns the number of sessions revoked.
     """
+    statement = update(UserSession).where(
+        UserSession.user_id == user_id, _active_sessions_condition()
+    )
+    if keep_session_id is not None:
+        statement = statement.where(UserSession.id != keep_session_id)
+
     revoked_ids = db.scalars(
-        update(UserSession)
-        .where(UserSession.user_id == user_id, _active_sessions_condition())
-        .values(revoked_at=func.now())
-        .returning(UserSession.id)
+        statement.values(revoked_at=func.now()).returning(UserSession.id)
     ).all()
     return len(revoked_ids)
 

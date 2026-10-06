@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -15,13 +15,19 @@ from app.models.audit_log import AuditEventType
 from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
-from app.schemas.user import SessionRead, UserRead
+from app.schemas.pagination import Page
+from app.schemas.security_event import MyActivityFilters, MyActivityRead
+from app.schemas.user import SessionRead, SessionsRevoked, UserRead
 from app.services.audit_service import create_audit_log
-from app.services.security_event_service import create_security_event
+from app.services.security_event_service import (
+    create_security_event,
+    list_user_activity,
+)
 from app.services.session_service import (
     get_active_session,
     list_active_sessions,
     revoke_session,
+    stage_revoke_all_sessions,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -85,6 +91,30 @@ def read_my_sessions(
     ]
 
 
+@router.delete("/me/sessions", response_model=SessionsRevoked)
+def revoke_my_other_sessions(
+    db: Annotated[Session, Depends(get_db)],
+    current_session: Annotated[UserSession, Depends(get_current_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+) -> SessionsRevoked:
+    """Sign out every other device; the session making the request stays
+    active. /auth/logout-all ends this one too."""
+    revoked = stage_revoke_all_sessions(
+        db, current_user.id, keep_session_id=current_session.id
+    )
+    db.commit()
+
+    create_audit_log(
+        db=db,
+        event_type=AuditEventType.OTHER_SESSIONS_REVOKED,
+        user=current_user,
+        ip_address=client_ip,
+        message=f"User revoked {revoked} other session(s)",
+    )
+    return SessionsRevoked(revoked_sessions=revoked)
+
+
 @router.delete("/me/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 def revoke_my_session(
     session_id: uuid.UUID,
@@ -109,4 +139,19 @@ def revoke_my_session(
         user=current_user,
         ip_address=client_ip,
         message=f"User revoked session_id={session.id}",
+    )
+
+
+@router.get("/me/activity", response_model=Page[MyActivityRead])
+def read_my_activity(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    filters: Annotated[MyActivityFilters, Query()],
+) -> Page[MyActivityRead]:
+    # Not audited: reading your own history exposes no one else's data, and
+    # a record per page view would bury the entries worth reviewing.
+    events, next_cursor = list_user_activity(db, current_user, filters)
+    return Page[MyActivityRead].model_validate(
+        {"items": events, "next_cursor": next_cursor},
+        from_attributes=True,
     )

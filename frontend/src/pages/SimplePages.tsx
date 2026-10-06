@@ -4,12 +4,7 @@ import { Link } from 'react-router'
 import { StatusPage } from '@/components/StatusPage'
 import { Button } from '@/components/ui/button'
 
-type SectionTitleKey =
-  | 'nav.mySessions'
-  | 'nav.myActivity'
-  | 'nav.securityEvents'
-  | 'nav.auditLog'
-  | 'nav.users'
+type SectionTitleKey = 'nav.securityEvents' | 'nav.auditLog' | 'nav.users'
 
 /** Sections that arrive in later stages show where they will live. */
 export function PlaceholderPage({ title }: { title: SectionTitleKey }) {

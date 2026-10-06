@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User
 from app.schemas.audit_log import AuditLogFilters
-from app.services.event_query import fetch_event_page
+from app.services.event_query import event_filter_conditions, fetch_event_page
 
 
 def create_audit_log(
@@ -31,7 +31,7 @@ def list_audit_logs(
     db: Session,
     filters: AuditLogFilters,
 ) -> tuple[list[AuditLog], int | None]:
-    conditions = []
+    conditions = event_filter_conditions(AuditLog, filters)
     if filters.event_type:
         conditions.append(AuditLog.event_type.in_(filters.event_type))
 

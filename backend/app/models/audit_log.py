@@ -21,6 +21,7 @@ class AuditEventType(StrEnum):
     SECURITY_EVENTS_VIEWED = "security_events_viewed"
     SESSION_REVOKED = "session_revoked"
     ALL_SESSIONS_REVOKED = "all_sessions_revoked"
+    OTHER_SESSIONS_REVOKED = "other_sessions_revoked"
 
 
 class AuditLog(Base):

@@ -351,6 +351,9 @@ La acest moment:
 - frontend-ul are login prin cookie httpOnly, protecția rutelor, cele două perspective (Contul meu / Organizația), temă și limbă configurabile
 - frontend-ul are 49 de teste automate și workflow CI propriu
 - jurnalul frontend-ului este în `docs/03-frontend-foundation.md`
+- utilizatorii își văd propriul istoric de securitate și se pot deconecta de pe celelalte dispozitive
+- perspectiva "Contul meu" are paginile Prezentare (cu rezumat de securitate și alerte recente), Sesiunile mele și Activitatea mea
+- backend-ul are 223 de teste automate validate, iar frontend-ul 83
 ---
 
 ## 11. Current Sprint
