@@ -282,7 +282,7 @@ def test_security_events_api_exposes_ip_address(
     assert response.status_code == 200
     registered = [
         event
-        for event in response.json()
+        for event in response.json()["items"]
         if event["event_type"] == SecurityEventType.USER_REGISTERED
     ]
     assert registered[0]["ip_address"] == "2001:db8::1"

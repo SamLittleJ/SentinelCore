@@ -1,4 +1,3 @@
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.security_event import (
@@ -7,6 +6,8 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User
+from app.schemas.security_event import SecurityEventFilters
+from app.services.event_query import fetch_event_page
 
 
 def create_security_event(
@@ -34,9 +35,14 @@ def create_security_event(
     return security_event
 
 
-def list_security_events(db: Session, limit: int = 50) -> list[SecurityEvent]:
-    statement = (
-        select(SecurityEvent).order_by(SecurityEvent.created_at.desc()).limit(limit)
-    )
+def list_security_events(
+    db: Session,
+    filters: SecurityEventFilters,
+) -> tuple[list[SecurityEvent], int | None]:
+    conditions = []
+    if filters.event_type:
+        conditions.append(SecurityEvent.event_type.in_(filters.event_type))
+    if filters.severity:
+        conditions.append(SecurityEvent.severity.in_(filters.severity))
 
-    return list(db.scalars(statement).all())
+    return fetch_event_page(db, SecurityEvent, filters, *conditions)

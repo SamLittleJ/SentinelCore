@@ -219,3 +219,11 @@
 - Toate audit logs și security events înregistrează `ip_address`, din `request.client.host`; `X-Forwarded-For` nu este citit direct.
 - În spatele unui reverse proxy, IP-ul real se obține prin `--proxy-headers` și `--forwarded-allow-ips` în uvicorn.
 - În teste, conexiunile sunt recreate după recrearea schemei, pentru a evita prepared statements legate de tipuri enum șterse.
+- `/admin/audit-logs` și `/security/events` returnează `{"items": [...], "next_cursor": ...}`, cu paginare prin cursor (`before_id`).
+- Evenimentele sunt ordonate după `id` descrescător, aceeași cheie ca a cursorului.
+- Filtrele comune sunt `user_id`, `email`, `ip_address`, `since`, `until`; audit logs adaugă `event_type`, iar security events adaugă `event_type` și `severity`.
+- Intervalul de timp este semi-deschis: `since <= created_at < until`.
+- Datele fără fus orar sunt respinse cu `422`.
+- Parametrii de query necunoscuți sunt respinși cu `422`, pentru ca un filtru scris greșit să nu fie ignorat.
+- Consultarea logurilor este auditată prin `AUDIT_LOGS_VIEWED` și `SECURITY_EVENTS_VIEWED`, doar în audit log, nu și ca security event.
+- Logica comună de filtrare și paginare este în `fetch_event_page()`.

@@ -137,7 +137,8 @@ def test_audit_logs_endpoint_with_admin_returns_200(
     )
 
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert isinstance(response.json()["items"], list)
+    assert "next_cursor" in response.json()
 
 
 def test_security_events_endpoint_with_admin_returns_200(
@@ -153,7 +154,8 @@ def test_security_events_endpoint_with_admin_returns_200(
     )
 
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    assert isinstance(response.json()["items"], list)
+    assert "next_cursor" in response.json()
 
 
 def test_admin_users_with_regular_user_returns_403(client: TestClient) -> None:

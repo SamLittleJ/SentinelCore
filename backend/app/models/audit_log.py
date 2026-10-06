@@ -17,6 +17,8 @@ class AuditEventType(StrEnum):
     USER_DEACTIVATED = "user_deactivated"
     LOGIN_LOCKED = "login_locked"
     LOGIN_BLOCKED = "login_blocked"
+    AUDIT_LOGS_VIEWED = "audit_logs_viewed"
+    SECURITY_EVENTS_VIEWED = "security_events_viewed"
 
 
 class AuditLog(Base):

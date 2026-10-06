@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 from app.models.audit_log import AuditEventType
+from app.schemas.event_filters import EventFilters
 
 
 class AuditLogRead(BaseModel):
@@ -15,3 +16,7 @@ class AuditLogRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AuditLogFilters(EventFilters):
+    event_type: list[AuditEventType] = []

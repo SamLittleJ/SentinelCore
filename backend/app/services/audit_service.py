@@ -1,8 +1,9 @@
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User
+from app.schemas.audit_log import AuditLogFilters
+from app.services.event_query import fetch_event_page
 
 
 def create_audit_log(
@@ -26,6 +27,12 @@ def create_audit_log(
     return audit_log
 
 
-def list_audit_logs(db: Session, limit: int = 50) -> list[AuditLog]:
-    statement = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
-    return list(db.scalars(statement).all())
+def list_audit_logs(
+    db: Session,
+    filters: AuditLogFilters,
+) -> tuple[list[AuditLog], int | None]:
+    conditions = []
+    if filters.event_type:
+        conditions.append(AuditLog.event_type.in_(filters.event_type))
+
+    return fetch_event_page(db, AuditLog, filters, *conditions)

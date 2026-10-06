@@ -328,6 +328,9 @@ La acest moment:
 - prima detecție SIEM-light este implementată: login-urile eșuate repetate pe același email generează un incident `BRUTE_FORCE_DETECTED` și blochează temporar login-ul
 - audit logs și security events înregistrează adresa IP a clientului
 - backend-ul are 86 de teste automate validate
+- audit logs și security events au paginare prin cursor și filtre după tip, severitate, user, email, IP și interval de timp
+- consultarea logurilor este auditată
+- backend-ul are 107 teste automate validate
 ---
 
 ## 11. Current Sprint

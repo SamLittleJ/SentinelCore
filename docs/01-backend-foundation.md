@@ -3217,3 +3217,107 @@ Testele noi (`tests/test_login_protection.py`) acopera: atingerea pragului si in
 Timpul scurs este simulat prin mutarea `created_at` al evenimentelor in trecut.
 
 Verificare inversa: fara verificarea blocarii pica 3 teste, fara prag pica 6, iar fara resetarea dupa login reusit / blocare pica 2.
+
+## Log Filtering - Phase 1
+
+### 200. Scopul etapei
+
+Endpoint-urile `GET /admin/audit-logs` si `GET /security/events` returnau doar ultimele `limit` evenimente, fara filtre si fara posibilitatea de a ajunge la evenimente mai vechi. Aceasta etapa le pregateste pentru dashboard-ul de securitate din frontend.
+
+### 201. Raspuns paginat prin cursor
+
+Raspunsul nu mai este o lista, ci un obiect (envelope):
+
+```json
+{
+  "items": [...],
+  "next_cursor": 123
+}
+```
+
+Pagina urmatoare se obtine cu `?before_id=123`. Cand nu mai exista rezultate, `next_cursor` este `null`.
+
+Evenimentele sunt ordonate dupa `id` descrescator, adica cele mai noi primele. Ordinea dupa `id` (si nu dupa `created_at`) este necesara pentru ca:
+- `id` este unic, deci nu exista egalitati intre evenimente
+- cursorul este tot un `id`, deci ordinea si cursorul folosesc aceeasi cheie
+- `created_at` este momentul de inceput al tranzactiei, deci un eveniment inserat mai tarziu poate avea un timestamp mai vechi
+
+Avantaje fata de `offset`:
+- paginile nu se decaleaza cand apar evenimente noi in timp ce analistul rasfoieste
+- interogarea ramane rapida si pe tabele mari, deoarece nu parcurge randurile sarite
+
+Pentru a sti daca exista o pagina urmatoare, se citeste un rand in plus fata de `limit`.
+
+Schimbarea formei raspunsului este o modificare de contract API. A fost facuta acum deoarece nu exista inca niciun client al acestor endpoint-uri.
+
+Schema generica `Page[ItemT]` din `app/schemas/pagination.py` foloseste sintaxa de generice din Python 3.12.
+
+### 202. Filtre
+
+Filtre comune (`app/schemas/event_filters.py`):
+
+| Parametru | Comportament |
+| --- | --- |
+| `user_id` | egalitate |
+| `email` | egalitate, fara diferenta intre litere mari si mici |
+| `ip_address` | IPv4 sau IPv6 valid; forma IPv6 este normalizata, deci `2001:DB8:0:0::1` gaseste `2001:db8::1` |
+| `since` | `created_at >= since` |
+| `until` | `created_at < until` |
+| `before_id` | cursorul de paginare |
+| `limit` | 1-200, implicit 50 |
+
+Filtre specifice:
+- audit logs: `event_type`, cu una sau mai multe valori (`?event_type=login_failed&event_type=login_locked`)
+- security events: `event_type` si `severity`, fiecare cu una sau mai multe valori
+
+Mai multe valori pentru acelasi parametru se combina cu `OR`; parametri diferiti se combina cu `AND`.
+
+Intervalul de timp este semi-deschis (`since <= created_at < until`), astfel incat intervale consecutive nu numara de doua ori acelasi eveniment.
+
+### 203. Validarea filtrelor
+
+Filtrele sunt definite ca modele Pydantic folosite pentru query parameters (`Annotated[AuditLogFilters, Query()]`). Raspund cu `422`:
+- `since` mai mare sau egal cu `until`
+- date fara fus orar (`AwareDatetime`), pentru a evita interpretari ambigue
+- valori invalide pentru `event_type`, `severity`, `ip_address`, `limit` sau `before_id`
+- parametri necunoscuti, prin `extra="forbid"`
+
+Ultima regula este importanta pentru securitate: un filtru scris gresit, de exemplu `?event_typ=login_failed`, ar fi fost altfel ignorat, iar analistul ar fi vazut rezultate nefiltrate crezand ca sunt filtrate.
+
+### 204. Auditarea consultarii logurilor
+
+Consultarea logurilor este acum auditata, cu tipuri noi in `AuditEventType`:
+- `AUDIT_LOGS_VIEWED`
+- `SECURITY_EVENTS_VIEWED`
+
+Mesajul contine filtrele folosite, de exemplu:
+
+```
+Viewed audit logs with event_type=['login_failed'], limit=10
+```
+
+Decizii:
+- evenimentul este inregistrat dupa interogare, deci raspunsul nu contine niciodata propria consultare
+- se creeaza doar audit log, nu si security event: consultarea este un fapt de audit, nu un semnal de securitate, si nu trebuie sa umple fluxul SIEM
+
+Valorile noi au fost adaugate prin migratia `1ff3830ec505_add_log_view_audit_event_types.py`. Downgrade-ul remapeaza randurile la `ADMIN_ENDPOINT_ACCESSED` si recreeaza tipul enum.
+
+### 205. Logica de interogare comuna
+
+Filtrele comune, ordonarea si paginarea sunt implementate o singura data, in `fetch_event_page()` din `app/services/event_query.py`, folosita de ambele servicii. Fiecare serviciu adauga doar filtrele specifice (`event_type`, `severity`).
+
+`fetch_event_page()` este o functie generica cu `EventT: AuditLog | SecurityEvent`. Varianta initiala, cu constrangeri `(AuditLog, SecurityEvent)`, era rezolvata gresit de Pylance pentru apelul cu `AuditLog`.
+
+### 206. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 107 passed
+- migratia: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+
+Testele noi (`tests/test_event_logs_api.py`) acopera: acces interzis pentru user normal, ordinea, parcurgerea completa prin cursor, stabilitatea paginilor la evenimente noi, ordinea dupa insertie chiar daca timestamp-urile sunt inverse, fiecare filtru si combinarea lor, intervalul semi-deschis, query-urile invalide si auditarea consultarii.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea `extra="forbid"`, eliminarea normalizarii emailului, cursor inclusiv, interval inchis, ordonare dupa `created_at`.
+
+Cele 3 teste existente care asteptau o lista au fost actualizate pentru noua forma a raspunsului.
