@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, StrictBool
 
 from app.models.user import UserRole
 
@@ -35,3 +35,7 @@ class Token(BaseModel):
 
 class UserRoleUpdate(BaseModel):
     role: UserRole
+
+
+class UserStatusUpdate(BaseModel):
+    is_active: StrictBool

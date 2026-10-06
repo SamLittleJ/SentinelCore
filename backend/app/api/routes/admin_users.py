@@ -7,10 +7,15 @@ from app.api.deps import get_db, require_role
 from app.models.audit_log import AuditEventType
 from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
-from app.schemas.user import UserRead, UserRoleUpdate
+from app.schemas.user import UserRead, UserRoleUpdate, UserStatusUpdate
 from app.services.audit_service import create_audit_log
 from app.services.security_event_service import create_security_event
-from app.services.user_service import get_user_by_id, list_users, update_user_role
+from app.services.user_service import (
+    get_user_by_id,
+    list_users,
+    update_user_role,
+    update_user_status,
+)
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
@@ -118,5 +123,49 @@ def change_user_role(
         db=db,
         user=target_user,
         new_role=role_in.role,
+        actor=current_user,
+    )
+
+
+@router.patch("/{user_id}/status", response_model=UserRead)
+def change_user_status(
+    user_id: int,
+    status_in: UserStatusUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[
+        User,
+        Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
+    ],
+) -> User:
+    target_user = get_user_by_id(db, user_id)
+
+    if target_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if target_user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users cannot change their own status",
+        )
+
+    if target_user.role == UserRole.OWNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot change the status of an owner",
+        )
+
+    if current_user.role == UserRole.ADMIN and target_user.role == UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an owner can change the status of an admin",
+        )
+
+    return update_user_status(
+        db=db,
+        user=target_user,
+        is_active=status_in.is_active,
         actor=current_user,
     )

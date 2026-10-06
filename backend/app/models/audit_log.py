@@ -12,6 +12,9 @@ class AuditEventType(StrEnum):
     LOGIN_SUCCESS = "login_success"
     LOGIN_FAILED = "login_failed"
     ADMIN_ENDPOINT_ACCESSED = "admin_endpoint_accessed"
+    USER_ROLE_CHANGED = "user_role_changed"
+    USER_ACTIVATED = "user_activated"
+    USER_DEACTIVATED = "user_deactivated"
 
 
 class AuditLog(Base):

@@ -2945,3 +2945,108 @@ Testul simuleaza cursa dezactivand verificarile prealabile prin `monkeypatch`, a
 - pytest -> 21 passed
 
 Testele noi au fost verificate si invers: cu reparatiile dezactivate temporar, toate cele 5 teste noi pica.
+
+## Admin User Management - Phase 4
+
+### 182. Activarea si dezactivarea conturilor
+
+A fost introdus endpoint-ul:
+
+```http
+PATCH /admin/users/{user_id}/status
+```
+
+Body:
+
+```json
+{"is_active": false}
+```
+
+Raspunsul foloseste schema `UserRead`, deci `hashed_password` nu este expus.
+
+Endpoint-ul foloseste verificarea `is_active` introdusa in etapa de cleanup: un cont dezactivat nu se mai poate autentifica, iar token-urile emise anterior sunt refuzate imediat, deoarece `get_current_user()` citeste userul din baza de date la fiecare request.
+
+### 183. Reguli de permisiune
+
+Accesul este ierarhic:
+- `admin` poate activa sau dezactiva conturi `user` si `security_analyst`
+- `owner` poate activa sau dezactiva si conturi `admin`
+- nimeni nu isi poate schimba propriul status
+- statusul unui `owner` nu poate fi schimbat
+
+| Situatie | Raspuns |
+| --- | --- |
+| Fara token | 401 |
+| Actorul nu este `admin` sau `owner` | 403, `Insufficient permissions` |
+| User inexistent | 404, `User not found` |
+| Actorul isi schimba propriul status | 403, `Users cannot change their own status` |
+| Tinta este `owner` | 403, `Cannot change the status of an owner` |
+| `admin` schimba statusul altui `admin` | 403, `Only an owner can change the status of an admin` |
+| `is_active` nu este boolean (`"false"`, `0`, `null`) | 422 |
+| Schimbare permisa | 200 |
+| Statusul cerut este deja cel actual | 200, fara evenimente |
+
+`UserStatusUpdate` foloseste `StrictBool`, astfel incat valori precum `"false"` sau `0` sunt respinse, nu convertite implicit.
+
+### 184. Tipuri dedicate de evenimente
+
+Pana acum, actiunile administrative refoloseau `ADMIN_ENDPOINT_ACCESSED` si `ADMIN_ACCESS`, iar schimbarile se distingeau doar prin mesaj.
+
+Au fost adaugate tipuri noi, atat in `AuditEventType`, cat si in `SecurityEventType`:
+- `USER_ROLE_CHANGED`
+- `USER_ACTIVATED`
+- `USER_DEACTIVATED`
+
+Schimbarea de rol din Phase 3 foloseste acum `USER_ROLE_CHANGED`.
+
+Mesajele inregistrate:
+- `Admin deactivated user_id={id}` / `Owner activated user_id={id}`
+- `Owner changed role for user_id={id} from {old} to {new}`
+
+Campurile `user_id` si `email` ale evenimentelor identifica actorul; tinta apare in mesaj. Severitatea este `INFO`.
+
+### 185. Prima migratie Alembic dupa schema initiala
+
+Valorile noi au fost adaugate in tipurile enum PostgreSQL prin migratia `02a6be0e0ec8_add_user_management_event_types.py`.
+
+Migratia a fost scrisa manual, deoarece `--autogenerate` nu detecteaza valori noi intr-un enum existent. Din acelasi motiv, `alembic check` nu poate confirma ca enum-urile din baza de date sunt la zi.
+
+Upgrade:
+
+```sql
+ALTER TYPE audit_event_types ADD VALUE IF NOT EXISTS 'USER_ROLE_CHANGED';
+```
+
+Valorile sunt scrise cu majuscule, deoarece SQLAlchemy salveaza numele membrilor enum.
+
+PostgreSQL nu permite stergerea unei valori dintr-un enum. Downgrade-ul:
+- remapeaza randurile cu tipurile noi la `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`
+- redenumeste tipul enum existent
+- creeaza tipul cu valorile vechi
+- converteste coloana `event_type` la tipul nou
+- sterge tipul vechi
+
+Migratia a fost verificata pe o baza temporara prin `upgrade -> downgrade -> upgrade`, cu randuri care foloseau valorile noi. Downgrade-ul a remapat randurile si a pastrat indexul `ix_security_events_event_type`.
+
+Aplicare locala:
+
+```bash
+python -m alembic upgrade head
+```
+
+### 186. Tranzactie comuna pentru schimbari si evenimente
+
+Logica de commit din `update_user_role()` a fost extrasa in `_commit_user_change()`, folosita acum si de `update_user_status()`.
+
+Functia adauga audit log-ul si security event-ul in aceeasi sesiune cu modificarea userului si face un singur `commit`. Daca acesta esueaza, se face `rollback` si exceptia este propagata.
+
+A fost adaugat testul de esec al tranzactiei, ramas in asteptare din Phase 3, pentru ambele operatii. Commit-ul simulat face mai intai `flush`, astfel incat modificarea si evenimentele ajung in tranzactia deschisa; doar un `rollback` real le anuleaza. Testul a fost verificat invers: fara `rollback`, pica.
+
+### 187. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 55 passed
+
+Testele noi acopera: lipsa token-ului, roluri fara drept de acces, matricea de schimbari permise, toate restrictiile, user inexistent, valori non-boolean, status neschimbat, esecul tranzactiei si pierderea imediata a accesului pentru un cont dezactivat.

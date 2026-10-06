@@ -12,6 +12,9 @@ class SecurityEventType(StrEnum):
     LOGIN_SUCCESS = "login_success"
     LOGIN_FAILED = "login_failed"
     ADMIN_ACCESS = "admin_access"
+    USER_ROLE_CHANGED = "user_role_changed"
+    USER_ACTIVATED = "user_activated"
+    USER_DEACTIVATED = "user_deactivated"
 
 
 class SecuritySeverity(StrEnum):

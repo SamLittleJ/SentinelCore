@@ -316,6 +316,12 @@ La acest moment:
 - uneltele de dezvoltare sunt separate în extra-ul `dev`, iar dependențele au versiuni minime
 - repository-ul are `README.md` și `backend/README.md`
 - backend-ul are 21 de teste automate validate
+- Admin User Management Phase 4 este implementat local pe `feat/admin-user-status-phase-4`
+- `PATCH /admin/users/{user_id}/status` permite activarea și dezactivarea conturilor, ierarhic pentru `admin` și `owner`
+- schimbările de rol și de status au tipuri dedicate de audit și security events
+- prima migrație Alembic după schema inițială adaugă noile tipuri de evenimente
+- testul de eșec al tranzacției, rămas din Phase 3, este implementat
+- backend-ul are 55 de teste automate validate
 ---
 
 ## 11. Current Sprint

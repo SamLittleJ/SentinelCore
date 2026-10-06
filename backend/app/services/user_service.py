@@ -68,6 +68,45 @@ def get_user_by_id(db: Session, user_id: int) -> User | None:
     return db.scalar(statement)
 
 
+def _commit_user_change(
+    db: Session,
+    user: User,
+    actor: User,
+    audit_event_type: AuditEventType,
+    security_event_type: SecurityEventType,
+    message: str,
+) -> User:
+    """Commit a staged change to `user` together with its audit and security
+    events, so either all three are stored or none are."""
+    db.add_all(
+        [
+            AuditLog(
+                event_type=audit_event_type,
+                user_id=actor.id,
+                email=actor.email,
+                message=message,
+            ),
+            SecurityEvent(
+                event_type=security_event_type,
+                severity=SecuritySeverity.INFO,
+                user_id=actor.id,
+                email=actor.email,
+                source="backend",
+                message=message,
+            ),
+        ]
+    )
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(user)
+    return user
+
+
 def update_user_role(
     db: Session,
     user: User,
@@ -86,30 +125,43 @@ def update_user_role(
 
     user.role = new_role
 
-    db.add_all(
-        [
-            AuditLog(
-                event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
-                user_id=actor.id,
-                email=actor.email,
-                message=message,
-            ),
-            SecurityEvent(
-                event_type=SecurityEventType.ADMIN_ACCESS,
-                severity=SecuritySeverity.INFO,
-                user_id=actor.id,
-                email=actor.email,
-                source="backend",
-                message=message,
-            ),
-        ]
+    return _commit_user_change(
+        db=db,
+        user=user,
+        actor=actor,
+        audit_event_type=AuditEventType.USER_ROLE_CHANGED,
+        security_event_type=SecurityEventType.USER_ROLE_CHANGED,
+        message=message,
     )
 
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
 
-    db.refresh(user)
-    return user
+def update_user_status(
+    db: Session,
+    user: User,
+    is_active: bool,
+    actor: User,
+) -> User:
+    if user.is_active == is_active:
+        return user  # No change needed
+
+    action = "activated" if is_active else "deactivated"
+    message = f"{actor.role.value.capitalize()} {action} user_id={user.id}"
+
+    user.is_active = is_active
+
+    return _commit_user_change(
+        db=db,
+        user=user,
+        actor=actor,
+        audit_event_type=(
+            AuditEventType.USER_ACTIVATED
+            if is_active
+            else AuditEventType.USER_DEACTIVATED
+        ),
+        security_event_type=(
+            SecurityEventType.USER_ACTIVATED
+            if is_active
+            else SecurityEventType.USER_DEACTIVATED
+        ),
+        message=message,
+    )

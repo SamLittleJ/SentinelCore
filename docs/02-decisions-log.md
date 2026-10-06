@@ -193,3 +193,12 @@
 - Uneltele de dezvoltare sunt în extra-ul `dev`; instalarea pentru development și CI este `pip install -e ".[dev]"`.
 - Dependențele au limite minime; `ruff` este fixat exact pentru a evita schimbări neașteptate în CI.
 - CI-ul și Docker Compose folosesc aceeași versiune PostgreSQL, `postgres:17`.
+- Phase 4 introduce `PATCH /admin/users/{user_id}/status` cu body `{"is_active": bool}`, consistent cu endpoint-ul de schimbare a rolului.
+- Activarea și dezactivarea sunt ierarhice: `admin` gestionează conturi `user` și `security_analyst`, iar `owner` gestionează și conturi `admin`.
+- Nimeni nu își poate schimba propriul status, iar statusul unui `owner` nu poate fi schimbat.
+- `is_active` este validat cu `StrictBool`, fără conversii implicite din string sau număr.
+- Schimbările administrative asupra userilor au tipuri dedicate de evenimente: `USER_ROLE_CHANGED`, `USER_ACTIVATED`, `USER_DEACTIVATED`.
+- Schimbarea de rol din Phase 3 folosește acum `USER_ROLE_CHANGED` în loc de `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`.
+- Valorile noi de enum sunt adăugate prin migrații scrise manual; `--autogenerate` nu detectează modificări ale valorilor unui enum.
+- Downgrade-ul pentru valori de enum recreează tipul PostgreSQL și remapează rândurile la tipurile generice anterioare.
+- Modificarea userului și evenimentele asociate sunt salvate printr-un singur commit, prin `_commit_user_change()`.
