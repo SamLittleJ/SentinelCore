@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     session_cleanup_interval_minutes: int = Field(default=60, ge=0)
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "json"
+    # Browser session cookies are sent only over HTTPS. Browsers treat
+    # http://localhost as secure, so this stays on in local development.
+    auth_cookie_secure: bool = True
     # When set, /metrics requires `Authorization: Bearer <token>`.
     metrics_token: SecretStr | None = None
 

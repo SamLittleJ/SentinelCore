@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import secrets
 import uuid
 from datetime import datetime
@@ -40,6 +42,16 @@ def create_access_token(
         "exp": expires_at,
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def csrf_token_for(session_id: uuid.UUID) -> str:
+    """CSRF token for a browser session (signed double-submit).
+
+    Derived from the session id with the server secret, so it is valid only
+    for that session and cannot be forged by planting a cookie.
+    """
+    message = f"csrf:{session_id}".encode()
+    return hmac.new(settings.secret_key.encode(), message, hashlib.sha256).hexdigest()
 
 
 def decode_access_token(token: str) -> dict:

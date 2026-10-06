@@ -3635,3 +3635,67 @@ Pyright nu ruleaza inca in CI; poate fi adaugat ca pas separat.
 Testele noi (`tests/test_session_cleanup_and_admin_revoke.py`) acopera: stergerea doar a sesiunilor vechi, metrica si logul curatarii, continuarea task-ului periodic dupa o eroare, pornirea si oprirea task-ului in `lifespan`, comanda CLI, si endpoint-ul de admin: acces, matricea de roluri permise, evenimentele, cazul fara sesiuni active, toate restrictiile si userul inexistent.
 
 Verificare inversa: fiecare dintre urmatoarele modificari este detectata: nestergerea sesiunilor revocate, lipsa perioadei de retentie, oprirea task-ului la prima eroare, permiterea actiunii unui admin asupra altui admin. Netrimiterea anularii catre task la shutdown blocheaza oprirea aplicatiei, deci testul ramane blocat in loc sa pice.
+
+## Cookie Authentication - Phase 1
+
+### 226. Scopul etapei
+
+Frontend-ul are nevoie de o sesiune in browser. Pastrarea token-ului in `localStorage` sau `sessionStorage` l-ar expune oricarui script injectat (XSS). Token-ul este pus acum intr-un cookie `httpOnly`, pe care JavaScript nu il poate citi.
+
+Autentificarea prin `Authorization: Bearer` ramane neschimbata pentru Swagger si pentru clienti API.
+
+### 227. Login din browser
+
+```http
+POST /auth/session
+```
+
+Primeste acelasi body JSON ca `/auth/login`, foloseste aceeasi functie interna (deci aceeasi protectie brute-force, aceleasi evenimente si aceeasi sesiune) si raspunde `204 No Content`, fara token in body. Seteaza doua cookie-uri:
+
+| Cookie | Continut | `httpOnly` |
+| --- | --- | --- |
+| `sentinelcore_session` | token-ul JWT | da |
+| `sentinelcore_csrf` | token-ul CSRF | nu, frontend-ul trebuie sa-l citeasca |
+
+Ambele au `Secure`, `SameSite=Strict`, `Path=/` si `Max-Age` egal cu durata token-ului.
+
+`Secure` este controlat de `AUTH_COOKIE_SECURE`, implicit `true`. Browserele trateaza `http://localhost` ca origine sigura, deci cookie-urile functioneaza si local.
+
+### 228. Protectia CSRF
+
+Browserul ataseaza cookie-urile automat, inclusiv la cereri pornite de alte site-uri. De aceea, orice cerere autentificata prin cookie cu metoda `POST`, `PUT`, `PATCH` sau `DELETE` trebuie sa trimita header-ul `X-CSRF-Token`, cu valoarea cookie-ului `sentinelcore_csrf`. Altfel raspunsul este `403 CSRF token missing or invalid`.
+
+Token-ul CSRF este un HMAC-SHA256 al id-ului sesiunii, calculat cu `SECRET_KEY` (signed double-submit, varianta recomandata de OWASP). Avantaje:
+- este valid doar pentru sesiunea respectiva
+- nu poate fi falsificat prin plantarea unui cookie CSRF propriu
+- nu necesita stocare suplimentara
+
+Comparatia se face in timp constant (`hmac.compare_digest`).
+
+Cererile cu `Authorization: Bearer` nu au nevoie de token CSRF: browserul nu trimite niciodata acest header din proprie initiativa. Daca o cerere contine si header, si cookie, header-ul are prioritate.
+
+### 229. Login CSRF
+
+Un site strain ar putea incerca sa logheze victima in contul atacatorului, trimitand un formular catre endpoint-ul de login. Formularele HTML pot trimite doar `application/x-www-form-urlencoded`, `multipart/form-data` sau `text/plain`, iar `/auth/session` accepta doar JSON: FastAPI raspunde `422` pentru orice alt tip de continut. O cerere `fetch` cu JSON de pe alt site ar necesita aprobare CORS, pe care backend-ul nu o acorda.
+
+Comportamentul este fixat prin teste, astfel incat o schimbare viitoare sa nu-l slabeasca neobservat.
+
+### 230. Logout
+
+`/auth/logout` si `/auth/logout-all` functioneaza pentru ambele tipuri de autentificare. Pe langa revocarea sesiunii in baza de date, sterg cele doua cookie-uri (`Max-Age=0`).
+
+### 231. Integrarea cu frontend-ul
+
+In development, frontend-ul va rula pe Vite si va trimite cererile `/api` catre backend printr-un proxy. Frontend-ul si API-ul par astfel sa fie pe aceeasi origine: nu este nevoie de CORS, iar cookie-urile `SameSite=Strict` functioneaza. In productie, acelasi efect se obtine servind frontend-ul si API-ul prin acelasi reverse proxy.
+
+### 232. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 205 passed
+
+Testele noi (`tests/test_cookie_auth.py`) acopera: atributele cookie-urilor si lipsa token-ului din body, legarea token-ului CSRF de sesiune, autentificarea prin cookie, respingerea body-urilor non-JSON la login, protectia brute-force comuna, setarea `Secure`, toate variantele de token CSRF invalid, cereri reusite cu token CSRF, metodele sigure, cererile Bearer fara CSRF, prioritatea header-ului, cookie-uri invalide, logout-ul cu stergerea cookie-urilor si revocarea reala a token-ului.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea verificarii CSRF, un token CSRF nelegat de sesiune, cookie de sesiune citibil din JavaScript, logout fara stergerea cookie-urilor, cookie-ul preferat in locul header-ului.

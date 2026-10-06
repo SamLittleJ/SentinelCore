@@ -345,6 +345,8 @@ La acest moment:
 - adminii pot deconecta un user de pe toate dispozitivele fără să-i dezactiveze contul
 - backend-ul trece verificarea de tipuri Pyright fără erori
 - backend-ul are 184 de teste automate validate
+- frontend-ul se va autentifica prin cookie httpOnly, cu protecție CSRF legată de sesiune
+- backend-ul are 205 teste automate validate
 ---
 
 ## 11. Current Sprint

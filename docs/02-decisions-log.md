@@ -256,3 +256,10 @@
 - Revocarea de către admin creează audit log `ALL_SESSIONS_REVOKED` și security event `USER_SESSIONS_REVOKED`.
 - Migrațiile deja aplicate pe baza de development nu sunt modificate; schimbările noi primesc o migrație nouă.
 - Tipurile din backend sunt verificate integral cu Pyright, nu doar în fișierele deschise în Pylance.
+- Frontend-ul se autentifică prin cookie httpOnly `sentinelcore_session`, setat de `POST /auth/session`; token-ul nu apare în body și nu este accesibil din JavaScript.
+- Cookie-urile de autentificare au `Secure`, `SameSite=Strict` și `Path=/`; `Secure` poate fi dezactivat prin `AUTH_COOKIE_SECURE` doar pentru gazde HTTP de test.
+- Cererile POST/PUT/PATCH/DELETE autentificate prin cookie cer header-ul `X-CSRF-Token`, egal cu un HMAC al id-ului sesiunii (signed double-submit).
+- Cererile cu `Authorization: Bearer` nu cer token CSRF; header-ul are prioritate față de cookie.
+- `/auth/session` acceptă doar JSON, ceea ce blochează login CSRF prin formulare HTML.
+- Logout-ul șterge și cookie-urile de autentificare.
+- În development, frontend-ul folosește proxy-ul Vite pentru `/api`, deci frontend-ul și API-ul sunt pe aceeași origine, fără CORS.

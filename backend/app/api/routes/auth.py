@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import OAuth2PasswordRequestForm
 from psycopg.errors import UniqueViolation
@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.cookies import clear_auth_cookies, set_auth_cookies
 from app.api.deps import (
     get_client_ip,
     get_current_session,
@@ -114,7 +115,7 @@ def _log_in(
     user_in: UserLogin,
     client_ip: str | None,
     user_agent: str | None,
-) -> Token:
+) -> tuple[Token, UserSession]:
     """Shared by the JSON and OAuth2 form login endpoints, so both get the
     same brute-force protection, events and session handling."""
     email = user_in.email
@@ -208,12 +209,13 @@ def _log_in(
         expires_at=session.expires_at,
     )
 
-    return Token(
+    token = Token(
         access_token=access_token,
         # OAuth2 token type, not a password or secret.
         token_type="bearer",  # nosec B106
         expires_in=settings.access_token_expire_minutes * 60,
     )
+    return token, session
 
 
 @router.post("/login", response_model=Token)
@@ -223,7 +225,26 @@ def login_user(
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     user_agent: Annotated[str | None, Depends(get_user_agent)],
 ) -> Token:
-    return _log_in(db, user_in, client_ip, user_agent)
+    token, _ = _log_in(db, user_in, client_ip, user_agent)
+    return token
+
+
+@router.post("/session", status_code=status.HTTP_204_NO_CONTENT)
+def create_browser_session(
+    user_in: UserLogin,
+    response: Response,
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    user_agent: Annotated[str | None, Depends(get_user_agent)],
+) -> None:
+    """Browser login: the token is set as an httpOnly cookie and never
+    appears in the response body.
+
+    Only JSON bodies are accepted, so another site cannot submit this login
+    with an HTML form (login CSRF).
+    """
+    token, session = _log_in(db, user_in, client_ip, user_agent)
+    set_auth_cookies(response, token.access_token, session.id, token.expires_in)
 
 
 @router.post("/token", response_model=Token)
@@ -242,11 +263,13 @@ def login_for_access_token(
     except ValidationError as exc:
         raise RequestValidationError(exc.errors()) from exc
 
-    return _log_in(db, user_in, client_ip, user_agent)
+    token, _ = _log_in(db, user_in, client_ip, user_agent)
+    return token
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
     session: Annotated[UserSession, Depends(get_current_session)],
     current_user: Annotated[User, Depends(get_current_user)],
@@ -254,6 +277,7 @@ def logout(
 ) -> None:
     """Revoke the session of the token used for this request."""
     revoke_session(db, session)
+    clear_auth_cookies(response)
 
     create_audit_log(
         db=db,
@@ -266,6 +290,7 @@ def logout(
 
 @router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
 def logout_all(
+    response: Response,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
@@ -273,6 +298,7 @@ def logout_all(
     """Revoke every active session of the current user, this one included."""
     stage_revoke_all_sessions(db, current_user.id)
     db.commit()
+    clear_auth_cookies(response)
 
     create_audit_log(
         db=db,

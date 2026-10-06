@@ -57,6 +57,11 @@ LOG_LEVEL=INFO
 LOG_FORMAT=text   # json pentru colectoare de loguri
 ```
 
+## Autentificare
+
+- **Browser (frontend):** `POST /auth/session` setează cookie-ul httpOnly `sentinelcore_session` și cookie-ul `sentinelcore_csrf`. Orice cerere POST/PUT/PATCH/DELETE autentificată prin cookie trebuie să trimită valoarea cookie-ului CSRF în header-ul `X-CSRF-Token`.
+- **API și Swagger:** `POST /auth/login` (JSON) sau `POST /auth/token` (formular OAuth2) întorc un token trimis apoi ca `Authorization: Bearer <token>`. Aceste cereri nu au nevoie de token CSRF.
+
 ## Sesiuni
 
 Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` sau, de către un admin, prin `DELETE /admin/users/{id}/sessions`.
