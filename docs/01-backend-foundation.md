@@ -2805,81 +2805,64 @@ In acest moment backend-ul SentinelCore are:
 - CI verde dupa Pull Request
 
 Aceasta etapa consolideaza modulul Admin User Management si pregateste terenul pentru actiuni administrative mai sensibile, precum schimbarea rolurilor.
-## Project Cleanup
 
-### 175. Scopul etapei
+## Admin User Management - Phase 3 (local implementation)
 
-Inainte de continuarea dezvoltarii, proiectul a fost verificat integral si au fost corectate problemele gasite. Lucrul a fost facut pe branch separat, `chore/project-cleanup`, creat din `main`.
+### 172. Role update endpoint and policy
 
-### 176. Alembic vedea o schema goala
+`PATCH /admin/users/{user_id}/role` accepts a body such as `{"role": "admin"}`
+and returns `UserRead`, excluding `hashed_password`.
 
-`migrations/env.py` importa doar `Base`, nu si modulele cu modele. Un model se inregistreaza in `Base.metadata` doar cand modulul lui este importat, asa ca la rularea Alembic `Base.metadata.tables` era gol. Urmatorul `alembic revision --autogenerate` ar fi propus stergerea tuturor tabelelor.
+Only an authenticated owner may change a target user's role. Allowed destination
+roles are `user`, `admin`, and `security_analyst`. The endpoint rejects
+self-modification, modifying an existing owner, and assigning the owner role.
 
-Cauza probabila: importurile au fost eliminate de Ruff ca nefolosite (`F401`).
+| Situation | Response |
+| --- | --- |
+| Missing token | 401 |
+| Actor is not an owner | 403, `Insufficient permissions` |
+| Target does not exist | 404, `User not found` |
+| Owner targets their own account | 403, `Owners cannot change their own role` |
+| Owner targets another owner | 403, `Cannot change the role of an owner` |
+| Owner tries to assign owner | 403, `Cannot promote a user to owner` |
+| Unknown role such as `manager` | 422 |
+| Allowed change | 200 |
+| Existing role requested for an allowed target | 200, no change events |
 
-Rezolvare:
+`UserRoleUpdate` validates the role using `UserRole`. The value `owner` is valid
+input for the enum but is rejected by the endpoint's business rules.
 
-```python
-from app.models import audit_log, security_event, user  # noqa: F401
-```
+### 173. Actor, target, and transaction behavior
 
-Verificare: `python -m alembic check` -> `No new upgrade operations detected.`
+The actor is the authenticated owner; the target is the user identified by the
+route's `user_id`. Audit and security event `user_id` and `email` fields identify
+the actor. The message records the target ID and the previous and new roles:
 
-Testele nu puteau prinde problema, deoarece creeaza schema prin `create_all()`, nu prin migratii. `alembic check` a fost adaugat in `backend/README.md` ca verificare manuala.
+`Owner changed role for user_id={target_id} from {old_role} to {new_role}`
 
-### 177. Utilizatori inactivi
+`update_user_role()` stages the role change, an `AuditLog`, and a `SecurityEvent`
+before committing once. It rolls back and re-raises if the commit fails.
+It constructs event objects directly because the existing event creation helpers
+commit independently. No new enum values or database migration are required.
 
-Campul `is_active` exista in model, dar nu era verificat nicaieri.
+The events reuse `ADMIN_ENDPOINT_ACCESSED` and `ADMIN_ACCESS`, with security
+severity `INFO` and source `backend`. Requests rejected by the endpoint and
+requests that leave the role unchanged create no successful-change events.
+Self-modification and owner restrictions are checked before the unchanged-role
+shortcut.
 
-Comportament nou:
-- login cu parola corecta pentru un user inactiv -> `403 Forbidden`, `Inactive user`
-- tentativa genereaza audit log si security event `LOGIN_FAILED`, severitate `WARN`
-- un token emis inainte de dezactivare este refuzat de `get_current_user()` cu `403 Inactive user`
+### 174. Local verification on 2026-10-06
 
-Mesajul `Inactive user` apare doar dupa verificarea parolei, deci nu dezvaluie starea contului cuiva care nu cunoaste parola.
+- Ruff lint and formatting checks passed for the backend.
+- Bandit reported no security findings; it emitted warnings while parsing the
+  existing OAuth2 `nosec` comment in `auth.py`.
+- All 29 tests passed in 4.64 seconds against the separate PostgreSQL database
+  `sentinelcore_test`, using `backend/.venv`.
+- Successful-change tests verify the role read back from the database and the
+  actor and message in both event records.
+- Additional tests cover an unknown target, an invalid role, and an unchanged
+  role, including the absence of successful-change events.
 
-Momentan nu exista un endpoint pentru dezactivare; in teste, `is_active` este setat direct in baza de date de test.
-
-### 178. Timp de raspuns egal la login
-
-Pentru un email inexistent, `authenticate_user()` returna imediat, fara verificarea hash-ului. Pentru un email existent se calcula hash-ul Argon2, ceea ce dureaza vizibil mai mult. Diferenta de timp permitea aflarea emailurilor inregistrate.
-
-Rezolvare: in `app/core/security.py` este generat la pornire `DUMMY_PASSWORD_HASH`, dintr-o valoare aleatoare. Pentru un email inexistent, parola este verificata contra acestui hash, deci ambele cazuri costa la fel.
-
-Observatie: `POST /auth/register` raspunde in continuare cu `Email already registered`, deci existenta unui email poate fi aflata prin register. Aceasta este o limitare acceptata in etapa actuala.
-
-### 179. Inregistrari simultane
-
-Register verifica duplicatele inainte de insert. Doua request-uri simultane cu acelasi email puteau trece ambele de verificare, iar al doilea primea `500 Internal Server Error` de la indexul unic din PostgreSQL.
-
-Rezolvare:
-- `create_user()` face `rollback` daca `commit` esueaza
-- endpoint-ul prinde `IntegrityError` de tip `UniqueViolation` si raspunde cu `400`
-- mesajul este ales dupa indexul incalcat: `ix_users_email` -> `Email already registered`, `ix_users_username` -> `Username already taken`
-
-Testul simuleaza cursa dezactivand verificarile prealabile prin `monkeypatch`, astfel incat doar indexurile unice pot respinge duplicatul.
-
-### 180. Dependente si alte corecturi
-
-- uneltele de dezvoltare (`pytest`, `httpx`, `ruff`, `bandit`) au fost mutate in `[project.optional-dependencies] dev`
-- instalarea pentru dezvoltare si CI devine `python -m pip install -e ".[dev]"`
-- dependentele au limite minime egale cu versiunile validate local
-- `ruff` este fixat exact (`ruff==0.15.17`), deoarece versiunile noi pot schimba formatarea sau adauga reguli si ar putea pica CI-ul fara modificari de cod
-- dependenta duplicata `pwdlib` / `pwdlib[argon2]` a fost redusa la `pwdlib[argon2]`
-- CI-ul foloseste `postgres:17`, aceeasi versiune ca Docker Compose
-- explicatia pentru `# nosec B106` a fost mutata pe randul anterior; Bandit interpreta textul de dupa `nosec` ca ID-uri de reguli si emitea warning-uri
-- `AuditLogRead.message` accepta `None`, la fel ca coloana din baza de date
-- adnotarile `Mapped[DateTime]` au devenit `Mapped[datetime]`
-- typo-uri corectate in `.env.example` (`postgresql+psycopg://`) si `.gitignore` (`__pycache__/`)
-- documentatia a fost aliniata cu codul (`require_role()`, rute, configuratia CI)
-- au fost scrise `README.md` si `backend/README.md`
-
-### 181. Validarea locala
-
-- ruff check -> passed
-- ruff format --check -> passed
-- bandit -> No issues identified, fara warning-uri
-- alembic check -> No new upgrade operations detected
-- pytest -> 21 passed
-
-Testele noi au fost verificate si invers: cu reparatiile dezactivate temporar, toate cele 5 teste noi pica.
+The PostgreSQL connection failed inside the sandbox; the successful test run was
+performed outside it. A transaction-failure test remains to be added. Phase 3
+CI validation remains pending.
