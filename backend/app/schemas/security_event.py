@@ -93,3 +93,5 @@ class SecuritySummary(BaseModel):
     top_failed_login_sources: list[FailedLoginSource]
     users_total: int
     users_inactive: int
+    # Accounts an operator has locked, and whose lock has not expired.
+    accounts_locked: int

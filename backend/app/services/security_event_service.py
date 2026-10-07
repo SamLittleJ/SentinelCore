@@ -4,6 +4,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import database_now
 from app.core.metrics import record_security_event
 from app.models.security_event import (
     SecurityEvent,
@@ -101,7 +102,7 @@ def get_security_summary(db: Session) -> SecuritySummary:
     Windows are measured on the database clock, the one that stamps
     `created_at`.
     """
-    now = db.execute(select(func.now())).scalar_one()
+    now = database_now(db)
     day_ago = now - timedelta(hours=24)
     week_ago = now - timedelta(days=7)
 
@@ -148,9 +149,11 @@ def get_security_summary(db: Session) -> SecuritySummary:
         )
     ).scalar_one()
 
-    users_total, users_inactive = db.execute(
+    users_total, users_inactive, accounts_locked = db.execute(
         select(
-            func.count(), func.count().filter(User.is_active.is_not(True))
+            func.count(),
+            func.count().filter(User.is_active.is_not(True)),
+            func.count().filter(User.locked_until > now),
         ).select_from(User)
     ).one()
 
@@ -166,4 +169,5 @@ def get_security_summary(db: Session) -> SecuritySummary:
         ],
         users_total=users_total,
         users_inactive=users_inactive,
+        accounts_locked=accounts_locked,
     )

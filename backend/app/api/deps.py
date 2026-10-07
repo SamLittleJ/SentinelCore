@@ -15,6 +15,7 @@ from app.core.security import csrf_token_for, decode_access_token
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
 from app.services.session_service import get_active_session
+from app.services.user_service import is_account_locked
 
 # /auth/token accepts the OAuth2 password form, so Swagger UI can log in.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
@@ -22,6 +23,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 # Methods that never change state; cookie-authenticated requests with any
 # other method must carry the CSRF token.
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+# Shared by login and authenticated requests, so clients can tell a lock
+# apart from a deactivated account.
+ACCOUNT_LOCKED_DETAIL = "Account temporarily locked"
 
 
 def get_db() -> Generator:
@@ -97,6 +102,15 @@ def get_current_session(
     session = get_active_session(db, session_id)
     if session is None or session.user_id != user.id:
         raise credentials_exception
+
+    # A lock revokes the account's sessions, so this only matters for a login
+    # that raced with the lock; it keeps such a session from being used.
+    # Checked after the session, so a revoked token learns nothing of the lock.
+    if is_account_locked(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ACCOUNT_LOCKED_DETAIL,
+        )
 
     # Browsers attach cookies automatically, including to requests started by
     # other sites; the CSRF header proves the request came from our frontend.

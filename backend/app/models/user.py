@@ -31,6 +31,11 @@ class User(Base):
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Logins are refused until this time, on the database clock; set when an
+    # operator contains a suspected compromise. Past values mean unlocked.
+    locked_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

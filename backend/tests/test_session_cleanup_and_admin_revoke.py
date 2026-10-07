@@ -215,27 +215,41 @@ def test_cli_requires_a_command() -> None:
         cli.main([])
 
 
-# Admin revocation of another user's sessions
+# Operator revocation of another user's sessions
+
+REASON = "Sign-ins from an unknown country"
+
+# Roles as event messages name them.
+ROLE_NAMES = {
+    UserRole.ADMIN: "Admin",
+    UserRole.OWNER: "Owner",
+    UserRole.SECURITY_ANALYST: "Security analyst",
+}
+
+
+def revoke(client: TestClient, user_id: int, token: str, reason: str = REASON):
+    return client.post(
+        f"/admin/users/{user_id}/revoke-sessions",
+        json={"reason": reason},
+        headers=bearer(token),
+    )
 
 
 def test_revoke_user_sessions_without_token_returns_401(client: TestClient) -> None:
-    assert client.delete("/admin/users/1/sessions").status_code == 401
+    response = client.post("/admin/users/1/revoke-sessions", json={"reason": REASON})
+
+    assert response.status_code == 401
 
 
-@pytest.mark.parametrize("role", [UserRole.USER, UserRole.SECURITY_ANALYST])
-def test_revoke_user_sessions_requires_admin_or_owner(
+def test_revoke_user_sessions_requires_an_operator(
     client: TestClient,
     db_session: Session,
-    role: UserRole,
 ) -> None:
-    create_user(client, db_session, "actor", role)
+    create_user(client, db_session, "actor")
     target = create_user(client, db_session, "target")
     target_token = login(client, "target")
 
-    response = client.delete(
-        f"/admin/users/{target.id}/sessions",
-        headers=bearer(login(client, "actor")),
-    )
+    response = revoke(client, target.id, login(client, "actor"))
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Insufficient permissions"
@@ -247,7 +261,12 @@ def test_revoke_user_sessions_requires_admin_or_owner(
     [
         (UserRole.ADMIN, UserRole.USER),
         (UserRole.ADMIN, UserRole.SECURITY_ANALYST),
+        # Containment is reversible, so admins and analysts may contain admins.
+        (UserRole.ADMIN, UserRole.ADMIN),
         (UserRole.OWNER, UserRole.ADMIN),
+        (UserRole.SECURITY_ANALYST, UserRole.USER),
+        (UserRole.SECURITY_ANALYST, UserRole.SECURITY_ANALYST),
+        (UserRole.SECURITY_ANALYST, UserRole.ADMIN),
     ],
 )
 def test_revoke_user_sessions_signs_the_user_out_everywhere(
@@ -261,10 +280,7 @@ def test_revoke_user_sessions_signs_the_user_out_everywhere(
     target_tokens = [login(client, "target") for _ in range(2)]
     actor_token = login(client, "actor")
 
-    response = client.delete(
-        f"/admin/users/{target.id}/sessions",
-        headers=bearer(actor_token),
-    )
+    response = revoke(client, target.id, actor_token, reason=f"  {REASON}  ")
 
     assert response.status_code == 200
     assert response.json() == {"revoked_sessions": 2}
@@ -273,8 +289,10 @@ def test_revoke_user_sessions_signs_the_user_out_everywhere(
     assert me_status(client, login(client, "target")) == 200
     assert me_status(client, actor_token) == 200
 
+    # The reason is stored trimmed.
     expected_message = (
-        f"{actor_role.value.capitalize()} revoked 2 session(s) for user_id={target.id}"
+        f"{ROLE_NAMES[actor_role]} revoked 2 session(s) "
+        f"for user_id={target.id}. Reason: {REASON}"
     )
     audit_log = db_session.scalar(
         select(AuditLog).where(
@@ -303,13 +321,30 @@ def test_revoke_user_sessions_with_no_active_sessions(
     create_user(client, db_session, "actor", UserRole.ADMIN)
     target = create_user(client, db_session, "target")
 
-    response = client.delete(
-        f"/admin/users/{target.id}/sessions",
-        headers=bearer(login(client, "actor")),
-    )
+    response = revoke(client, target.id, login(client, "actor"))
 
     assert response.status_code == 200
     assert response.json() == {"revoked_sessions": 0}
+
+
+@pytest.mark.parametrize("body", [{}, {"reason": "  ab  "}, {"reason": "x" * 501}])
+def test_revoke_user_sessions_requires_a_reason(
+    client: TestClient,
+    db_session: Session,
+    body: dict,
+) -> None:
+    create_user(client, db_session, "actor", UserRole.ADMIN)
+    target = create_user(client, db_session, "target")
+    target_token = login(client, "target")
+
+    response = client.post(
+        f"/admin/users/{target.id}/revoke-sessions",
+        json=body,
+        headers=bearer(login(client, "actor")),
+    )
+
+    assert response.status_code == 422
+    assert me_status(client, target_token) == 200
 
 
 @pytest.mark.parametrize(
@@ -322,6 +357,12 @@ def test_revoke_user_sessions_with_no_active_sessions(
             "Use /auth/logout-all to revoke your own sessions",
         ),
         (
+            UserRole.SECURITY_ANALYST,
+            True,
+            UserRole.SECURITY_ANALYST,
+            "Use /auth/logout-all to revoke your own sessions",
+        ),
+        (
             UserRole.OWNER,
             True,
             UserRole.OWNER,
@@ -334,16 +375,16 @@ def test_revoke_user_sessions_with_no_active_sessions(
             "Cannot revoke the sessions of an owner",
         ),
         (
-            UserRole.OWNER,
+            UserRole.SECURITY_ANALYST,
             False,
             UserRole.OWNER,
             "Cannot revoke the sessions of an owner",
         ),
         (
-            UserRole.ADMIN,
+            UserRole.OWNER,
             False,
-            UserRole.ADMIN,
-            "Only an owner can revoke the sessions of an admin",
+            UserRole.OWNER,
+            "Cannot revoke the sessions of an owner",
         ),
     ],
 )
@@ -363,10 +404,7 @@ def test_revoke_user_sessions_restrictions(
         target = create_user(client, db_session, "target", target_role)
         target_token = login(client, "target")
 
-    response = client.delete(
-        f"/admin/users/{target.id}/sessions",
-        headers=bearer(actor_token),
-    )
+    response = revoke(client, target.id, actor_token)
 
     assert response.status_code == 403
     assert response.json()["detail"] == expected_detail
@@ -387,10 +425,7 @@ def test_revoke_sessions_of_unknown_user_returns_404(
 ) -> None:
     create_user(client, db_session, "actor", UserRole.OWNER)
 
-    response = client.delete(
-        "/admin/users/999999/sessions",
-        headers=bearer(login(client, "actor")),
-    )
+    response = revoke(client, 999999, login(client, "actor"))
 
     assert response.status_code == 404
     assert response.json()["detail"] == "User not found"

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api'
+import { ApiError, apiRequest } from '@/lib/api'
 
 export const ROLES = ['user', 'admin', 'security_analyst', 'owner'] as const
 export type Role = (typeof ROLES)[number]
@@ -9,6 +9,8 @@ export interface User {
   email: string
   role: Role
   is_active: boolean
+  // Set while an operator's lock is in force or after it expired.
+  locked_until: string | null
   created_at: string
   updated_at: string
 }
@@ -18,6 +20,14 @@ const ORGANIZATION_ROLES: ReadonlySet<Role> = new Set(['admin', 'owner', 'securi
 
 export function canViewOrganization(user: User): boolean {
   return ORGANIZATION_ROLES.has(user.role)
+}
+
+// The API answers 403 both for a deactivated account and for one an operator
+// has locked; the detail tells them apart.
+const ACCOUNT_LOCKED_DETAIL = 'Account temporarily locked'
+
+export function isAccountLockedError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403 && error.detail === ACCOUNT_LOCKED_DETAIL
 }
 
 export function fetchCurrentUser(signal?: AbortSignal): Promise<User> {

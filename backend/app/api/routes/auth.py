@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.cookies import clear_auth_cookies, set_auth_cookies
 from app.api.deps import (
+    ACCOUNT_LOCKED_DETAIL,
     get_client_ip,
     get_current_session,
     get_current_user,
@@ -40,6 +41,7 @@ from app.services.user_service import (
     create_user,
     get_user_by_email,
     get_user_by_username,
+    is_account_locked,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -182,6 +184,36 @@ def _log_in(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user",
+        )
+
+    # Checked after the password, like the inactive status, so only someone
+    # who knows it learns that the account is locked. The response does not
+    # say when the lock ends: during a suspected compromise that someone may
+    # be the attacker.
+    if is_account_locked(db, user):
+        message = f"Login with valid password blocked for locked user: {email}"
+        create_audit_log(
+            db=db,
+            event_type=AuditEventType.LOGIN_BLOCKED,
+            user=user,
+            email=email,
+            ip_address=client_ip,
+            message=message,
+        )
+
+        create_security_event(
+            db=db,
+            event_type=SecurityEventType.LOGIN_BLOCKED,
+            severity=SecuritySeverity.WARN,
+            user=user,
+            email=email,
+            ip_address=client_ip,
+            message=message,
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ACCOUNT_LOCKED_DETAIL,
         )
 
     create_audit_log(

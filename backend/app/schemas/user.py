@@ -7,6 +7,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     EmailStr,
+    Field,
     StrictBool,
     StringConstraints,
 )
@@ -55,6 +56,9 @@ class UserRead(BaseModel):
     email: EmailStr
     role: str
     is_active: bool
+    # Set while an operator's lock is in force or after it expired; compare
+    # with the current time to know whether the account is locked now.
+    locked_until: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -95,6 +99,24 @@ class SessionsRevoked(BaseModel):
     revoked_sessions: int
 
 
+# Why an operator contained an account, kept in the audit log and the
+# security event.
+ContainmentReason = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)
+]
+
+ACCOUNT_LOCK_MAX_HOURS = 7 * 24
+
+
+class SessionsRevokeRequest(BaseModel):
+    reason: ContainmentReason
+
+
+class AccountLockRequest(BaseModel):
+    duration_hours: Annotated[int, Field(ge=1, le=ACCOUNT_LOCK_MAX_HOURS)]
+    reason: ContainmentReason
+
+
 class UserFilters(CursorPageFilters):
     """Query filters for the organization's user list."""
 
@@ -111,3 +133,5 @@ class UserFilters(CursorPageFilters):
     ) = None
     role: list[UserRole] = []
     is_active: bool | None = None
+    # Whether an operator's lock is in force now.
+    locked: bool | None = None

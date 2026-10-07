@@ -211,3 +211,15 @@ Backend-ul inregistreaza acum tinta actiunilor de administrare, iar istoricul pr
 Tipurile care pot fi primite sunt listate in `ACCOUNT_ACTION_TYPES` (`features/account/api.ts`). Adresa IP a acestor elemente vine `null` de la API (este a operatorului), deci coloana arata "—".
 
 Validare: eslint, tsc, vitest (84 passed), build. Verificare inversa: ignorarea campului `as_target` face testul nou sa pice.
+
+## Izolarea conturilor (backend)
+
+### 21. Contul blocat
+
+Backend-ul poate bloca temporar un cont. Frontend-ul trateaza doua situatii noi:
+- la login, `403` cu `detail` `Account temporarily locked` afiseaza "Contul este blocat temporar din motive de securitate. Contacteaza un administrator.", separat de mesajul pentru cont dezactivat; ambele raspunsuri au acelasi status, deci diferenta se face dupa `detail` (`isAccountLockedError()` in `features/auth/api.ts`)
+- o sesiune refuzata cu acelasi raspuns duce la `/login?reason=locked`, cu acelasi mesaj
+
+In Activitatea mea apar tipurile noi: "Contul tau a fost blocat temporar" / "Contul tau a fost deblocat" pentru contul afectat si "Ai blocat temporar un cont" / "Ai deblocat un cont" pentru operator. `User` are campul `locked_until`.
+
+Validare: eslint, tsc, vitest (86 passed), build, `npm audit`. Verificare inversa: ignorarea `detail` la `403` face testele noi sa pice. Capturi reale in Firefox, in ambele teme, ale paginii de login pentru cont blocat si ale paginii Activitatea mea dupa blocare si deblocare.

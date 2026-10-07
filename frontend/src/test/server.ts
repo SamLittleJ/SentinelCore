@@ -11,6 +11,7 @@ export function makeUser(role: Role = 'user', overrides: Partial<User> = {}): Us
     email: 'elena.radu@example.com',
     role,
     is_active: true,
+    locked_until: null,
     created_at: '2026-03-14T09:30:00Z',
     updated_at: '2026-10-01T12:00:00Z',
     ...overrides,

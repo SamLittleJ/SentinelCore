@@ -23,6 +23,8 @@ class AuditEventType(StrEnum):
     ALL_SESSIONS_REVOKED = "all_sessions_revoked"
     OTHER_SESSIONS_REVOKED = "other_sessions_revoked"
     USERS_VIEWED = "users_viewed"
+    ACCOUNT_LOCKED = "account_locked"
+    ACCOUNT_UNLOCKED = "account_unlocked"
 
 
 class AuditLog(Base):

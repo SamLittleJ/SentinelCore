@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { isAccountLockedError } from '@/features/auth/api'
 import { useCurrentUser, useLogIn } from '@/features/auth/hooks'
 import { safeNextPath } from '@/features/auth/redirect'
 import { ApiError } from '@/lib/api'
@@ -19,7 +20,7 @@ function loginErrorMessage(error: unknown, t: TFunction): string {
     case 401:
       return t('login.errors.invalid')
     case 403:
-      return t('login.errors.inactive')
+      return isAccountLockedError(error) ? t('login.errors.accountLocked') : t('login.errors.inactive')
     case 422:
       return t('login.errors.validation')
     case 429: {
@@ -53,11 +54,14 @@ export function LoginPage() {
     )
   }
 
+  const reason = params.get('reason')
   const error = logIn.isError
     ? loginErrorMessage(logIn.error, t)
-    : params.get('reason') === 'inactive'
+    : reason === 'inactive'
       ? t('login.errors.inactive')
-      : null
+      : reason === 'locked'
+        ? t('login.errors.accountLocked')
+        : null
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
