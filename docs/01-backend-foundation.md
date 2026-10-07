@@ -3864,3 +3864,87 @@ Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit, pr
 - analistul cauta (`q=MIH`), filtreaza dupa status, primeste `422` pentru `offset`, citeste istoricul contului si rezumatul, si primeste `403` la schimbarea statusului
 - nu s-a creat niciun security event `ADMIN_ACCESS`; audit log-ul contine `USERS_VIEWED` si `SECURITY_EVENTS_VIEWED`, cu tinta acolo unde este cazul
 - capturi reale in Firefox ale paginii Activitatea mea a contului afectat, in ambele teme: randul "Rolul tau a fost schimbat" are "—" in coloana IP
+
+## Account Containment - Phase 1
+
+### 249. Scopul etapei
+
+Pana acum, analistul de securitate putea doar citi. Intr-o echipa de securitate, el este de obicei primul care observa o compromitere si trebuie sa poata izola contul imediat, fara sa astepte un admin. Etapa ii da actiuni de izolare reversibile si limitate in timp; decizia definitiva (dezactivarea) ramane la `admin` si `owner`.
+
+### 250. Inchiderea sesiunilor unui cont
+
+```http
+POST /admin/users/{user_id}/revoke-sessions
+{"reason": "Sign-ins from an unknown country"}
+```
+
+Inlocuieste `DELETE /admin/users/{user_id}/sessions`. Actiunea primeste acum un motiv, iar un body pe `DELETE` nu are semantica definita in HTTP si poate fi pierdut de proxy-uri, deci a devenit o comanda `POST`. Raspunsul ramane `{"revoked_sessions": N}`.
+
+Este permisa pentru `admin`, `owner` si `security_analyst`.
+
+### 251. Blocarea temporara
+
+```http
+POST /admin/users/{user_id}/lock
+{"duration_hours": 24, "reason": "Valid password used from a new country"}
+
+POST /admin/users/{user_id}/unlock
+```
+
+Blocarea:
+- seteaza coloana noua `users.locked_until` la ceasul bazei de date plus durata (1-168 ore, adica cel mult 7 zile)
+- inchide toate sesiunile contului, in aceeasi tranzactie
+- creeaza security event `ACCOUNT_LOCKED` de severitate `incident` si audit log `ACCOUNT_LOCKED`, cu tinta si motivul in mesaj
+- o noua blocare a aceluiasi cont inlocuieste ora de sfarsit
+- expira singura; nu exista un job de curatare, o valoare din trecut inseamna cont deblocat
+
+Deblocarea (`unlock`) este permisa doar pentru `admin` si `owner`: analistul blocheaza, dar ridicarea mai devreme a blocarii este revizuita de altcineva. Creeaza `ACCOUNT_UNLOCKED` (`info`). Deblocarea unui cont care nu este blocat (sau a carui blocare a expirat) nu schimba nimic si nu creeaza evenimente.
+
+`UserRead` contine `locked_until`; lista de utilizatori accepta filtrul `locked=true|false`, iar `GET /security/summary` are campul nou `accounts_locked`.
+
+### 252. Login si sesiuni pentru un cont blocat
+
+- Parola este verificata inainte de blocare, ca la conturile dezactivate: o parola gresita primeste `401` ca de obicei, deci doar cine stie parola afla ca exista o blocare.
+- Cu parola corecta, raspunsul este `403` cu `detail` `Account temporarily locked`, fara `Retry-After`: in timpul unei compromiteri suspectate, cel care stie parola poate fi atacatorul, deci nu afla cand se termina blocarea.
+- Incercarea cu parola corecta creeaza `LOGIN_BLOCKED` (`warn`), legat de cont: este un semnal util pentru analist.
+- `get_current_session` refuza cu `403` sesiunile unui cont blocat. Blocarea revoca deja sesiunile, deci verificarea conteaza doar pentru un login care s-a intersectat cu blocarea. Ea vine dupa validarea sesiunii, ca un token revocat sa primeasca `401` si sa nu afle de blocare. Un test a prins varianta initiala, in care verificarea era inaintea sesiunii.
+
+### 253. Ierarhia actiunilor
+
+`_ensure_can_contain_account()` este regula pentru actiunile de izolare (inchiderea sesiunilor, blocarea, deblocarea): nimeni nu actioneaza asupra propriului cont sau asupra unui owner. Spre deosebire de schimbarea statusului, orice operator poate izola un admin: actiunile sunt reversibile, iar un admin compromis este cazul cel mai periculos.
+
+`_ensure_can_manage_account()` (schimbarea statusului) aplica aceeasi regula plus restrictia ca doar owner-ul actioneaza asupra unui admin.
+
+Consecinta: un admin poate acum inchide sesiunile altui admin, ceea ce inainte era rezervat owner-ului.
+
+### 254. Motivul obligatoriu
+
+`revoke-sessions` si `lock` cer `reason`: 3-500 caractere, dupa eliminarea spatiilor de la capete. Motivul apare in mesajul evenimentului si al audit log-ului (`... Reason: ...`), deci il vad operatorii, dar nu si utilizatorul afectat: istoricul propriu nu contine mesajul.
+
+Mesajele numesc rolul actorului lizibil: `Security analyst locked user_id=4 ...`, nu `Security_analyst`.
+
+### 255. Migratii
+
+`2b5ba1e0d7df`: coloana `users.locked_until` si tipurile `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED` in `security_event_types` si `audit_event_types`. La downgrade, randurile devin `USER_SESSIONS_REVOKED` / `ALL_SESSIONS_REVOKED` (o blocare inchidea mereu sesiunile) si `USER_ACTIVATED`.
+
+Ceasul bazei de date a fost mutat in `app.core.database.database_now()`, folosit de protectia la brute-force, de rezumat si de blocari.
+
+### 256. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 281 passed
+- migratia: upgrade, `alembic check`, insert cu valorile noi, downgrade (randurile mapate, coloana stearsa), din nou upgrade si `alembic check`
+
+Testele noi (`tests/test_account_containment.py`) acopera: accesul, blocarea de catre analist, admin si owner (inclusiv a unui admin), inchiderea sesiunilor, refuzul login-ului fara dezvaluirea blocarii, evenimentele si mesajele, restrictiile (propriul cont, owner), validarea duratei si a motivului, expirarea, reblocarea, deblocarea de catre admin si owner, refuzul deblocarii de catre analist, deblocarea fara efect, sesiunea aparuta in timpul blocarii, istoricul propriu al contului blocat, filtrul `locked` si `accounts_locked`. Testele de inchidere a sesiunilor verifica acum analistul, motivul si inchiderea sesiunilor unui admin de catre alt admin.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: login-ul care ignora blocarea, analistul care poate debloca, owner-ul neprotejat, blocarea fara inchiderea sesiunilor, sesiunile neverificate, blocarea fara severitate `incident`, filtrul `locked` care numara blocarile expirate, regula de admin pastrata la inchiderea sesiunilor, deblocarea care inregistreaza mereu, blocarea expirata care inca refuza login-ul.
+
+Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit, prin proxy:
+- analistul: blocare fara motiv `422`, blocarea owner-ului `403`, blocarea unui user `200`; vechiul token al userului `401`; login cu parola corecta `403` `Account temporarily locked` fara `Retry-After`, cu parola gresita `401`
+- analistul inchide sesiunile unui admin; vechiul token al adminului `401`
+- analistul nu poate debloca (`403`), vede contul in `locked=true` si `accounts_locked: 1`; adminul deblocheaza, iar userul se poate autentifica din nou
+- evenimentele: `ACCOUNT_LOCKED` (`incident`, cu motiv), `LOGIN_BLOCKED` pe cont, `USER_SESSIONS_REVOKED` cu motiv, `ACCOUNT_UNLOCKED`
+- capturi reale in Firefox, in ambele teme, ale paginii Activitatea mea a contului deblocat si ale paginii de login cu mesajul pentru cont blocat

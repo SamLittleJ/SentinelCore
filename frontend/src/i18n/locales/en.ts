@@ -46,6 +46,7 @@ const en: typeof ro = {
     errors: {
       invalid: 'Wrong email or password.',
       inactive: 'This account is deactivated. Contact an administrator.',
+      accountLocked: 'This account is temporarily locked for security reasons. Contact an administrator.',
       locked_one: 'Too many failed attempts. Try again in {{count}} minute.',
       locked_few: 'Too many failed attempts. Try again in {{count}} minutes.',
       locked_other: 'Too many failed attempts. Try again in {{count}} minutes.',
@@ -129,12 +130,16 @@ const en: typeof ro = {
     brute_force_detected: 'Sign-in temporarily locked after too many failed attempts',
     login_blocked: 'Sign-in attempt refused during the lock',
     user_sessions_revoked: "You ended a user's sessions",
+    account_locked: 'You temporarily locked an account',
+    account_unlocked: 'You unlocked an account',
   },
   eventsAsTarget: {
     user_role_changed: 'Your role was changed',
     user_activated: 'Your account was reactivated',
     user_deactivated: 'Your account was deactivated',
     user_sessions_revoked: 'An administrator ended your sessions',
+    account_locked: 'Your account was temporarily locked',
+    account_unlocked: 'Your account was unlocked',
   },
   orgOverview: {
     title: 'Organization',

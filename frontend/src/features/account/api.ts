@@ -21,6 +21,8 @@ export const SECURITY_EVENT_TYPES = [
   'brute_force_detected',
   'login_blocked',
   'user_sessions_revoked',
+  'account_locked',
+  'account_unlocked',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 
@@ -31,6 +33,8 @@ export const ACCOUNT_ACTION_TYPES = [
   'user_activated',
   'user_deactivated',
   'user_sessions_revoked',
+  'account_locked',
+  'account_unlocked',
 ] as const satisfies readonly SecurityEventType[]
 export type AccountActionType = (typeof ACCOUNT_ACTION_TYPES)[number]
 

@@ -359,6 +359,9 @@ La acest moment:
 - citirile de utilizatori sunt doar auditate, fără security events
 - operatorii au istoricul fiecărui cont și un rezumat de securitate pentru prezentarea organizației
 - backend-ul are 248 de teste automate validate, iar frontend-ul 84
+- analistul de securitate poate izola conturi suspecte: închide sesiunile și blochează temporar login-ul, cu motiv obligatoriu
+- adminii și owner-ul pot ridica o blocare înainte de expirare
+- backend-ul are 281 de teste automate validate, iar frontend-ul 86
 ---
 
 ## 11. Current Sprint
@@ -427,8 +430,8 @@ Standardul urmarit:
 
 ## 15. Immediate Next Step
 
-Pasul imediat este construirea paginilor perspectivei "Organizația", pe API-ul din Organization API - Phase 1:
+Pasul imediat este construirea paginilor perspectivei "Organizația", pe API-ul din Organization API - Phase 1 și Account Containment - Phase 1:
 
 - Evenimente de securitate și Jurnal de audit: tabel comun cu filtre păstrate în adresă și panou de detalii
-- Utilizatori: listă cu căutare și filtre, detaliu cu istoricul contului și acțiunile de administrare
+- Utilizatori: listă cu căutare și filtre, detaliu cu istoricul contului, acțiunile de administrare și cele de izolare (închiderea sesiunilor, blocarea temporară)
 - Prezentare: indicatori pe 24 de ore și 7 zile, incidente recente, surse cu cele mai multe eșecuri

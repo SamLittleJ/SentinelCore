@@ -13,7 +13,7 @@ async function submitLogin(email = 'elena.radu@example.com', password = 'testpas
   await user.click(screen.getByRole('button', { name: 'Autentifică-te' }))
 }
 
-function loginResponds(status: number, headers: Record<string, string> = {}) {
+function loginResponds(status: number, headers: Record<string, string> = {}, detail = 'error') {
   const bodies: unknown[] = []
   server.use(
     http.post('/api/auth/session', async ({ request }) => {
@@ -22,7 +22,7 @@ function loginResponds(status: number, headers: Record<string, string> = {}) {
         signedInAs(makeUser())
         return new HttpResponse(null, { status: 204 })
       }
-      return HttpResponse.json({ detail: 'error' }, { status, headers })
+      return HttpResponse.json({ detail }, { status, headers })
     }),
   )
   return bodies
@@ -83,6 +83,18 @@ describe('LoginPage', () => {
     await submitLogin()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
+  })
+
+  it('tells a locked account apart from a deactivated one', async () => {
+    signedInAs(null)
+    loginResponds(403, {}, 'Account temporarily locked')
+    renderApp('/login')
+
+    await submitLogin()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Contul este blocat temporar din motive de securitate.',
+    )
   })
 
   it('redirects a signed-in user away from the login page', async () => {

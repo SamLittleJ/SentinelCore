@@ -64,7 +64,7 @@ LOG_FORMAT=text   # json pentru colectoare de loguri
 
 ## Sesiuni
 
-Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` sau, de către un admin, prin `DELETE /admin/users/{id}/sessions`.
+Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` sau, de către un operator, prin `POST /admin/users/{id}/revoke-sessions`.
 
 Un utilizator se poate deconecta de pe celelalte dispozitive, rămânând conectat pe cel curent, prin `DELETE /users/me/sessions`. Istoricul de securitate al propriului cont este disponibil la `GET /users/me/activity`.
 
@@ -81,7 +81,19 @@ Pentru `admin`, `owner` și `security_analyst` (analistul doar citește):
 | `GET /admin/users/{id}` | Detaliile unui utilizator |
 | `GET /admin/users/{id}/activity` | Istoricul de securitate al unui cont |
 
-Filtrele de evenimente includ `target_user_id`, contul asupra căruia a acționat un operator. Schimbarea rolului (`owner`), a statusului și închiderea sesiunilor unui utilizator rămân la `admin` și `owner`.
+Filtrele de evenimente includ `target_user_id`, contul asupra căruia a acționat un operator. Lista de utilizatori acceptă și `locked`.
+
+Acțiuni asupra unui cont:
+
+| Endpoint | Cine | Ce face |
+|----------|------|---------|
+| `POST /admin/users/{id}/revoke-sessions` | admin, owner, analist | Închide toate sesiunile; cere `reason` |
+| `POST /admin/users/{id}/lock` | admin, owner, analist | Blochează login-ul `duration_hours` (1-168) și închide sesiunile; cere `reason` |
+| `POST /admin/users/{id}/unlock` | admin, owner | Ridică blocarea înainte de expirare |
+| `PATCH /admin/users/{id}/status` | admin, owner | Activează sau dezactivează contul |
+| `PATCH /admin/users/{id}/role` | owner | Schimbă rolul |
+
+Nimeni nu acționează asupra propriului cont sau asupra unui owner; la schimbarea statusului, doar owner-ul acționează asupra unui admin.
 
 ## Migrații
 

@@ -1,7 +1,10 @@
-from sqlalchemy import ColumnElement, or_, select
+from datetime import timedelta
+
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.database import database_now
 from app.core.metrics import record_security_event
 from app.core.security import DUMMY_PASSWORD_HASH, hash_password, verify_password
 from app.models.audit_log import AuditEventType, AuditLog
@@ -75,6 +78,12 @@ def list_users(
         conditions.append(User.role.in_(filters.role))
     if filters.is_active is not None:
         conditions.append(User.is_active.is_(filters.is_active))
+    if filters.locked is True:
+        conditions.append(User.locked_until > func.now())
+    elif filters.locked is False:
+        conditions.append(
+            or_(User.locked_until.is_(None), User.locked_until <= func.now())
+        )
 
     return fetch_page(db, User, filters, *conditions)
 
@@ -82,6 +91,11 @@ def list_users(
 def get_user_by_id(db: Session, user_id: int) -> User | None:
     statement = select(User).where(User.id == user_id)
     return db.scalar(statement)
+
+
+def _role_name(actor: User) -> str:
+    """The actor's role as written in event messages, e.g. "Security analyst"."""
+    return actor.role.value.replace("_", " ").capitalize()
 
 
 def _commit_user_change(
@@ -92,6 +106,7 @@ def _commit_user_change(
     security_event_type: SecurityEventType,
     message: str,
     ip_address: str | None,
+    severity: SecuritySeverity = SecuritySeverity.INFO,
 ) -> User:
     """Commit a staged change to `user` together with its audit and security
     events, so either all three are stored or none are. The events name
@@ -108,7 +123,7 @@ def _commit_user_change(
             ),
             SecurityEvent(
                 event_type=security_event_type,
-                severity=SecuritySeverity.INFO,
+                severity=severity,
                 user_id=actor.id,
                 target_user_id=user.id,
                 email=actor.email,
@@ -125,7 +140,7 @@ def _commit_user_change(
         db.rollback()
         raise
 
-    record_security_event(security_event_type, SecuritySeverity.INFO)
+    record_security_event(security_event_type, severity)
     db.refresh(user)
     return user
 
@@ -171,7 +186,7 @@ def update_user_status(
         return user  # No change needed
 
     action = "activated" if is_active else "deactivated"
-    message = f"{actor.role.value.capitalize()} {action} user_id={user.id}"
+    message = f"{_role_name(actor)} {action} user_id={user.id}"
 
     user.is_active = is_active
     if not is_active:
@@ -201,14 +216,15 @@ def revoke_all_user_sessions(
     db: Session,
     user: User,
     actor: User,
+    reason: str,
     ip_address: str | None = None,
 ) -> int:
     """Revoke every active session of `user` on behalf of `actor`, together
     with the audit and security events. Returns the number revoked."""
     revoked = stage_revoke_all_sessions(db, user.id)
     message = (
-        f"{actor.role.value.capitalize()} revoked {revoked} session(s) "
-        f"for user_id={user.id}"
+        f"{_role_name(actor)} revoked {revoked} session(s) "
+        f"for user_id={user.id}. Reason: {reason}"
     )
 
     _commit_user_change(
@@ -221,3 +237,66 @@ def revoke_all_user_sessions(
         ip_address=ip_address,
     )
     return revoked
+
+
+def is_account_locked(db: Session, user: User) -> bool:
+    """Whether an operator's lock on `user` is in force now."""
+    # Most accounts were never locked, which needs no clock query.
+    return user.locked_until is not None and user.locked_until > database_now(db)
+
+
+def lock_account(
+    db: Session,
+    user: User,
+    actor: User,
+    duration_hours: int,
+    reason: str,
+    ip_address: str | None = None,
+) -> User:
+    """Refuse logins to `user` for `duration_hours` and sign them out
+    everywhere, on behalf of `actor`, who suspects a compromise.
+
+    Locking an account that is already locked replaces the end time.
+    """
+    user.locked_until = database_now(db) + timedelta(hours=duration_hours)
+    revoked = stage_revoke_all_sessions(db, user.id)
+    message = (
+        f"{_role_name(actor)} locked user_id={user.id} for "
+        f"{duration_hours} hour(s) and revoked {revoked} session(s). "
+        f"Reason: {reason}"
+    )
+
+    return _commit_user_change(
+        db=db,
+        user=user,
+        actor=actor,
+        audit_event_type=AuditEventType.ACCOUNT_LOCKED,
+        security_event_type=SecurityEventType.ACCOUNT_LOCKED,
+        message=message,
+        ip_address=ip_address,
+        severity=SecuritySeverity.INCIDENT,
+    )
+
+
+def unlock_account(
+    db: Session,
+    user: User,
+    actor: User,
+    ip_address: str | None = None,
+) -> User:
+    """Lift a lock on `user` before it expires."""
+    if not is_account_locked(db, user):
+        return user  # No change needed
+
+    user.locked_until = None
+    message = f"{_role_name(actor)} unlocked user_id={user.id}"
+
+    return _commit_user_change(
+        db=db,
+        user=user,
+        actor=actor,
+        audit_event_type=AuditEventType.ACCOUNT_UNLOCKED,
+        security_event_type=SecurityEventType.ACCOUNT_UNLOCKED,
+        message=message,
+        ip_address=ip_address,
+    )

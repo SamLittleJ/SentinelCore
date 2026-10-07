@@ -9,7 +9,9 @@ from app.models.user import User, UserRole
 from app.schemas.pagination import Page
 from app.schemas.security_event import AccountActivityFilters, SecurityEventRead
 from app.schemas.user import (
+    AccountLockRequest,
     SessionsRevoked,
+    SessionsRevokeRequest,
     UserFilters,
     UserRead,
     UserRoleUpdate,
@@ -20,7 +22,9 @@ from app.services.security_event_service import list_user_activity
 from app.services.user_service import (
     get_user_by_id,
     list_users,
+    lock_account,
     revoke_all_user_sessions,
+    unlock_account,
     update_user_role,
     update_user_status,
 )
@@ -28,10 +32,12 @@ from app.services.user_service import (
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
 
-# Analysts read accounts to investigate; changing them stays with admins.
+# Analysts read accounts to investigate and contain suspected compromises;
+# changing roles and status stays with admins.
 # Reads are recorded only in the audit log: viewing accounts is an audit fact,
 # not a security signal, as for the event and log listings.
 READ_ROLES = (UserRole.ADMIN, UserRole.OWNER, UserRole.SECURITY_ANALYST)
+CONTAINMENT_ROLES = READ_ROLES
 
 
 def _get_user_or_404(db: Session, user_id: int) -> User:
@@ -158,6 +164,24 @@ def change_user_role(
     )
 
 
+def _ensure_can_contain_account(
+    actor: User,
+    target: User,
+    *,
+    self_detail: str,
+    owner_detail: str,
+) -> None:
+    """Containment hierarchy for session revocation and locks: no one acts on
+    their own account or on an owner. Any operator may contain an admin, since
+    these actions are reversible and a compromised admin is the most dangerous
+    case. Each action supplies its own error messages."""
+    if target.id == actor.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=self_detail)
+
+    if target.role == UserRole.OWNER:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=owner_detail)
+
+
 def _ensure_can_manage_account(
     actor: User,
     target: User,
@@ -166,14 +190,11 @@ def _ensure_can_manage_account(
     owner_detail: str,
     admin_detail: str,
 ) -> None:
-    """Account management hierarchy shared by status and session actions:
-    no one acts on their own account or on an owner, and only an owner acts on
-    an admin. Each action supplies its own error messages."""
-    if target.id == actor.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=self_detail)
-
-    if target.role == UserRole.OWNER:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=owner_detail)
+    """Account management hierarchy for status changes: the containment rules,
+    and only an owner acts on an admin."""
+    _ensure_can_contain_account(
+        actor, target, self_detail=self_detail, owner_detail=owner_detail
+    )
 
     if actor.role == UserRole.ADMIN and target.role == UserRole.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=admin_detail)
@@ -209,8 +230,67 @@ def change_user_status(
     )
 
 
-@router.delete("/{user_id}/sessions", response_model=SessionsRevoked)
+@router.post("/{user_id}/revoke-sessions", response_model=SessionsRevoked)
 def revoke_user_sessions(
+    user_id: int,
+    revoke_in: SessionsRevokeRequest,
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    current_user: Annotated[User, Depends(require_role(*CONTAINMENT_ROLES))],
+) -> SessionsRevoked:
+    """Sign a user out everywhere, for example after a suspected compromise,
+    without deactivating the account."""
+    target_user = _get_user_or_404(db, user_id)
+
+    _ensure_can_contain_account(
+        current_user,
+        target_user,
+        self_detail="Use /auth/logout-all to revoke your own sessions",
+        owner_detail="Cannot revoke the sessions of an owner",
+    )
+
+    revoked = revoke_all_user_sessions(
+        db=db,
+        user=target_user,
+        actor=current_user,
+        reason=revoke_in.reason,
+        ip_address=client_ip,
+    )
+    return SessionsRevoked(revoked_sessions=revoked)
+
+
+@router.post("/{user_id}/lock", response_model=UserRead)
+def lock_user(
+    user_id: int,
+    lock_in: AccountLockRequest,
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    current_user: Annotated[User, Depends(require_role(*CONTAINMENT_ROLES))],
+) -> User:
+    """Refuse a user's logins for a limited time and sign them out everywhere,
+    while a suspected compromise is investigated. The lock expires on its own;
+    deactivation remains the lasting decision."""
+    target_user = _get_user_or_404(db, user_id)
+
+    _ensure_can_contain_account(
+        current_user,
+        target_user,
+        self_detail="Users cannot lock their own account",
+        owner_detail="Cannot lock an owner",
+    )
+
+    return lock_account(
+        db=db,
+        user=target_user,
+        actor=current_user,
+        duration_hours=lock_in.duration_hours,
+        reason=lock_in.reason,
+        ip_address=client_ip,
+    )
+
+
+@router.post("/{user_id}/unlock", response_model=UserRead)
+def unlock_user(
     user_id: int,
     db: Annotated[Session, Depends(get_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
@@ -218,23 +298,21 @@ def revoke_user_sessions(
         User,
         Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
     ],
-) -> SessionsRevoked:
-    """Sign a user out everywhere, for example after a suspected compromise,
-    without deactivating the account."""
+) -> User:
+    """Lift a lock before it expires. Analysts lock but do not unlock, so a
+    lock is reviewed by someone else before access returns early."""
     target_user = _get_user_or_404(db, user_id)
 
-    _ensure_can_manage_account(
+    _ensure_can_contain_account(
         current_user,
         target_user,
-        self_detail="Use /auth/logout-all to revoke your own sessions",
-        owner_detail="Cannot revoke the sessions of an owner",
-        admin_detail="Only an owner can revoke the sessions of an admin",
+        self_detail="Users cannot unlock their own account",
+        owner_detail="Owners cannot be locked",
     )
 
-    revoked = revoke_all_user_sessions(
+    return unlock_account(
         db=db,
         user=target_user,
         actor=current_user,
         ip_address=client_ip,
     )
-    return SessionsRevoked(revoked_sessions=revoked)

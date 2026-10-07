@@ -5,7 +5,7 @@ import { FullPageLoader, StatusPage } from '@/components/StatusPage'
 import { Button } from '@/components/ui/button'
 import { ApiError } from '@/lib/api'
 
-import { canViewOrganization } from './api'
+import { canViewOrganization, isAccountLockedError } from './api'
 import { isUnauthenticated, useCurrentUser } from './hooks'
 
 /** Renders the protected routes only for a signed-in, active user. */
@@ -22,6 +22,9 @@ export function RequireAuth() {
     if (isUnauthenticated(currentUser.error)) {
       const next = encodeURIComponent(location.pathname + location.search)
       return <Navigate to={`/login?next=${next}`} replace />
+    }
+    if (isAccountLockedError(currentUser.error)) {
+      return <Navigate to="/login?reason=locked" replace />
     }
     if (currentUser.error instanceof ApiError && currentUser.error.status === 403) {
       return <Navigate to="/login?reason=inactive" replace />

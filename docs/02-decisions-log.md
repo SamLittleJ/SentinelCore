@@ -293,3 +293,10 @@
 - Operatorii văd istoricul unui cont prin `GET /admin/users/{id}/activity`, același set de evenimente pe care îl vede proprietarul, cu toate câmpurile; consultarea este auditată.
 - `GET /security/summary` oferă numere agregate pentru prezentarea organizației și nu este auditat.
 - Perspectiva "Organizația" se livrează în patru PR-uri mici: backend, Evenimente + Audit, Utilizatori, Prezentare.
+- `security_analyst` poate izola conturi: închiderea tuturor sesiunilor și blocarea temporară a login-ului; dezactivarea rămâne la `admin` și `owner`.
+- Acțiunile de izolare se pot aplica oricărui cont, mai puțin owner-ului și propriului cont; orice operator poate izola un admin, pentru că acțiunile sunt reversibile.
+- Blocarea temporară durează între 1 oră și 7 zile, închide sesiunile, expiră singură și creează un eveniment de severitate `incident`.
+- Doar `admin` și `owner` pot ridica o blocare înainte de expirare.
+- Închiderea sesiunilor și blocarea cer un motiv (3-500 caractere), salvat în audit log și în security event; utilizatorul afectat nu îl vede.
+- La login, blocarea este verificată după parolă și nu dezvăluie când se termină.
+- Închiderea sesiunilor unui user de către un operator este `POST /admin/users/{id}/revoke-sessions`, pentru că acțiunea are acum un body.

@@ -42,6 +42,7 @@ const ro = {
     errors: {
       invalid: 'Email sau parolă greșite.',
       inactive: 'Contul este dezactivat. Contactează un administrator.',
+      accountLocked: 'Contul este blocat temporar din motive de securitate. Contactează un administrator.',
       locked_one: 'Prea multe încercări eșuate. Încearcă din nou peste {{count}} minut.',
       locked_few: 'Prea multe încercări eșuate. Încearcă din nou peste {{count}} minute.',
       locked_other: 'Prea multe încercări eșuate. Încearcă din nou peste {{count}} de minute.',
@@ -125,12 +126,16 @@ const ro = {
     brute_force_detected: 'Autentificare blocată temporar după prea multe încercări eșuate',
     login_blocked: 'Încercare de autentificare respinsă în timpul blocării',
     user_sessions_revoked: 'Ai închis sesiunile unui utilizator',
+    account_locked: 'Ai blocat temporar un cont',
+    account_unlocked: 'Ai deblocat un cont',
   },
   eventsAsTarget: {
     user_role_changed: 'Rolul tău a fost schimbat',
     user_activated: 'Contul tău a fost reactivat',
     user_deactivated: 'Contul tău a fost dezactivat',
     user_sessions_revoked: 'Un administrator ți-a închis sesiunile',
+    account_locked: 'Contul tău a fost blocat temporar',
+    account_unlocked: 'Contul tău a fost deblocat',
   },
   orgOverview: {
     title: 'Organizația',

@@ -26,6 +26,18 @@ describe('route guards and navigation', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Contul este dezactivat.')
   })
 
+  it('sends a locked user to the login page with an explanation', async () => {
+    server.use(
+      http.get('/api/users/me', () =>
+        HttpResponse.json({ detail: 'Account temporarily locked' }, { status: 403 }),
+      ),
+    )
+    const { router } = renderApp('/me')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Contul este blocat temporar')
+    expect(router.state.location.search).toBe('?reason=locked')
+  })
+
   it('offers a retry when the API is unreachable', async () => {
     server.use(http.get('/api/users/me', () => HttpResponse.error()))
     renderApp('/me')

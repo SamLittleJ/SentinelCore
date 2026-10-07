@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import database_now
 from app.core.metrics import record_security_event
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import (
@@ -20,10 +21,6 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User
-
-
-def _database_now(db: Session) -> datetime:
-    return db.execute(select(func.now())).scalar_one()
 
 
 def _latest_event_time(
@@ -45,7 +42,7 @@ def get_lockout_seconds_remaining(db: Session, email: str) -> int:
         return 0
 
     locked_until = locked_at + timedelta(minutes=settings.login_lockout_minutes)
-    remaining = locked_until - _database_now(db)
+    remaining = locked_until - database_now(db)
     return max(0, math.ceil(remaining.total_seconds()))
 
 
@@ -56,7 +53,7 @@ def count_recent_failed_logins(db: Session, email: str) -> int:
     ignored, so a success resets the count and an expired lockout does not
     immediately trigger another one.
     """
-    since = _database_now(db) - timedelta(minutes=settings.login_failure_window_minutes)
+    since = database_now(db) - timedelta(minutes=settings.login_failure_window_minutes)
 
     for event_type in (
         SecurityEventType.LOGIN_SUCCESS,
