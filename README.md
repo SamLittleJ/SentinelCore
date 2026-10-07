@@ -33,7 +33,7 @@ python -m alembic upgrade head
 python -m uvicorn app.main:app --reload
 ```
 
-API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`.
+API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`. PostgreSQL ascultă doar pe `localhost`, pentru că parola de development din `docker-compose.yml` este publică.
 
 Frontend, într-un alt terminal:
 
@@ -66,3 +66,7 @@ Detalii despre backend, teste și verificări: [backend/README.md](backend/READM
 - [01 - Backend Foundation](docs/01-backend-foundation.md): jurnalul tehnic al fiecărei etape din backend
 - [02 - Decisions Log](docs/02-decisions-log.md): deciziile tehnice luate pe parcurs
 - [03 - Frontend Foundation](docs/03-frontend-foundation.md): jurnalul tehnic al frontend-ului
+
+## Licență
+
+[MIT](LICENSE)

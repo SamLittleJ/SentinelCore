@@ -3985,3 +3985,27 @@ Teste noi: evenimentele inregistrate tarziu apar la momentul lor, paginarea dupa
 Verificare inversa: ordonarea doar dupa `id`, lipsa departajarii dupa `id`, cursorul comparat doar pe timp si cursorul comparat doar pe `id` fac fiecare cel putin un test sa pice.
 
 Verificare end-to-end: doua evenimente inserate ultimele, cu ore din trecut, apar prin API si in pagina Evenimente la sfarsitul listei, la ora lor.
+
+## Public Readiness
+
+### 261. Scopul etapei
+
+Pregatirea repository-ului pentru a deveni public. Verificari facute inainte:
+- Gitleaks pe tot istoricul git: niciun secret
+- `backend/.env` este ignorat si nu a fost niciodata urmarit
+- workflow-urile folosesc `pull_request`, nu `pull_request_target`, deci PR-urile din fork-uri nu primesc secrete sau un token cu drept de scriere
+
+### 262. Modificari
+
+- **PostgreSQL doar pe localhost**: `docker-compose.yml` publica acum `127.0.0.1:5432`, nu `5432` pe toate interfetele. Parola de development este publica, deci baza nu trebuie sa fie accesibila din retea. Prometheus si Grafana ascultau deja doar pe `127.0.0.1`. Containerul existent se aplica cu `docker compose up -d postgres`; datele raman in volum.
+- **Permisiuni minime in CI**: ambele workflow-uri declara `permissions: contents: read`, deci token-ul GitHub nu are drept de scriere, independent de setarile repository-ului. Validat cu actionlint.
+- **Licenta MIT** (`LICENSE`), mentionata in README.
+- Commit-urile noi folosesc adresa noreply de la GitHub (configurata local in repository); commit-urile vechi raman neschimbate, fara rescrierea istoricului.
+
+Fixarea actiunilor GitHub pe SHA si OpenSSF Scorecard raman pentru faza C (supply chain).
+
+### 263. Validarea locala
+
+- `docker compose config` -> valid; containerul PostgreSQL recreat asculta doar pe `127.0.0.1:5432`, iar datele de development au ramas
+- actionlint -> fara probleme
+- pytest pe containerul recreat -> 284 passed

@@ -367,6 +367,7 @@ La acest moment:
 - frontend-ul are 111 teste automate validate
 - evenimentele sunt listate după momentul în care s-au petrecut, nu după ordinea înregistrării
 - backend-ul are 284 de teste automate validate
+- repository-ul este pregătit pentru a deveni public: licență MIT, PostgreSQL doar pe localhost, permisiuni minime în CI
 ---
 
 ## 11. Current Sprint

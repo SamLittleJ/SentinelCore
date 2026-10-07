@@ -308,3 +308,7 @@
 - Paginile organizației se încarcă la cerere, separat de restul aplicației.
 - Listele de evenimente sunt ordonate după `created_at`, apoi după `id`; cursorul rămâne `before_id`, iar serverul compară perechea `(created_at, id)`.
 - Barele de derulare folosesc culorile temei, independent de suportul browserului pentru `color-scheme`.
+- Repository-ul devine public, cu licența MIT.
+- PostgreSQL din `docker-compose.yml` ascultă doar pe `127.0.0.1`, ca Prometheus și Grafana.
+- Workflow-urile CI au doar permisiunea `contents: read`.
+- Commit-urile noi folosesc adresa noreply de la GitHub; istoricul existent nu este rescris.

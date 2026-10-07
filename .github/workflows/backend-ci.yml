@@ -12,6 +12,10 @@ on:
         branches:
             - main
         
+# The jobs only read the code; the token gets no write access.
+permissions:
+    contents: read
+
 jobs:
     backend-tests:
         name: Run backend tests
