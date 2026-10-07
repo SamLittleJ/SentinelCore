@@ -7,11 +7,20 @@ from app.api.deps import get_client_ip, get_db, require_role
 from app.models.audit_log import AuditEventType
 from app.models.user import User, UserRole
 from app.schemas.pagination import Page
-from app.schemas.security_event import SecurityEventFilters, SecurityEventRead
+from app.schemas.security_event import (
+    SecurityEventFilters,
+    SecurityEventRead,
+    SecuritySummary,
+)
 from app.services.audit_service import create_audit_log
-from app.services.security_event_service import list_security_events
+from app.services.security_event_service import (
+    get_security_summary,
+    list_security_events,
+)
 
 router = APIRouter(prefix="/security", tags=["security"])
+
+ORGANIZATION_ROLES = (UserRole.ADMIN, UserRole.OWNER, UserRole.SECURITY_ANALYST)
 
 
 @router.get("/events", response_model=Page[SecurityEventRead])
@@ -19,9 +28,7 @@ def read_security_events(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[
         User,
-        Depends(
-            require_role(UserRole.ADMIN, UserRole.OWNER, UserRole.SECURITY_ANALYST)
-        ),
+        Depends(require_role(*ORGANIZATION_ROLES)),
     ],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     filters: Annotated[SecurityEventFilters, Query()],
@@ -42,3 +49,13 @@ def read_security_events(
         {"items": security_events, "next_cursor": next_cursor},
         from_attributes=True,
     )
+
+
+@router.get("/summary", response_model=SecuritySummary)
+def read_security_summary(
+    db: Annotated[Session, Depends(get_db)],
+    _current_user: Annotated[User, Depends(require_role(*ORGANIZATION_ROLES))],
+) -> SecuritySummary:
+    # Not audited: the overview loads it on every visit and it holds counts,
+    # not records. Opening the events behind a count is audited as usual.
+    return get_security_summary(db)

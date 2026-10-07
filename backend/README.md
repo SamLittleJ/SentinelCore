@@ -68,6 +68,21 @@ Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout
 
 Un utilizator se poate deconecta de pe celelalte dispozitive, rămânând conectat pe cel curent, prin `DELETE /users/me/sessions`. Istoricul de securitate al propriului cont este disponibil la `GET /users/me/activity`.
 
+## Perspectiva organizației
+
+Pentru `admin`, `owner` și `security_analyst` (analistul doar citește):
+
+| Endpoint | Ce întoarce |
+|----------|-------------|
+| `GET /security/events` | Evenimente de securitate, cu filtre și paginare prin cursor |
+| `GET /admin/audit-logs` | Audit logs, cu aceleași filtre |
+| `GET /security/summary` | Numere pe 24 de ore și 7 zile, login-uri blocate, IP-urile cu cele mai multe eșecuri, conturi |
+| `GET /admin/users` | Utilizatori; filtre `q`, `role`, `is_active`, paginare prin cursor |
+| `GET /admin/users/{id}` | Detaliile unui utilizator |
+| `GET /admin/users/{id}/activity` | Istoricul de securitate al unui cont |
+
+Filtrele de evenimente includ `target_user_id`, contul asupra căruia a acționat un operator. Schimbarea rolului (`owner`), a statusului și închiderea sesiunilor unui utilizator rămân la `admin` și `owner`.
+
 ## Migrații
 
 Alembic folosește aceeași setare `DATABASE_URL` ca aplicația, din mediu sau din `.env`. Pentru o bază temporară:

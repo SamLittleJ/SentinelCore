@@ -130,6 +130,12 @@ const en: typeof ro = {
     login_blocked: 'Sign-in attempt refused during the lock',
     user_sessions_revoked: "You ended a user's sessions",
   },
+  eventsAsTarget: {
+    user_role_changed: 'Your role was changed',
+    user_activated: 'Your account was reactivated',
+    user_deactivated: 'Your account was deactivated',
+    user_sessions_revoked: 'An administrator ended your sessions',
+  },
   orgOverview: {
     title: 'Organization',
     subtitle: 'Activity across all accounts.',

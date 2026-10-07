@@ -186,11 +186,11 @@ def test_admin_users_with_admin_user_returns_users(
     assert response.status_code == 200
 
     data = response.json()
-    assert isinstance(data, list)
-    assert len(data) == 1
-    assert data[0]["email"] == "test@example.com"
-    assert data[0]["username"] == "testuser"
-    assert "hashed_password" not in data[0]
+    assert data["next_cursor"] is None
+    assert len(data["items"]) == 1
+    assert data["items"][0]["email"] == "test@example.com"
+    assert data["items"][0]["username"] == "testuser"
+    assert "hashed_password" not in data["items"][0]
 
 
 def get_user_id_by_email(db_session: Session, email: str) -> int:
@@ -379,6 +379,7 @@ def test_owner_changes_user_role_and_records_events(
 
     assert len(audit_logs) == 1
     assert audit_logs[0].user_id == owner_id
+    assert audit_logs[0].target_user_id == target_id
     assert audit_logs[0].email == "owner@example.com"
     assert audit_logs[0].message == expected_message
 
@@ -392,6 +393,7 @@ def test_owner_changes_user_role_and_records_events(
 
     assert len(security_events) == 1
     assert security_events[0].user_id == owner_id
+    assert security_events[0].target_user_id == target_id
     assert security_events[0].email == "owner@example.com"
     assert security_events[0].severity == SecuritySeverity.INFO
     assert security_events[0].message == expected_message
@@ -742,6 +744,7 @@ def test_change_user_status_updates_target_and_records_events(
     )
     assert len(audit_logs) == 1
     assert audit_logs[0].user_id == actor_id
+    assert audit_logs[0].target_user_id == target_id
     assert audit_logs[0].email == "actor@example.com"
     assert audit_logs[0].message == expected_message
 
@@ -752,6 +755,7 @@ def test_change_user_status_updates_target_and_records_events(
     )
     assert len(security_events) == 1
     assert security_events[0].user_id == actor_id
+    assert security_events[0].target_user_id == target_id
     assert security_events[0].email == "actor@example.com"
     assert security_events[0].severity == SecuritySeverity.INFO
     assert security_events[0].message == expected_message

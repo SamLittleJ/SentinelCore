@@ -37,6 +37,7 @@ export function makeEvent(overrides: Partial<ActivityEvent> = {}): ActivityEvent
     severity: 'info',
     ip_address: '192.0.2.10',
     created_at: '2026-10-06T08:15:00Z',
+    as_target: false,
     ...overrides,
   }
 }

@@ -5,16 +5,18 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_client_ip, get_db, require_role
 from app.models.audit_log import AuditEventType
-from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
+from app.schemas.pagination import Page
+from app.schemas.security_event import AccountActivityFilters, SecurityEventRead
 from app.schemas.user import (
     SessionsRevoked,
+    UserFilters,
     UserRead,
     UserRoleUpdate,
     UserStatusUpdate,
 )
 from app.services.audit_service import create_audit_log
-from app.services.security_event_service import create_security_event
+from app.services.security_event_service import list_user_activity
 from app.services.user_service import (
     get_user_by_id,
     list_users,
@@ -26,35 +28,43 @@ from app.services.user_service import (
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
 
-@router.get("", response_model=list[UserRead])
+# Analysts read accounts to investigate; changing them stays with admins.
+# Reads are recorded only in the audit log: viewing accounts is an audit fact,
+# not a security signal, as for the event and log listings.
+READ_ROLES = (UserRole.ADMIN, UserRole.OWNER, UserRole.SECURITY_ANALYST)
+
+
+def _get_user_or_404(db: Session, user_id: int) -> User:
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return user
+
+
+@router.get("", response_model=Page[UserRead])
 def read_users(
     db: Annotated[Session, Depends(get_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
-    current_user: Annotated[
-        User,
-        Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
-    ],
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[User]:
+    current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
+    filters: Annotated[UserFilters, Query()],
+) -> Page[UserRead]:
+    users, next_cursor = list_users(db, filters)
+
     create_audit_log(
         db=db,
         ip_address=client_ip,
         user=current_user,
-        event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
-        message="Admin listed users",
+        event_type=AuditEventType.USERS_VIEWED,
+        message=f"Listed users with {filters.describe()}",
     )
 
-    create_security_event(
-        db=db,
-        ip_address=client_ip,
-        user=current_user,
-        event_type=SecurityEventType.ADMIN_ACCESS,
-        severity=SecuritySeverity.INFO,
-        message="Admin listed users",
+    return Page[UserRead].model_validate(
+        {"items": users, "next_cursor": next_cursor},
+        from_attributes=True,
     )
-
-    return list_users(db, limit=limit, offset=offset)
 
 
 @router.get("/{user_id}", response_model=UserRead)
@@ -62,37 +72,50 @@ def read_user_by_id(
     user_id: int,
     db: Annotated[Session, Depends(get_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
-    current_user: Annotated[
-        User,
-        Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
-    ],
+    current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
 ) -> User:
-    target_user = get_user_by_id(db, user_id)
-
-    if target_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    target_user = _get_user_or_404(db, user_id)
 
     create_audit_log(
         db=db,
         ip_address=client_ip,
         user=current_user,
-        event_type=AuditEventType.ADMIN_ENDPOINT_ACCESSED,
-        message=f"Admin viewed user details for user_id={target_user.id}",
-    )
-
-    create_security_event(
-        db=db,
-        ip_address=client_ip,
-        user=current_user,
-        event_type=SecurityEventType.ADMIN_ACCESS,
-        severity=SecuritySeverity.INFO,
-        message=f"Admin viewed user details for user_id={target_user.id}",
+        target_user=target_user,
+        event_type=AuditEventType.USERS_VIEWED,
+        message=f"Viewed user details for user_id={target_user.id}",
     )
 
     return target_user
+
+
+@router.get("/{user_id}/activity", response_model=Page[SecurityEventRead])
+def read_user_activity(
+    user_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
+    current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
+    filters: Annotated[AccountActivityFilters, Query()],
+) -> Page[SecurityEventRead]:
+    """The security events about one account, the same set its owner sees in
+    their own activity, with the operator details included."""
+    target_user = _get_user_or_404(db, user_id)
+    events, next_cursor = list_user_activity(db, target_user, filters)
+
+    create_audit_log(
+        db=db,
+        ip_address=client_ip,
+        user=current_user,
+        target_user=target_user,
+        event_type=AuditEventType.SECURITY_EVENTS_VIEWED,
+        message=(
+            f"Viewed activity of user_id={target_user.id} with {filters.describe()}"
+        ),
+    )
+
+    return Page[SecurityEventRead].model_validate(
+        {"items": events, "next_cursor": next_cursor},
+        from_attributes=True,
+    )
 
 
 @router.patch("/{user_id}/role", response_model=UserRead)
@@ -106,13 +129,7 @@ def change_user_role(
         Depends(require_role(UserRole.OWNER)),
     ],
 ) -> User:
-    target_user = get_user_by_id(db, user_id)
-
-    if target_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    target_user = _get_user_or_404(db, user_id)
 
     if target_user.id == current_user.id:
         raise HTTPException(
@@ -173,13 +190,7 @@ def change_user_status(
         Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
     ],
 ) -> User:
-    target_user = get_user_by_id(db, user_id)
-
-    if target_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    target_user = _get_user_or_404(db, user_id)
 
     _ensure_can_manage_account(
         current_user,
@@ -210,13 +221,7 @@ def revoke_user_sessions(
 ) -> SessionsRevoked:
     """Sign a user out everywhere, for example after a suspected compromise,
     without deactivating the account."""
-    target_user = get_user_by_id(db, user_id)
-
-    if target_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+    target_user = _get_user_or_404(db, user_id)
 
     _ensure_can_manage_account(
         current_user,

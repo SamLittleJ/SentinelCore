@@ -22,6 +22,7 @@ class AuditEventType(StrEnum):
     SESSION_REVOKED = "session_revoked"
     ALL_SESSIONS_REVOKED = "all_sessions_revoked"
     OTHER_SESSIONS_REVOKED = "other_sessions_revoked"
+    USERS_VIEWED = "users_viewed"
 
 
 class AuditLog(Base):
@@ -35,6 +36,12 @@ class AuditLog(Base):
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
+    )
+    # The account an action was taken on, as in SecurityEvent.target_user_id.
+    target_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
     )
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)

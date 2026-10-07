@@ -288,8 +288,10 @@ def test_revoke_user_sessions_signs_the_user_out_everywhere(
     )
     assert audit_log is not None and security_event is not None
     assert audit_log.user_id == actor.id
+    assert audit_log.target_user_id == target.id
     assert audit_log.message == expected_message
     assert security_event.user_id == actor.id
+    assert security_event.target_user_id == target.id
     assert security_event.severity == SecuritySeverity.INFO
     assert security_event.message == expected_message
 

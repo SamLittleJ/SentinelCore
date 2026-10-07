@@ -54,6 +54,25 @@ describe('my activity page', () => {
     expect(within(rows[3]).getByText(/2026/)).toHaveAttribute('datetime', login.created_at)
   })
 
+  it('tells actions taken on the account apart from actions taken by it', async () => {
+    signedInAs(makeUser('admin'))
+    serveActivity(() => [
+      makeEvent({ id: 202, event_type: 'user_role_changed', as_target: true, ip_address: null }),
+      makeEvent({ id: 201, event_type: 'user_role_changed' }),
+      makeEvent({ id: 200, event_type: 'user_sessions_revoked', as_target: true, ip_address: null }),
+    ])
+    renderApp('/me/activity')
+
+    await screen.findByRole('table', { name: 'Evenimente' })
+
+    expect(rowTexts()).toEqual([
+      expect.stringContaining('Rolul tău a fost schimbat'),
+      expect.stringContaining('Ai schimbat rolul unui utilizator'),
+      expect.stringContaining('Un administrator ți-a închis sesiunile'),
+    ])
+    expect(rowTexts()[0]).toContain('—')
+  })
+
   it('shows only alerts when asked, and keeps the choice in the address', async () => {
     const user = userEvent.setup()
     signedInAs(makeUser())

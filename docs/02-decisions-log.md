@@ -284,3 +284,12 @@
 - Acțiunile care închid sesiuni cer confirmare în pagină, nu prin dialoguri.
 - Dispozitivul unei sesiuni este dedus din `User-Agent` și prezentat doar ca indiciu.
 - Filtrele paginilor sunt păstrate în adresă, ca să poată fi trimise ca link.
+- Evenimentele de securitate și audit logs au `target_user_id`: `user_id` este actorul, `target_user_id` contul asupra căruia s-a acționat.
+- Utilizatorul afectat vede în istoricul propriu acțiunile făcute asupra contului său (`as_target: true`), fără adresa IP și fără identitatea operatorului.
+- `GET /admin/users` folosește paginare prin cursor, ca listele de evenimente; paginarea prin `offset` a fost eliminată.
+- Căutarea utilizatorilor (`q`) este un subșir din email sau username, iar `%` și `_` sunt tratate ca text.
+- `security_analyst` poate citi utilizatorii și istoricul lor, dar nu îi poate modifica.
+- Citirile de utilizatori sunt doar evenimente de audit (`USERS_VIEWED`), nu security events.
+- Operatorii văd istoricul unui cont prin `GET /admin/users/{id}/activity`, același set de evenimente pe care îl vede proprietarul, cu toate câmpurile; consultarea este auditată.
+- `GET /security/summary` oferă numere agregate pentru prezentarea organizației și nu este auditat.
+- Perspectiva "Organizația" se livrează în patru PR-uri mici: backend, Evenimente + Audit, Utilizatori, Prezentare.

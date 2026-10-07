@@ -24,6 +24,20 @@ export const SECURITY_EVENT_TYPES = [
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 
+// Actions an operator takes on an account. They reach the affected account's
+// activity too, marked `as_target`.
+export const ACCOUNT_ACTION_TYPES = [
+  'user_role_changed',
+  'user_activated',
+  'user_deactivated',
+  'user_sessions_revoked',
+] as const satisfies readonly SecurityEventType[]
+export type AccountActionType = (typeof ACCOUNT_ACTION_TYPES)[number]
+
+export function isAccountAction(type: SecurityEventType): type is AccountActionType {
+  return (ACCOUNT_ACTION_TYPES as readonly SecurityEventType[]).includes(type)
+}
+
 export const SEVERITIES = ['info', 'warn', 'incident'] as const
 export type Severity = (typeof SEVERITIES)[number]
 
@@ -34,8 +48,11 @@ export interface ActivityEvent {
   id: number
   event_type: SecurityEventType
   severity: Severity
+  // Null for actions taken on the account: the address is the operator's.
   ip_address: string | null
   created_at: string
+  // True when someone else took this action on the reader's account.
+  as_target: boolean
 }
 
 /** One page of results, newest first; `next_cursor` is the next `before_id`. */
