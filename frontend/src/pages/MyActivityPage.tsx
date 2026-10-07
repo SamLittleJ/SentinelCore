@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { PagedResults } from '@/components/PagedResults'
+import { SegmentedControl } from '@/components/SegmentedControl'
 import { ActivityTable } from '@/features/account/ActivityTable'
 import { ALERT_SEVERITIES, type ActivityFilters } from '@/features/account/api'
 import { useMyActivity } from '@/features/account/hooks'
-import { cn } from '@/lib/utils'
 
 const FILTERS = {
   all: {},
@@ -26,11 +25,9 @@ export function MyActivityPage() {
   const filter: FilterName = isFilterName(requested) ? requested : 'all'
   const activity = useMyActivity(FILTERS[filter])
 
-  const events = activity.data?.pages.flatMap((page) => page.items) ?? []
-
-  const options: { name: FilterName; label: string }[] = [
-    { name: 'all', label: t('activity.filterAll') },
-    { name: 'alerts', label: t('activity.filterAlerts') },
+  const options: { value: FilterName; label: string }[] = [
+    { value: 'all', label: t('activity.filterAll') },
+    { value: 'alerts', label: t('activity.filterAlerts') },
   ]
 
   return (
@@ -40,67 +37,19 @@ export function MyActivityPage() {
         <p className="max-w-prose text-muted-foreground">{t('activity.subtitle')}</p>
       </header>
 
-      <div
-        role="group"
-        aria-label={t('activity.filterLabel')}
-        className="inline-flex w-fit gap-1 rounded-lg border bg-card p-1"
-      >
-        {options.map((option) => (
-          <button
-            key={option.name}
-            type="button"
-            aria-pressed={filter === option.name}
-            onClick={() => setSearchParams(option.name === 'all' ? {} : { filter: option.name })}
-            className={cn(
-              'rounded-md px-3 py-1 text-sm transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none',
-              filter === option.name
-                ? 'bg-brand-tint font-medium text-brand'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label={t('activity.filterLabel')}
+        options={options}
+        value={filter}
+        onChange={(name) => setSearchParams(name === 'all' ? {} : { filter: name })}
+      />
 
-      {activity.isPending ? (
-        <div className="flex flex-col gap-2" role="status" aria-label={t('app.loading')}>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : activity.isError && events.length === 0 ? (
-        <div role="alert" className="flex flex-col items-start gap-3 rounded-lg border px-4 py-4">
-          <p className="text-muted-foreground">{t('errors.loadFailedBody')}</p>
-          <Button variant="outline" size="sm" onClick={() => void activity.refetch()}>
-            {t('errors.retry')}
-          </Button>
-        </div>
-      ) : events.length === 0 ? (
-        <p className="rounded-lg border bg-card px-4 py-6 text-muted-foreground">
-          {filter === 'alerts' ? t('activity.emptyAlerts') : t('activity.empty')}
-        </p>
-      ) : (
-        <div className="flex flex-col items-start gap-3">
-          <ActivityTable events={events} />
-          {activity.hasNextPage ? (
-            <Button
-              variant="outline"
-              disabled={activity.isFetchingNextPage}
-              onClick={() => void activity.fetchNextPage()}
-            >
-              {activity.isFetchingNextPage ? t('activity.loadingMore') : t('activity.loadMore')}
-            </Button>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t('activity.end')}</p>
-          )}
-          {activity.isFetchNextPageError && (
-            <p role="alert" className="text-sev-incident">
-              {t('errors.loadFailedBody')}
-            </p>
-          )}
-        </div>
-      )}
+      <PagedResults
+        query={activity}
+        empty={filter === 'alerts' ? t('activity.emptyAlerts') : t('activity.empty')}
+      >
+        {(events) => <ActivityTable events={events} />}
+      </PagedResults>
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node'
 
 import type { ActivityEvent, Page, Session } from '@/features/account/api'
 import type { Role, User } from '@/features/auth/api'
+import type { AuditLog, SecurityEvent } from '@/features/org/api'
 
 export function makeUser(role: Role = 'user', overrides: Partial<User> = {}): User {
   return {
@@ -43,6 +44,36 @@ export function makeEvent(overrides: Partial<ActivityEvent> = {}): ActivityEvent
   }
 }
 
+export function makeSecurityEvent(overrides: Partial<SecurityEvent> = {}): SecurityEvent {
+  return {
+    id: 500,
+    event_type: 'login_failed',
+    severity: 'warn',
+    user_id: null,
+    target_user_id: null,
+    email: 'mihai.pop@example.com',
+    ip_address: '203.0.113.9',
+    source: 'backend',
+    message: 'Failed login attempt for email: mihai.pop@example.com',
+    created_at: '2026-10-06T08:15:00Z',
+    ...overrides,
+  }
+}
+
+export function makeAuditLog(overrides: Partial<AuditLog> = {}): AuditLog {
+  return {
+    id: 900,
+    event_type: 'users_viewed',
+    user_id: 3,
+    target_user_id: null,
+    email: 'ioana.sec@example.com',
+    ip_address: '192.0.2.44',
+    message: 'Listed users with no filters',
+    created_at: '2026-10-06T09:00:00Z',
+    ...overrides,
+  }
+}
+
 export function page<T>(items: T[], nextCursor: number | null = null): Page<T> {
   return { items, next_cursor: nextCursor }
 }
@@ -51,6 +82,8 @@ export function page<T>(items: T[], nextCursor: number | null = null): Page<T> {
 export const server = setupServer(
   http.get('/api/users/me/sessions', () => HttpResponse.json([makeSession()])),
   http.get('/api/users/me/activity', () => HttpResponse.json(page([]))),
+  http.get('/api/security/events', () => HttpResponse.json(page([]))),
+  http.get('/api/admin/audit-logs', () => HttpResponse.json(page([]))),
 )
 
 /** The API answers as if `user` is signed in (or nobody, for null). */

@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -29,6 +29,8 @@ class AuditEventType(StrEnum):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
+    # Serves the newest-first listing and its cursor.
+    __table_args__ = (Index("ix_audit_logs_created_at_id", "created_at", "id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     event_type: Mapped[AuditEventType] = mapped_column(

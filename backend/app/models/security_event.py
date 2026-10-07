@@ -47,6 +47,8 @@ class SecurityEvent(Base):
             "event_type",
             "created_at",
         ),
+        # Serves the newest-first listings and their cursor.
+        Index("ix_security_events_created_at_id", "created_at", "id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

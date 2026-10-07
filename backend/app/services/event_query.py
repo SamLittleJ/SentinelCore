@@ -30,8 +30,11 @@ def fetch_event_page[EventT: AuditLog | SecurityEvent](
     filters: EventPageFilters,
     *conditions: ColumnElement[bool],
 ) -> tuple[list[EventT], int | None]:
-    """Return one page of events, newest first, and the cursor for the next.
+    """Return one page of events, newest first by `created_at`, and the cursor
+    for the next.
 
+    Events are ordered by when they happened, not by when they were recorded,
+    so an event that arrives late still appears at its time.
     `conditions` adds every filter beyond the time range and cursor.
     """
     time_conditions: list[ColumnElement[bool]] = []
@@ -40,4 +43,11 @@ def fetch_event_page[EventT: AuditLog | SecurityEvent](
     if filters.until is not None:
         time_conditions.append(model.created_at < filters.until)
 
-    return fetch_page(db, model, filters, *conditions, *time_conditions)
+    return fetch_page(
+        db,
+        model,
+        filters,
+        *conditions,
+        *time_conditions,
+        time_column=model.created_at,
+    )

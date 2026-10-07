@@ -300,3 +300,11 @@
 - Închiderea sesiunilor și blocarea cer un motiv (3-500 caractere), salvat în audit log și în security event; utilizatorul afectat nu îl vede.
 - La login, blocarea este verificată după parolă și nu dezvăluie când se termină.
 - Închiderea sesiunilor unui user de către un operator este `POST /admin/users/{id}/revoke-sessions`, pentru că acțiunea are acum un body.
+- Paginile de evenimente și audit au filtrele în adresă; intervalul implicit este de 7 zile.
+- Căutarea din jurnale primește un email sau o adresă IP exactă, într-un singur câmp; IPv4 și valorile cu `:` merg la filtrul de IP.
+- Jurnalele organizației nu se reîncarcă singure la revenirea în fereastră, pentru că fiecare încărcare este auditată; reîncărcarea este explicită.
+- Detaliile unei înregistrări se deschid într-un panou lateral, cu acțiuni care restrâng lista la contul, ținta sau adresa IP din înregistrare.
+- În perspectiva organizației, evenimentele sunt descrise neutru, nu la persoana a doua.
+- Paginile organizației se încarcă la cerere, separat de restul aplicației.
+- Listele de evenimente sunt ordonate după `created_at`, apoi după `id`; cursorul rămâne `before_id`, iar serverul compară perechea `(created_at, id)`.
+- Barele de derulare folosesc culorile temei, independent de suportul browserului pentru `color-scheme`.

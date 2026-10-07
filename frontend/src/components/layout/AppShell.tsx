@@ -1,6 +1,8 @@
+import { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation } from 'react-router'
 
+import { Skeleton } from '@/components/ui/skeleton'
 import { canViewOrganization, type User } from '@/features/auth/api'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { cn } from '@/lib/utils'
@@ -76,7 +78,7 @@ function Sidebar({ user }: { user: User }) {
 
       {canViewOrganization(user) && <ScopeSwitch inOrganization={inOrganization} />}
 
-      <nav aria-label={t('nav.label')} className="flex gap-1 overflow-x-auto md:flex-col">
+      <nav aria-label={t('nav.label')} className="flex gap-1 overflow-x-auto [scrollbar-width:thin] md:flex-col">
         {items.map((item) => (
           <NavLink
             key={item.to}
@@ -103,6 +105,18 @@ function Sidebar({ user }: { user: User }) {
   )
 }
 
+/** Shown while a page loaded on demand arrives. */
+function PageLoader() {
+  const { t } = useTranslation()
+  return (
+    <div role="status" aria-label={t('app.loading')} className="flex flex-col gap-4">
+      <Skeleton className="h-7 w-56" />
+      <Skeleton className="h-4 w-96 max-w-full" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  )
+}
+
 export function AppShell() {
   const { data: user } = useCurrentUser()
 
@@ -118,7 +132,9 @@ export function AppShell() {
         {/* One centered column for every page, so titles keep their place
             when moving between pages and wide screens stay balanced. */}
         <div className="mx-auto w-full max-w-5xl">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
     </div>

@@ -223,3 +223,68 @@ Backend-ul poate bloca temporar un cont. Frontend-ul trateaza doua situatii noi:
 In Activitatea mea apar tipurile noi: "Contul tau a fost blocat temporar" / "Contul tau a fost deblocat" pentru contul afectat si "Ai blocat temporar un cont" / "Ai deblocat un cont" pentru operator. `User` are campul `locked_until`.
 
 Validare: eslint, tsc, vitest (86 passed), build, `npm audit`. Verificare inversa: ignorarea `detail` la `403` face testele noi sa pice. Capturi reale in Firefox, in ambele teme, ale paginii de login pentru cont blocat si ale paginii Activitatea mea dupa blocare si deblocare.
+
+## Etapa 3: Organizatia - Evenimente si Audit
+
+### 22. Ce a fost construit
+
+Primele doua pagini ale perspectivei Organizatia, pentru `admin`, `owner` si `security_analyst`:
+- Evenimente de securitate (`/org/events`), pe `GET /security/events`
+- Jurnal de audit (`/org/audit`), pe `GET /admin/audit-logs`
+
+Ambele folosesc aceleasi componente: bara de filtre, tabelul si panoul de detalii.
+
+### 23. Filtrele
+
+- **Interval**: ultima ora, 24 de ore, 7 zile (implicit), 30 de zile, tot. Inceputul intervalului se calculeaza cand se incarca prima pagina; paginile urmatoare il pastreaza, ca "Incarca mai multe" sa nu mute fereastra.
+- **Severitate** (doar la evenimente): butoane care se pot combina.
+- **Tipuri**: un meniu cu casute, care ramane deschis cat timp se aleg mai multe tipuri.
+- **Cautare**: email sau adresa IP exacta, intr-un singur camp. O adresa IPv4 sau orice valoare cu `:` (IPv6) merge la filtrul `ip_address`, restul la `email`. Cautarea porneste la Enter sau la butonul de cautare, nu la fiecare tasta.
+- **Cont / Tinta**: `user_id` si `target_user_id`, afisate ca etichete care se pot elimina; vin din link-uri sau din panoul de detalii.
+
+Toate filtrele sunt pastrate in adresa (`range`, `type`, `severity`, `q`, `user`, `target`), deci o vedere filtrata poate fi trimisa ca link. Valorile invalide din adresa sunt ignorate; valorile implicite nu apar in adresa. Un filtru respins de API (`422`, de exemplu o adresa IP gresita) are mesajul sau.
+
+### 24. Tabelul si detaliile
+
+Coloanele: data, eveniment, severitate (doar la evenimente), cont, adresa IP. Evenimentele sunt descrise neutru ("Rol schimbat", "Cont blocat temporar"), nu la persoana a doua ca in Activitatea mea; textele sunt in `orgEvents.types` si `audit.types`.
+
+Un clic oriunde pe rand deschide detaliile; de la tastatura, descrierea evenimentului este un buton. Detaliile sunt intr-un panou lateral (Radix Dialog: focusul ramane in panou, Escape il inchide, focusul revine pe rand). Panoul arata contul (email si id), tinta, adresa IP, sursa, mesajul pentru operatori si actiuni care restrang lista: "Doar acest cont", "Doar aceasta tinta", "Doar aceasta adresa IP". O incercare esuata care numeste doar un email restrange dupa email.
+
+### 25. Reincarcarea si auditul
+
+Fiecare incarcare a acestor pagini este auditata de backend. De aceea, listele nu se reincarca singure cand fereastra revine in focus (`refetchOnWindowFocus: false`); pagina are un buton "Reimprospateaza", care revine la prima pagina, cu intervalul masurat din acel moment. Pagina de audit spune explicit ca si consultarea ei este inregistrata.
+
+### 26. Componente comune noi
+
+- `PagedResults`: starile de incarcare, eroare (cu reincercare) si lista goala, plus "Incarca mai multe", pentru orice lista citita cu cursor; folosita si de Activitatea mea
+- `SegmentedControl`: butoane exclusive, folosite pentru interval si pentru filtrul din Activitatea mea; pe ecrane inguste trec pe randul urmator
+- `ui/sheet.tsx`: panoul lateral, pe Radix Dialog
+- `features/org`: clientul API, filtrele din adresa, hook-urile, bara de filtre, tabelul si detaliile
+
+Textele "Incarca mai multe", "Se incarca" si "Ai ajuns la inceputul istoricului" au trecut din `activity` in `paging`.
+
+### 27. Impartirea bundle-ului
+
+Paginile organizatiei se incarca la cerere (`React.lazy` in `pages/lazy.ts`, cu un `Suspense` in `AppShell`). Codul lor (aproximativ 21 KB) nu mai ajunge la utilizatorii obisnuiti, iar avertismentul Vite pentru chunk-uri peste 500 KB a disparut: aplicatia are acum un chunk principal (~311 KB) si unul cu bibliotecile comune (~262 KB). Incarcarea initiala totala ramane aproape aceeasi, pentru ca bibliotecile (React, Radix, i18next) domina.
+
+### 28. Validarea locala
+
+- eslint -> fara probleme
+- tsc (5.9 si 6.0) -> fara erori
+- vitest -> 111 passed
+- build -> reusit, fara avertismentul de dimensiune
+- npm audit -> 0 vulnerabilitati
+
+Testele noi acopera: descrierile neutre, intervalul implicit si "Tot", severitatea si tipurile (cu adresa actualizata), citirea filtrelor dintr-un link, cautarea dupa email si IPv6 cu focusul pastrat, eliminarea etichetelor si resetarea, panoul de detalii si actiunile lui, deschiderea cu mouse-ul si inchiderea cu Escape, paginarea cu acelasi interval, reimprospatarea, filtrul invalid, cele doua stari goale, jurnalul de audit (fara severitate, mesaj lipsa, filtrul de tinta) si functiile de filtrare.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: intervalul recalculat la fiecare pagina, IP-ul cautat ca email, actiunea de tinta care filtreaza actorul, tipuri necunoscute acceptate din adresa, intervalul implicit scris in adresa, meniul de tipuri inchis la prima alegere, mesajul pentru filtrul invalid ignorat, campul de cautare care nu urmareste schimbarile din afara, randurile care nu se deschid, textul pentru lista goala care ignora filtrele.
+
+Un test a prins o problema reala: campul de cautare era remontat la fiecare cautare (prin `key`) si pierdea focusul dupa Enter. Acum isi sincronizeaza valoarea in timpul randarii, fara remontare.
+
+Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit: date create prin API (login-uri reusite si esuate, brute force, schimbare de rol, blocare si deblocare, inchiderea sesiunilor, dezactivare) si cateva login-uri esuate inserate direct, cu adrese diferite. Capturi reale in Firefox, ca analist, in ambele teme: evenimentele, jurnalul de audit, panoul de detalii deschis, filtre active si lungimea de telefon (390 px). Dupa capturi: antetele "Cont" si "Adresa IP" nu mai folosesc fontul monospace, iar butoanele de interval trec pe randul urmator pe telefon, in loc sa iasa din ecran.
+
+Observatie: listele erau ordonate dupa `id` (ordinea inregistrarii), nu dupa `created_at`, iar evenimentele inserate cu o data din trecut apareau deasupra celor mai noi. Rezolvat in backend (Event Ordering - Phase 1, `docs/01`): listele sunt ordonate dupa moment, iar frontend-ul nu s-a schimbat.
+
+### 29. Barele de derulare
+
+Pe telefon, sub meniul orizontal al barei laterale aparea o bara de derulare alba, si in tema intunecata. `color-scheme` era deja setat, dar unele browsere (printre ele Firefox fara interfata, folosit pentru capturi) il ignora pentru barele de derulare. Acum `:root` are `scrollbar-color` din culorile temei (`--muted-foreground` la 45%, pe fundal transparent), iar meniul orizontal are bara subtire (`scrollbar-width: thin`). Capturile la 390 px, in ambele teme, arata o bara discreta in culorile temei.
