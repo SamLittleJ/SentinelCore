@@ -196,3 +196,18 @@ Bundle-ul JavaScript are aproximativ 564 KB. Impartirea lui pe pagini ramane pen
 Pe monitoare late, continutul statea lipit de bara laterala, iar jumatatea dreapta a ecranului ramanea goala. Acum toate paginile sunt intr-o singura coloana de cel mult 1024 px (`max-w-5xl`), centrata in spatiul de langa bara laterala. Latimea este aceeasi pe toate paginile, ca titlul sa nu-si schimbe pozitia la navigare; paginile nu mai au latimi proprii.
 
 Spatiul de deasupra continutului a crescut la 48 px pe ecrane mari (32 px pe telefon), iar cel de jos la 48 px.
+
+## Organizatia - PR 1 (backend)
+
+### 20. Actiunile primite in Activitatea mea
+
+Backend-ul inregistreaza acum tinta actiunilor de administrare, iar istoricul propriu include si actiunile facute asupra contului, marcate cu `as_target: true`. Fara o schimbare in frontend, utilizatorul afectat ar fi vazut textul actorului ("Ai schimbat rolul unui utilizator").
+
+`ActivityTable` foloseste pentru aceste elemente textele noi din `eventsAsTarget`:
+- "Rolul tau a fost schimbat"
+- "Contul tau a fost reactivat" / "Contul tau a fost dezactivat"
+- "Un administrator ti-a inchis sesiunile"
+
+Tipurile care pot fi primite sunt listate in `ACCOUNT_ACTION_TYPES` (`features/account/api.ts`). Adresa IP a acestor elemente vine `null` de la API (este a operatorului), deci coloana arata "—".
+
+Validare: eslint, tsc, vitest (84 passed), build. Verificare inversa: ignorarea campului `as_target` face testul nou sa pice.

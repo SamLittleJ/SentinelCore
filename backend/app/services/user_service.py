@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,8 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserFilters
+from app.services.pagination import fetch_page
 from app.services.session_service import stage_revoke_all_sessions
 
 
@@ -58,11 +59,24 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 
 def list_users(
     db: Session,
-    limit: int = 50,
-    offset: int = 0,
-) -> list[User]:
-    statement = select(User).order_by(User.id).offset(offset).limit(limit)
-    return list(db.scalars(statement).all())
+    filters: UserFilters,
+) -> tuple[list[User], int | None]:
+    """One page of users, newest first, and the cursor for the next."""
+    conditions: list[ColumnElement[bool]] = []
+    if filters.q is not None:
+        # autoescape keeps % and _ in the search text literal.
+        conditions.append(
+            or_(
+                User.email.contains(filters.q, autoescape=True),
+                User.username.contains(filters.q, autoescape=True),
+            )
+        )
+    if filters.role:
+        conditions.append(User.role.in_(filters.role))
+    if filters.is_active is not None:
+        conditions.append(User.is_active.is_(filters.is_active))
+
+    return fetch_page(db, User, filters, *conditions)
 
 
 def get_user_by_id(db: Session, user_id: int) -> User | None:
@@ -80,12 +94,14 @@ def _commit_user_change(
     ip_address: str | None,
 ) -> User:
     """Commit a staged change to `user` together with its audit and security
-    events, so either all three are stored or none are."""
+    events, so either all three are stored or none are. The events name
+    `actor` as their user and `user` as their target."""
     db.add_all(
         [
             AuditLog(
                 event_type=audit_event_type,
                 user_id=actor.id,
+                target_user_id=user.id,
                 email=actor.email,
                 ip_address=ip_address,
                 message=message,
@@ -94,6 +110,7 @@ def _commit_user_change(
                 event_type=security_event_type,
                 severity=SecuritySeverity.INFO,
                 user_id=actor.id,
+                target_user_id=user.id,
                 email=actor.email,
                 ip_address=ip_address,
                 source="backend",

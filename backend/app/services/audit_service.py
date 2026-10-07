@@ -13,10 +13,12 @@ def create_audit_log(
     user: User | None = None,
     email: str | None = None,
     ip_address: str | None = None,
+    target_user: User | None = None,
 ) -> AuditLog:
     audit_log = AuditLog(
         event_type=event_type,
         user_id=user.id if user else None,
+        target_user_id=target_user.id if target_user else None,
         email=email if email else (user.email if user else None),
         ip_address=ip_address,
         message=message,

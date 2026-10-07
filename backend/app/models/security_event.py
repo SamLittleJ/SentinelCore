@@ -68,6 +68,14 @@ class SecurityEvent(Base):
         index=True,
     )
 
+    # The account an action was taken on, when it differs from the actor in
+    # user_id; e.g. the user whose role an owner changed.
+    target_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)

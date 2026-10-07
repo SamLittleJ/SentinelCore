@@ -126,6 +126,12 @@ const ro = {
     login_blocked: 'Încercare de autentificare respinsă în timpul blocării',
     user_sessions_revoked: 'Ai închis sesiunile unui utilizator',
   },
+  eventsAsTarget: {
+    user_role_changed: 'Rolul tău a fost schimbat',
+    user_activated: 'Contul tău a fost reactivat',
+    user_deactivated: 'Contul tău a fost dezactivat',
+    user_sessions_revoked: 'Un administrator ți-a închis sesiunile',
+  },
   orgOverview: {
     title: 'Organizația',
     subtitle: 'Activitatea tuturor conturilor.',

@@ -157,7 +157,15 @@ def test_activity_items_leave_out_operator_details(client: TestClient) -> None:
 
     item = activity(client, headers)["items"][0]
 
-    assert set(item) == {"id", "event_type", "severity", "ip_address", "created_at"}
+    assert set(item) == {
+        "id",
+        "event_type",
+        "severity",
+        "ip_address",
+        "created_at",
+        "as_target",
+    }
+    assert item["as_target"] is False
 
 
 def test_activity_filters_by_severity_and_event_type(client: TestClient) -> None:

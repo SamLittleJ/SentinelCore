@@ -3725,7 +3725,7 @@ Raspunsul contine doar `id`, `event_type`, `severity`, `ip_address` si `created_
 
 Citirea propriului istoric nu este auditata: nu expune datele altcuiva, iar un rand de audit la fiecare deschidere a paginii ar ingropa intrarile care conteaza.
 
-Evenimentele de administrare sunt inregistrate pe actor. Un admin vede in istoricul sau "Ai schimbat rolul unui utilizator"; utilizatorul afectat nu vede inca schimbarea, pentru ca evenimentele nu au un camp pentru tinta. Este o limitare cunoscuta, notata pentru o etapa viitoare.
+Evenimentele de administrare sunt inregistrate pe actor. Un admin vede in istoricul sau "Ai schimbat rolul unui utilizator"; utilizatorul afectat nu vede inca schimbarea, pentru ca evenimentele nu au un camp pentru tinta. Este o limitare cunoscuta, notata pentru o etapa viitoare. (Rezolvata in sectiunile 241-242.)
 
 ### 235. Deconectarea celorlalte dispozitive
 
@@ -3767,3 +3767,100 @@ Acum `env.py` seteaza URL-ul din `settings.database_url`, iar `alembic.ini` nu m
 Testele noi (`tests/test_my_account.py`) acopera: autentificarea obligatorie, ordinea evenimentelor, includerea incercarilor esuate care contin doar emailul, ascunderea evenimentelor altor conturi si a celor de dinainte de crearea contului, campurile din raspuns, filtrele, paginarea, respingerea filtrelor de identitate, lipsa auditului la citire, revocarea celorlalte sesiuni cu pastrarea celei curente, izolarea fata de alti useri si cerinta CSRF pentru cererile prin cookie.
 
 Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea limitei de timp pentru incercarile pe email, potrivirea oricarui email, revocarea inclusiv a sesiunii curente.
+
+## Organization API - Phase 1
+
+### 240. Scopul etapei
+
+Perspectiva "Organizatia" din frontend (evenimente, audit, utilizatori, prezentare) are nevoie de cateva lucruri pe care API-ul nu le avea: tinta actiunilor de administrare, cautare si filtre in lista de utilizatori, istoricul unui cont vazut de operator si un rezumat pentru pagina de prezentare. Etapa este primul din cele patru PR-uri ale perspectivei; celelalte trei sunt pagini de frontend.
+
+### 241. Tinta actiunilor de administrare
+
+`security_events` si `audit_logs` au o coloana noua, `target_user_id` (nullable, cheie straina spre `users`, indexata). `user_id` ramane actorul; `target_user_id` este contul asupra caruia s-a actionat. Se completeaza la:
+- schimbarea rolului (`USER_ROLE_CHANGED`)
+- activarea si dezactivarea unui cont (`USER_ACTIVATED`, `USER_DEACTIVATED`)
+- inchiderea sesiunilor unui user de catre admin (`USER_SESSIONS_REVOKED` / `ALL_SESSIONS_REVOKED`)
+- vizualizarea unui user sau a istoricului sau (audit)
+
+Randurile vechi raman cu tinta `NULL`; ele numesc tinta doar in mesaj ("user_id=12"). Listele de administrare accepta filtrul nou `target_user_id`, iar raspunsurile contin campul.
+
+Aceasta rezolva limitarea notata la sectiunea 234: utilizatorul afectat vede acum in istoricul propriu actiunile facute asupra contului sau.
+
+### 242. Istoricul propriu si actiunile primite
+
+`GET /users/me/activity` include si evenimentele cu `target_user_id` egal cu contul curent. Fiecare element are campul nou `as_target`:
+- `false`: actiunea a fost facuta de cititor (un admin vede "Ai schimbat rolul unui utilizator")
+- `true`: altcineva a actionat asupra contului cititorului ("Rolul tau a fost schimbat")
+
+Pentru elementele cu `as_target: true`, `ip_address` este `null`: adresa inregistrata este a operatorului, iar utilizatorul afectat nu trebuie sa o afle. Identitatea operatorului nu apare nici ea, ca si pana acum.
+
+### 243. Lista de utilizatori
+
+```http
+GET /admin/users?q=...&role=admin&role=owner&is_active=false&limit=50&before_id=...
+```
+
+Raspunsul are acum aceeasi forma ca listele de evenimente, `{"items": [...], "next_cursor": ...}`, cu utilizatorii cei mai noi primii. Paginarea prin `offset` a fost inlocuita cu cursorul `before_id`, ca in restul API-ului. Filtre:
+- `q`: subsir din email sau username, fara diferenta intre litere mari si mici (ambele sunt stocate cu litere mici); `%` si `_` sunt cautate ca text, nu ca wildcard-uri
+- `role`: unul sau mai multe roluri
+- `is_active`: `true` sau `false`
+
+Parametrii necunoscuti, inclusiv vechiul `offset`, primesc `422`.
+
+Paginarea a fost scoasa din `fetch_event_page()` intr-o functie generica, `fetch_page()` (`app/services/pagination.py`), folosita si de evenimente, si de utilizatori. La fel, `CursorPageFilters` (`before_id`, `limit`, respingerea parametrilor necunoscuti, `describe()`) este baza comuna a filtrelor.
+
+### 244. Analistul de securitate si zgomotul din evenimente
+
+- `GET /admin/users`, `GET /admin/users/{id}` si noul `GET /admin/users/{id}/activity` sunt deschise si pentru `security_analyst`, care are nevoie de conturi in investigatii. Schimbarea rolului, a statusului si inchiderea sesiunilor raman la `admin` si `owner`.
+- Citirile de utilizatori nu mai creeaza security event `ADMIN_ACCESS`. Sunt inregistrate doar in audit, cu tipul nou `USERS_VIEWED` (pentru detaliu, cu tinta). Pagina Utilizatori ar fi umplut altfel fluxul de securitate la fiecare incarcare. Este aceeasi regula ca la consultarea logurilor: vizualizarea este un fapt de audit, nu un semnal de securitate.
+
+### 245. Istoricul unui cont, pentru operatori
+
+```http
+GET /admin/users/{user_id}/activity
+```
+
+Intoarce acelasi set de evenimente pe care proprietarul contului il vede in istoricul propriu (actor, tinta, incercari esuate pe email dupa crearea contului), dar cu toate campurile pentru operatori (`message`, `user_id`, `target_user_id`, `email`, `source`). Accepta aceleasi filtre ca istoricul propriu (`event_type`, `severity`, `since`, `until`, cursor). Consultarea este auditata ca `SECURITY_EVENTS_VIEWED`, cu tinta.
+
+`MyActivityFilters` a fost redenumit `AccountActivityFilters`, pentru ca serveste ambele endpoint-uri.
+
+### 246. Rezumatul de securitate
+
+```http
+GET /security/summary
+```
+
+Pentru `admin`, `owner` si `security_analyst`. Intoarce:
+- `last_24h`, `last_7d`: numarul de evenimente pe severitate (`info`, `warn`, `incident`)
+- `failed_logins_24h`
+- `locked_logins`: cate emailuri au login-ul blocat acum de protectia la brute-force (eveniment `BRUTE_FORCE_DETECTED` mai nou decat durata blocarii, aceeasi regula ca in `login_protection_service`)
+- `top_failed_login_sources`: primele 5 adrese IP dupa numarul de login-uri esuate in ultimele 24 de ore (la egalitate, ordonate dupa adresa)
+- `users_total`, `users_inactive`
+- `generated_at`: momentul calculului
+
+Ferestrele sunt masurate pe ceasul bazei de date, cel care stampileaza `created_at`. Rezumatul nu este auditat: pagina de prezentare il incarca la fiecare vizita si contine numere, nu inregistrari. Deschiderea evenimentelor din spatele unui numar este auditata ca de obicei.
+
+### 247. Migratii
+
+- `06b4f5ced4de`: `target_user_id` cu cheie straina si index, pe `security_events` si `audit_logs`
+- `370d6e54e7cf`: `USERS_VIEWED` in `audit_event_types`; la downgrade, randurile devin `ADMIN_ENDPOINT_ACCESSED`, tipul folosit inainte pentru citirile de utilizatori
+
+Verificate pe o baza temporara: upgrade complet, `alembic check` fara diferente, insert cu valorile noi, downgrade (randul `USERS_VIEWED` a devenit `ADMIN_ENDPOINT_ACCESSED`, coloanele au disparut), din nou upgrade si `alembic check`.
+
+### 248. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 248 passed
+
+Testele noi (`tests/test_organization_api.py`) acopera: accesul refuzat pentru useri normali si permis pentru analist, auditarea citirilor fara security events, filtrele listei de utilizatori (cautare, wildcard-uri literale, roluri, status, combinatii), paginarea si parametrii invalizi, filtrul `target_user_id`, istoricul propriu cu actiuni primite (fara IP-ul actorului), istoricul unui cont pentru operatori si auditarea lui, `404` pentru useri inexistenti, rezumatul (ferestre, blocari active si expirate, top surse, conturi, lipsa auditului) si rezumatul gol. Testele existente verifica acum si `target_user_id` la schimbarea de rol, de status si la inchiderea sesiunilor.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: istoricul fara evenimentele primite, cautarea fara escaparea wildcard-urilor, IP-ul actorului aratat tintei, analistul fara drept de citire, fereastra de blocare gresita, audit log fara tinta, sursele neordonate dupa numar, fereastra de 24 de ore ignorata, tipul de audit gresit la listare.
+
+Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit, prin proxy:
+- dupa ce owner-ul schimba rolul lui `mihai.pop`, istoricul propriu al acestuia contine `user_role_changed` cu `as_target: true` si fara IP, iar istoricul owner-ului acelasi eveniment cu `as_target: false` si IP
+- analistul cauta (`q=MIH`), filtreaza dupa status, primeste `422` pentru `offset`, citeste istoricul contului si rezumatul, si primeste `403` la schimbarea statusului
+- nu s-a creat niciun security event `ADMIN_ACCESS`; audit log-ul contine `USERS_VIEWED` si `SECURITY_EVENTS_VIEWED`, cu tinta acolo unde este cazul
+- capturi reale in Firefox ale paginii Activitatea mea a contului afectat, in ambele teme: randul "Rolul tau a fost schimbat" are "—" in coloana IP

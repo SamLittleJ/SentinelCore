@@ -12,6 +12,7 @@ from pydantic import (
 )
 
 from app.models.user import UserRole
+from app.schemas.pagination import CursorPageFilters
 
 USERNAME_MIN_LENGTH = 3
 USERNAME_MAX_LENGTH = 50  # matches users.username String(50)
@@ -92,3 +93,21 @@ class UserStatusUpdate(BaseModel):
 
 class SessionsRevoked(BaseModel):
     revoked_sessions: int
+
+
+class UserFilters(CursorPageFilters):
+    """Query filters for the organization's user list."""
+
+    # Case-insensitive substring of the email or username, which are both
+    # stored lowercase.
+    q: (
+        Annotated[
+            str,
+            StringConstraints(
+                strip_whitespace=True, to_lower=True, min_length=1, max_length=255
+            ),
+        ]
+        | None
+    ) = None
+    role: list[UserRole] = []
+    is_active: bool | None = None

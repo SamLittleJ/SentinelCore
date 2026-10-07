@@ -16,7 +16,7 @@ from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
 from app.schemas.pagination import Page
-from app.schemas.security_event import MyActivityFilters, MyActivityRead
+from app.schemas.security_event import AccountActivityFilters, MyActivityRead
 from app.schemas.user import SessionRead, SessionsRevoked, UserRead
 from app.services.audit_service import create_audit_log
 from app.services.security_event_service import (
@@ -146,12 +146,12 @@ def revoke_my_session(
 def read_my_activity(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-    filters: Annotated[MyActivityFilters, Query()],
+    filters: Annotated[AccountActivityFilters, Query()],
 ) -> Page[MyActivityRead]:
     # Not audited: reading your own history exposes no one else's data, and
     # a record per page view would bury the entries worth reviewing.
     events, next_cursor = list_user_activity(db, current_user, filters)
-    return Page[MyActivityRead].model_validate(
-        {"items": events, "next_cursor": next_cursor},
-        from_attributes=True,
+    return Page[MyActivityRead](
+        items=[MyActivityRead.for_reader(event, current_user) for event in events],
+        next_cursor=next_cursor,
     )
