@@ -257,7 +257,7 @@ La acest moment:
 - testele folosesc baza separată `sentinelcore_test`
 - dependența `get_db` este suprascrisă în teste
 - backend-ul are 11 teste automate validate
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale\
+- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale
 - backend-ul are workflow CI în GitHub Actions 
 - workflow-ul CI rulează automat la modificări relevante în `backend/**` 
 - workflow-ul poate fi rulat manual prin `workflow_dispatch` 
@@ -278,7 +278,8 @@ La acest moment:
 - workflow-ul Backend CI rulează Ruff înainte de testele pytest 
 - pipeline-ul backend este verde pentru Ruff și pytest
 - Bandit este introdus pentru scanarea de securitate a codului Python 
-- Bandit rulează local și în GitHub Actions - Gitleaks este introdus pentru scanarea secretelor în repository 
+- Bandit rulează local și în GitHub Actions 
+- Gitleaks este introdus pentru scanarea secretelor în repository 
 - Gitleaks rulează local prin Docker și în CI prin Docker 
 - Gitleaks scanează istoricul Git prin `fetch-depth: 0` 
 - false positive-ul Bandit pentru `token_type="bearer"` a fost tratat punctual cu `# nosec B106` 
@@ -308,6 +309,51 @@ La acest moment:
 - The backend has 29 tests passing locally against the separate PostgreSQL test database.
 - Ruff lint and formatting checks pass; Bandit reports no security findings, with warnings about an existing `nosec` comment.
 - Phase 3 transaction-failure testing and CI validation remain pending.
+- Alembic vede din nou toate modelele; `alembic check` confirmă că modelele și schema DB sunt sincronizate
+- utilizatorii inactivi sunt blocați la login și pe endpoint-urile autentificate
+- login-ul are timp de răspuns egal pentru email existent și inexistent
+- register-ul tratează duplicatele simultane cu `400`, nu `500`
+- uneltele de dezvoltare sunt separate în extra-ul `dev`, iar dependențele au versiuni minime
+- repository-ul are `README.md` și `backend/README.md`
+- backend-ul are 21 de teste automate validate
+- Admin User Management Phase 4 este implementat local pe `feat/admin-user-status-phase-4`
+- `PATCH /admin/users/{user_id}/status` permite activarea și dezactivarea conturilor, ierarhic pentru `admin` și `owner`
+- schimbările de rol și de status au tipuri dedicate de audit și security events
+- prima migrație Alembic după schema inițială adaugă noile tipuri de evenimente
+- testul de eșec al tranzacției, rămas din Phase 3, este implementat
+- backend-ul are 55 de teste automate validate
+- input-ul de register și login este validat: lungimi și caractere pentru username, parolă de 12-128 caractere
+- emailurile și username-urile sunt tratate fără diferență între litere mari și mici
+- backend-ul are 74 de teste automate validate
+- prima detecție SIEM-light este implementată: login-urile eșuate repetate pe același email generează un incident `BRUTE_FORCE_DETECTED` și blochează temporar login-ul
+- audit logs și security events înregistrează adresa IP a clientului
+- backend-ul are 86 de teste automate validate
+- audit logs și security events au paginare prin cursor și filtre după tip, severitate, user, email, IP și interval de timp
+- consultarea logurilor este auditată
+- backend-ul are 107 teste automate validate
+- backend-ul expune metrici Prometheus pentru HTTP și security events la `/metrics`
+- logurile sunt structurate și au request id pe fiecare cerere
+- `/health/ready` verifică disponibilitatea bazei de date
+- Prometheus și Grafana rulează local prin Docker Compose, cu dashboard-ul `SentinelCore Overview` provizionat automat
+- backend-ul are 132 de teste automate validate
+- token-ul JWT identifică userul prin id și sesiunea prin `jti`, cu `iss`, `aud` și `iat` verificate
+- sesiunile de login sunt stocate și pot fi revocate: logout, logout de pe toate dispozitivele, revocarea unei sesiuni proprii
+- dezactivarea unui cont îi revocă toate sesiunile
+- butonul Authorize din Swagger funcționează prin `POST /auth/token`
+- backend-ul are 164 de teste automate validate
+- sesiunile vechi sunt șterse periodic, după o perioadă de retenție configurabilă
+- adminii pot deconecta un user de pe toate dispozitivele fără să-i dezactiveze contul
+- backend-ul trece verificarea de tipuri Pyright fără erori
+- backend-ul are 184 de teste automate validate
+- frontend-ul se va autentifica prin cookie httpOnly, cu protecție CSRF legată de sesiune
+- backend-ul are 205 teste automate validate
+- frontend-ul are fundația construită: direcția vizuală "consolă de operațiuni" cu paleta "Electric", Tailwind CSS și shadcn/ui, React Router, TanStack Query, română și engleză
+- frontend-ul are login prin cookie httpOnly, protecția rutelor, cele două perspective (Contul meu / Organizația), temă și limbă configurabile
+- frontend-ul are 49 de teste automate și workflow CI propriu
+- jurnalul frontend-ului este în `docs/03-frontend-foundation.md`
+- utilizatorii își văd propriul istoric de securitate și se pot deconecta de pe celelalte dispozitive
+- perspectiva "Contul meu" are paginile Prezentare (cu rezumat de securitate și alerte recente), Sesiunile mele și Activitatea mea
+- backend-ul are 223 de teste automate validate, iar frontend-ul 83
 ---
 
 ## 11. Current Sprint
@@ -376,26 +422,8 @@ Standardul urmarit:
 
 ## 15. Immediate Next Step
 
-Pasul imediat dupa aceasta fundatie este continuarea Sprintului 1 prin:
+Pasul imediat este finalizarea modulului Admin User Management prin Phase 3:
 
-- configurarea conexiunii la baza de date
-- definirea modelului User
-- pregatirea pentru register / login
-
-Acestea vor fi facute etapizat, nu toate deodata.
-
----
-
-# Ce e bun in documentul asta
-
-Fixeaza:
-
-- ce este proiectul
-- ce nu este proiectul
-- de ce ai ales monorepo
-- ce intra in MVP
-- ce nu intra in MVP
-- unde esti acum
-- care e ordinea corecta
-
-Adica reduce haosul.
+- schimbarea rolului unui utilizator, permisa doar pentru `owner`
+- audit log si security event pentru schimbarea de rol
+- validare prin CI si Pull Request

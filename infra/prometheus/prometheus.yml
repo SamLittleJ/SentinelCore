@@ -1,0 +1,17 @@
+# Local development only.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: sentinelcore-backend
+    metrics_path: /metrics
+    static_configs:
+      # Prometheus runs with host networking, so this is the backend started
+      # locally with `python -m uvicorn app.main:app --reload`.
+      - targets: ["localhost:8000"]
+    # If METRICS_TOKEN is set in backend/.env, write the same token to
+    # infra/prometheus/metrics_token (git-ignored), mount it in
+    # docker-compose.yml and uncomment:
+    # authorization:
+    #   credentials_file: /etc/prometheus/metrics_token

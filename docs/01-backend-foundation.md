@@ -160,9 +160,9 @@ Baza de date locala a fost pornita si verificata cu succes.
 ### 10. Test de conexiune reala la baza de date
 Conexiunea reala la PostgreSQL a fost validata prin executarea unei interogari simple:
 
-'''sql
+```sql
 SELECT 1
-'''
+```
 
 Rezultatul a confirmat:
 - server PostgreSQL functional
@@ -189,9 +189,9 @@ Acest model reprezinta prima entitate centrala a sistemului SentinelCore
 
 ### 12. Crearea primei tabele in baza de date
 Tabela **users** a fost creata in PostgreSQL folosind:
-'''
+```python
 Base.metadata.create_all(bind=engine)
-'''
+```
 Crearea a fost verificate direct in PostgreSQL cu:
 - \dt
 - \d users
@@ -519,7 +519,7 @@ Scop:
 - pregatirea interfetei pentru afisarea rolului in frontend mai tarziu
 
 ### 38. Introducerea autorizarii pe rol
-Fisierul `app/api/deps.py` a fost extins cu functia `require_roles()`
+Fisierul `app/api/deps.py` a fost extins cu functia `require_role()`
 
 Aceasta:
 - primeste unul sau mai multe roluri permise
@@ -534,7 +534,7 @@ Scop:
 ### 39. Implementarea unui endpoint admin-only
 Fisierul `app/api/routes/users.py` a fost extins cu endpoint-ul:
 ```http
-GET /user/admin-only
+GET /users/admin-only
 ```
 Acesta:
 - necesita utilizator autentificat
@@ -549,7 +549,7 @@ Rezultate confirmate:
 
 Aceasta confirma:
 - functionarea corecta a dependentei `get_current_user()`
-- functionarea corecta a dependentei `require_roles()`
+- functionarea corecta a dependentei `require_role()`
 - diferentierea clara dintre autentificare si autorizare
 
 ### 41. Stare actuala a backend-ului
@@ -624,7 +624,7 @@ In etapa actuala, valorile enum-ului sunt salvate in baza de date cu numele memb
 Tabela `audit_logs` a fost creata in PostgreSQL folosind mecanismul temporar:
 
 ```
-Base.metadata.create_alll(bind=engine)
+Base.metadata.create_all(bind=engine)
 ```
 
 Pentru ca SQLAlchemy sa detecteze modelul, `AuditLog` a fost importat in `app/main.py`.
@@ -807,7 +807,7 @@ Endpoint-ul accepta paramentrul: ```limit``` pentru controlarea numarului de rez
 
 ### 56. Protejarea endpoint-ului de audit prin RBAC
 
-Endpoint-ul `GET /admin/aduit-logs` este protejat prin `require_role(...)`.
+Endpoint-ul `GET /admin/audit-logs` este protejat prin `require_role(...)`.
 
 Rolurile permise sunt:
 
@@ -838,7 +838,7 @@ In acest moment backend-ul are:
 
 - audit logs salvate in PostgreSQL
 - audit logs consultabile prin API
-- endpoint `GET /admin/aduit-logs`
+- endpoint `GET /admin/audit-logs`
 - protectie RBAC pentru acces la audit logs
 - validare functionala pentru admin si user normal
 
@@ -992,7 +992,7 @@ Endpoint-ul accepta parametrul: ```limit``` pentru limitarea numarului de evenim
 
 ### 67. Protejarea endpoint-ului de security events prin RBAC
 
-Endpoint-ul `GET /security/events` este protejat prin `require_roles(...)`.
+Endpoint-ul `GET /security/events` este protejat prin `require_role(...)`.
 
 Rolurile permise sunt:
 - `admin`
@@ -1053,7 +1053,7 @@ In acest moment backend-ul are:
 - model ORM `SecurityEvent`
 - tabelă `users`
 - tabelă `audit_logs`
-- tabelă `securityy_events`
+- tabelă `security_events`
 - hashing și verificare de parolă
 - generare și decodare JWT
 - identificarea utilizatorului curent din token
@@ -1106,17 +1106,19 @@ sqlalchemy.url = postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/s
 
 Aceasta configurare permite Alembic sa se conecteze la baza de date locala pentru generarea si aplicarea migratiilor.
 
+> Actualizare (etapa „Contul meu”): URL-ul nu mai este scris in `alembic.ini`. `migrations/env.py` il ia din `settings.database_url`, adica din `DATABASE_URL` (mediu sau `.env`), aceeasi setare folosita de aplicatie. Inainte, `DATABASE_URL=... alembic upgrade head` era ignorat si migratia rula mereu pe baza `sentinelcore`.
+
 ### 75. Conectarea Alembic la modelele SQLAlchemy
 
 In `migrations/env.py`, Alembic a fost conectat la metadata SQLAlchemy.
 
-A fost importat `Base`: ```from app.core.database import Base``` si au fost importate modelele principale:
+A fost importat `Base`: ```from app.core.database import Base``` si au fost importate modulele cu modelele principale:
 
+```python
+from app.models import audit_log, security_event, user  # noqa: F401
 ```
-from app.models.user import User
-from app.models.audit_log import AuditLog
-from app.models.security_event import SecurityEvent
-```
+
+Importul este necesar chiar daca modulele nu sunt folosite direct: doar importate, modelele se inregistreaza in `Base.metadata`. Fara el, `--autogenerate` vede o schema goala si ar propune stergerea tuturor tabelelor. Comentariul `# noqa: F401` impiedica Ruff sa elimine importul ca nefolosit.
 
 Apoi `target_metadata` a fost setat la: ```target_metadata = Base.metadata```.
 
@@ -1215,7 +1217,7 @@ Fisierul `pyproject.toml` a fost actualizat pentru testare.
 A fost adaugata configuratia:
 
 ```toml
-[tol.pytest.ini_options]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 ```
@@ -1432,7 +1434,7 @@ Acest test confirma ca endpoint-ul este protejat corect si nu permite acces anon
 
 A fost testat endpoint-ul:
 ```http
-GET /usres/admin-only
+GET /users/admin-only
 ```
 
 Scenarii valide:
@@ -1611,11 +1613,10 @@ on:
 
   pull_request:
     branches:
-      - mina
-    paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci.yml"
+      - main
 ```
+
+Initial, filtrul `paths` exista si pe `pull_request`. Ulterior a fost eliminat, astfel incat orice Pull Request catre `main` ruleaza CI-ul.
 
 A fost postrat si `workflow_dispatch`, pentru a permite rularea manuala a workflow-ului din interfata GitHub Actions.
 
@@ -1626,8 +1627,10 @@ Pentru ca testele backend folosesc baza de date, workflow-ul porneste automat un
 Serviciul foloseste imaginea:
 
 ```yml
-postgres: 16
+postgres:16
 ```
+
+Ulterior, imaginea a fost aliniata la `postgres:17`, aceeasi versiune folosita local in Docker Compose.
 
 Configuratia principala:
 
@@ -1807,7 +1810,7 @@ Aceasta marcheaza trecerea de la simpla rulare a testelor la un prim standard au
 In `backend/pyproject.toml` a fost adaugata dependenta:
 
 ```toml
-"ruf",
+"ruff",
 ```
 
 A fost adaugata si configuratia Ruff:
@@ -2114,7 +2117,7 @@ Possible hardcoded password: 'bearer'
 Locatia raportata era in endpoint-ul de login, la raspunsul:
 
 ```python
-return Tokne(access_token=accesss_token, token_type="bearer")
+return Token(access_token=access_token, token_type="bearer")
 ```
 
 ### 130. Tratarea false positive-ului Bandit B106
@@ -2128,7 +2131,8 @@ Rezolvarea a fost facuta punctual, prin adaugarea comentariului:
 ```python
 return Token(
   access_token = access_token,
-  token_type="bearer", # nosec B106 - OAuth2 token type, not a password or secret.
+  # OAuth2 token type, not a password or secret.
+  token_type="bearer",  # nosec B106
 )
 ```
 
@@ -2673,7 +2677,7 @@ Nu returnam `None`, nu returnam lista goala si nu ascundem eroarea.
 
 Cand un admin sau owner consulta detaliile unui user, aplicatia creeaza un audit log.
 
-Eveniment folosit: `AuditEventType.ADMIN__ENDPOINT_ACCESSED`
+Eveniment folosit: `AuditEventType.ADMIN_ENDPOINT_ACCESSED`
 
 Mesaj: `Admin viewed user details for user_id={target_user.id}`
 
@@ -2695,7 +2699,7 @@ Acest eveniment nu este incident, dar reprezinta o actiune administrativa releva
 
 ### 165. Teste automate pentru `GET /admin/users/{user_id}`
 
-Au fost adaugate teste in: `teste/test_protected_routes.py`
+Au fost adaugate teste in: `tests/test_protected_routes.py`
 
 Scenarii validate:
 - user normal -> 403 Forbidden
@@ -2864,3 +2868,902 @@ shortcut.
 The PostgreSQL connection failed inside the sandbox; the successful test run was
 performed outside it. A transaction-failure test remains to be added. Phase 3
 CI validation remains pending.
+
+## Project Cleanup
+
+### 175. Scopul etapei
+
+Inainte de continuarea dezvoltarii, proiectul a fost verificat integral si au fost corectate problemele gasite. Lucrul a fost facut pe branch separat, `chore/project-cleanup`, creat din `main`.
+
+### 176. Alembic vedea o schema goala
+
+`migrations/env.py` importa doar `Base`, nu si modulele cu modele. Un model se inregistreaza in `Base.metadata` doar cand modulul lui este importat, asa ca la rularea Alembic `Base.metadata.tables` era gol. Urmatorul `alembic revision --autogenerate` ar fi propus stergerea tuturor tabelelor.
+
+Cauza probabila: importurile au fost eliminate de Ruff ca nefolosite (`F401`).
+
+Rezolvare:
+
+```python
+from app.models import audit_log, security_event, user  # noqa: F401
+```
+
+Verificare: `python -m alembic check` -> `No new upgrade operations detected.`
+
+Testele nu puteau prinde problema, deoarece creeaza schema prin `create_all()`, nu prin migratii. `alembic check` a fost adaugat in `backend/README.md` ca verificare manuala.
+
+### 177. Utilizatori inactivi
+
+Campul `is_active` exista in model, dar nu era verificat nicaieri.
+
+Comportament nou:
+- login cu parola corecta pentru un user inactiv -> `403 Forbidden`, `Inactive user`
+- tentativa genereaza audit log si security event `LOGIN_FAILED`, severitate `WARN`
+- un token emis inainte de dezactivare este refuzat de `get_current_user()` cu `403 Inactive user`
+
+Mesajul `Inactive user` apare doar dupa verificarea parolei, deci nu dezvaluie starea contului cuiva care nu cunoaste parola.
+
+Momentan nu exista un endpoint pentru dezactivare; in teste, `is_active` este setat direct in baza de date de test.
+
+### 178. Timp de raspuns egal la login
+
+Pentru un email inexistent, `authenticate_user()` returna imediat, fara verificarea hash-ului. Pentru un email existent se calcula hash-ul Argon2, ceea ce dureaza vizibil mai mult. Diferenta de timp permitea aflarea emailurilor inregistrate.
+
+Rezolvare: in `app/core/security.py` este generat la pornire `DUMMY_PASSWORD_HASH`, dintr-o valoare aleatoare. Pentru un email inexistent, parola este verificata contra acestui hash, deci ambele cazuri costa la fel.
+
+Observatie: `POST /auth/register` raspunde in continuare cu `Email already registered`, deci existenta unui email poate fi aflata prin register. Aceasta este o limitare acceptata in etapa actuala.
+
+### 179. Inregistrari simultane
+
+Register verifica duplicatele inainte de insert. Doua request-uri simultane cu acelasi email puteau trece ambele de verificare, iar al doilea primea `500 Internal Server Error` de la indexul unic din PostgreSQL.
+
+Rezolvare:
+- `create_user()` face `rollback` daca `commit` esueaza
+- endpoint-ul prinde `IntegrityError` de tip `UniqueViolation` si raspunde cu `400`
+- mesajul este ales dupa indexul incalcat: `ix_users_email` -> `Email already registered`, `ix_users_username` -> `Username already taken`
+
+Testul simuleaza cursa dezactivand verificarile prealabile prin `monkeypatch`, astfel incat doar indexurile unice pot respinge duplicatul.
+
+### 180. Dependente si alte corecturi
+
+- uneltele de dezvoltare (`pytest`, `httpx`, `ruff`, `bandit`) au fost mutate in `[project.optional-dependencies] dev`
+- instalarea pentru dezvoltare si CI devine `python -m pip install -e ".[dev]"`
+- dependentele au limite minime egale cu versiunile validate local
+- `ruff` este fixat exact (`ruff==0.15.17`), deoarece versiunile noi pot schimba formatarea sau adauga reguli si ar putea pica CI-ul fara modificari de cod
+- dependenta duplicata `pwdlib` / `pwdlib[argon2]` a fost redusa la `pwdlib[argon2]`
+- CI-ul foloseste `postgres:17`, aceeasi versiune ca Docker Compose
+- explicatia pentru `# nosec B106` a fost mutata pe randul anterior; Bandit interpreta textul de dupa `nosec` ca ID-uri de reguli si emitea warning-uri
+- `AuditLogRead.message` accepta `None`, la fel ca coloana din baza de date
+- adnotarile `Mapped[DateTime]` au devenit `Mapped[datetime]`
+- typo-uri corectate in `.env.example` (`postgresql+psycopg://`) si `.gitignore` (`__pycache__/`)
+- documentatia a fost aliniata cu codul (`require_role()`, rute, configuratia CI)
+- au fost scrise `README.md` si `backend/README.md`
+
+### 181. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified, fara warning-uri
+- alembic check -> No new upgrade operations detected
+- pytest -> 21 passed
+
+Testele noi au fost verificate si invers: cu reparatiile dezactivate temporar, toate cele 5 teste noi pica.
+
+## Admin User Management - Phase 4
+
+### 182. Activarea si dezactivarea conturilor
+
+A fost introdus endpoint-ul:
+
+```http
+PATCH /admin/users/{user_id}/status
+```
+
+Body:
+
+```json
+{"is_active": false}
+```
+
+Raspunsul foloseste schema `UserRead`, deci `hashed_password` nu este expus.
+
+Endpoint-ul foloseste verificarea `is_active` introdusa in etapa de cleanup: un cont dezactivat nu se mai poate autentifica, iar token-urile emise anterior sunt refuzate imediat, deoarece `get_current_user()` citeste userul din baza de date la fiecare request.
+
+### 183. Reguli de permisiune
+
+Accesul este ierarhic:
+- `admin` poate activa sau dezactiva conturi `user` si `security_analyst`
+- `owner` poate activa sau dezactiva si conturi `admin`
+- nimeni nu isi poate schimba propriul status
+- statusul unui `owner` nu poate fi schimbat
+
+| Situatie | Raspuns |
+| --- | --- |
+| Fara token | 401 |
+| Actorul nu este `admin` sau `owner` | 403, `Insufficient permissions` |
+| User inexistent | 404, `User not found` |
+| Actorul isi schimba propriul status | 403, `Users cannot change their own status` |
+| Tinta este `owner` | 403, `Cannot change the status of an owner` |
+| `admin` schimba statusul altui `admin` | 403, `Only an owner can change the status of an admin` |
+| `is_active` nu este boolean (`"false"`, `0`, `null`) | 422 |
+| Schimbare permisa | 200 |
+| Statusul cerut este deja cel actual | 200, fara evenimente |
+
+`UserStatusUpdate` foloseste `StrictBool`, astfel incat valori precum `"false"` sau `0` sunt respinse, nu convertite implicit.
+
+### 184. Tipuri dedicate de evenimente
+
+Pana acum, actiunile administrative refoloseau `ADMIN_ENDPOINT_ACCESSED` si `ADMIN_ACCESS`, iar schimbarile se distingeau doar prin mesaj.
+
+Au fost adaugate tipuri noi, atat in `AuditEventType`, cat si in `SecurityEventType`:
+- `USER_ROLE_CHANGED`
+- `USER_ACTIVATED`
+- `USER_DEACTIVATED`
+
+Schimbarea de rol din Phase 3 foloseste acum `USER_ROLE_CHANGED`.
+
+Mesajele inregistrate:
+- `Admin deactivated user_id={id}` / `Owner activated user_id={id}`
+- `Owner changed role for user_id={id} from {old} to {new}`
+
+Campurile `user_id` si `email` ale evenimentelor identifica actorul; tinta apare in mesaj. Severitatea este `INFO`.
+
+### 185. Prima migratie Alembic dupa schema initiala
+
+Valorile noi au fost adaugate in tipurile enum PostgreSQL prin migratia `02a6be0e0ec8_add_user_management_event_types.py`.
+
+Migratia a fost scrisa manual, deoarece `--autogenerate` nu detecteaza valori noi intr-un enum existent. Din acelasi motiv, `alembic check` nu poate confirma ca enum-urile din baza de date sunt la zi.
+
+Upgrade:
+
+```sql
+ALTER TYPE audit_event_types ADD VALUE IF NOT EXISTS 'USER_ROLE_CHANGED';
+```
+
+Valorile sunt scrise cu majuscule, deoarece SQLAlchemy salveaza numele membrilor enum.
+
+PostgreSQL nu permite stergerea unei valori dintr-un enum. Downgrade-ul:
+- remapeaza randurile cu tipurile noi la `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`
+- redenumeste tipul enum existent
+- creeaza tipul cu valorile vechi
+- converteste coloana `event_type` la tipul nou
+- sterge tipul vechi
+
+Migratia a fost verificata pe o baza temporara prin `upgrade -> downgrade -> upgrade`, cu randuri care foloseau valorile noi. Downgrade-ul a remapat randurile si a pastrat indexul `ix_security_events_event_type`.
+
+Aplicare locala:
+
+```bash
+python -m alembic upgrade head
+```
+
+### 186. Tranzactie comuna pentru schimbari si evenimente
+
+Logica de commit din `update_user_role()` a fost extrasa in `_commit_user_change()`, folosita acum si de `update_user_status()`.
+
+Functia adauga audit log-ul si security event-ul in aceeasi sesiune cu modificarea userului si face un singur `commit`. Daca acesta esueaza, se face `rollback` si exceptia este propagata.
+
+A fost adaugat testul de esec al tranzactiei, ramas in asteptare din Phase 3, pentru ambele operatii. Commit-ul simulat face mai intai `flush`, astfel incat modificarea si evenimentele ajung in tranzactia deschisa; doar un `rollback` real le anuleaza. Testul a fost verificat invers: fara `rollback`, pica.
+
+### 187. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 55 passed
+
+Testele noi acopera: lipsa token-ului, roluri fara drept de acces, matricea de schimbari permise, toate restrictiile, user inexistent, valori non-boolean, status neschimbat, esecul tranzactiei si pierderea imediata a accesului pentru un cont dezactivat.
+
+## Input Validation - Phase 1
+
+### 188. Problema
+
+Schemele de input acceptau orice string:
+- un username mai lung de 50 de caractere ajungea in PostgreSQL, depasea coloana `String(50)` si producea `500 Internal Server Error`
+- username-ul si parola goale erau acceptate cu `201 Created`
+- `Test@x.com` si `test@x.com` puteau fi conturi diferite, la fel `Admin` si `admin`
+
+### 189. Reguli introduse
+
+Regulile sunt definite in `app/schemas/user.py`, ca tipuri reutilizabile cu `Annotated`.
+
+**Username** (`Username`):
+- 3-50 caractere; 50 corespunde coloanei `users.username`
+- doar litere ASCII, cifre, `_`, `.` si `-`
+- transformat in litere mici, astfel incat `Admin` si `admin` nu pot coexista
+
+**Email** (`NormalizedEmail`):
+- validat de `EmailStr`
+- transformat in litere mici, la register si la login
+
+**Parola la register** (`NewPassword`):
+- minimum 12 caractere
+- maximum 128 caractere, pentru a limita costul hashing-ului Argon2 pe request
+- fara reguli de compozitie (majuscule, simboluri), conform recomandarilor NIST si OWASP
+
+**Parola la login** (`LoginPassword`):
+- doar maximum 128 caractere
+- fara minimum, pentru ca un cont creat inainte de politica noua sa se poata autentifica
+
+Input-ul invalid este respins cu `422`, inainte de orice acces la baza de date.
+
+Observatie: in Pydantic, `pattern` este verificat pe valoarea primita, inainte de `to_lower`. De aceea pattern-ul accepta si majuscule (`^[A-Za-z0-9_.-]+$`), iar valoarea salvata este oricum lowercase.
+
+### 190. Migratia pentru datele existente
+
+Dupa normalizarea input-ului, un cont existent salvat ca `Test@x.com` nu ar mai fi fost gasit la login, deoarece cautarea se face dupa `test@x.com`.
+
+Migratia `7242f1f7b69b_lowercase_user_emails_and_usernames.py` transforma `users.email` si `users.username` in litere mici.
+
+Daca doua conturi ar deveni identice, de exemplu `Dup@x.com` si `dup@x.com`, migratia se opreste cu un mesaj care listeaza valorile in conflict. Tranzactia este anulata, datele raman neatinse, iar baza ramane la versiunea anterioara. Conflictele trebuie rezolvate manual, deoarece unirea automata a doua conturi nu este sigura.
+
+Downgrade-ul nu modifica datele: forma originala nu este salvata, iar valorile lowercase raman valide si in revizia anterioara.
+
+Username-urile existente care nu respecta noile reguli nu sunt modificate. Login-ul se face dupa email, deci aceste conturi raman utilizabile.
+
+Migratia a fost verificata pe o baza temporara: date mixed-case, `downgrade -> upgrade` si cazul de conflict.
+
+Aplicare locala:
+
+```bash
+python -m alembic upgrade head
+```
+
+### 191. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 74 passed
+
+Testele noi acopera: fiecare regula respinsa cu `422`, valorile-limita acceptate, salvarea lowercase, duplicatele care difera doar prin litere mari/mici, login case-insensitive, parola prea lunga la login si login-ul unui cont cu parola mai scurta decat politica noua.
+
+Verificare inversa: cu schemele anterioare, 12 din cele 19 teste noi pica. Celelalte 7 confirma ca regulile nu sunt prea stricte si trec in ambele variante.
+
+## Brute-Force Detection - Phase 1
+
+### 192. Scopul etapei
+
+Pana acum, login-urile esuate erau inregistrate ca `LOGIN_FAILED` cu severitate `WARN`, dar nimic nu reactiona la ele. Un atacator putea incerca parole nelimitat.
+
+Aceasta etapa introduce prima detectie reala din zona SIEM-light: prea multe esecuri pentru acelasi email genereaza un incident si blocheaza temporar login-ul. Este prima utilizare a severitatii `INCIDENT`.
+
+### 193. Reguli
+
+Valorile implicite, configurabile din `.env`:
+
+```env
+LOGIN_MAX_FAILED_ATTEMPTS=5
+LOGIN_FAILURE_WINDOW_MINUTES=15
+LOGIN_LOCKOUT_MINUTES=15
+```
+
+- la al 5-lea esec in 15 minute pentru acelasi email, login-ul pe acel email este blocat 15 minute
+- incercarea care atinge pragul primeste deja `429 Too Many Requests`
+- in timpul blocarii, orice incercare primeste `429`, chiar si cu parola corecta
+- raspunsul contine header-ul `Retry-After` cu secundele ramase
+- in timpul blocarii, parola nu este verificata deloc, astfel incat incercarile nu ofera nicio informatie
+- un login reusit reseteaza numaratoarea
+- dupa expirarea unei blocari, esecurile anterioare ei nu mai sunt numarate
+- emailurile inexistente sunt blocate identic, deci blocarea nu dezvaluie existenta unui cont
+- login-urile esuate ale unui cont inactiv sunt numarate la fel
+
+Dezavantaj cunoscut: un atacator poate bloca temporar contul unei victime trimitand parole gresite. Blocarea este temporara, iar varianta pe email a fost aleasa constient, in locul blocarii pe email + IP, care ar fi fost ocolita de un atacator cu mai multe IP-uri.
+
+### 194. Starea este derivata din security events
+
+Nu exista tabela sau coloana separata pentru numararea esecurilor. Serviciul `app/services/login_protection_service.py` foloseste evenimentele deja inregistrate:
+- numarul de esecuri = `LOGIN_FAILED` pentru email, dupa cel mai recent dintre: inceputul ferestrei, ultimul `LOGIN_SUCCESS`, ultimul `BRUTE_FORCE_DETECTED`
+- blocarea este activa daca ultimul `BRUTE_FORCE_DETECTED` este mai recent decat durata de blocare
+
+Timpul este citit din baza de date (`SELECT now()`), acelasi ceas care completeaza `created_at`, astfel incat comparatiile nu amesteca ceasul aplicatiei cu cel al bazei de date.
+
+Pentru aceste interogari a fost adaugat indexul compus `ix_security_events_email_type_created` pe `(email, event_type, created_at)`.
+
+### 195. Evenimente noi
+
+| Situatie | Audit log | Security event | Severitate |
+| --- | --- | --- | --- |
+| Pragul este atins | `LOGIN_LOCKED` | `BRUTE_FORCE_DETECTED` | `INCIDENT` |
+| Incercare in timpul blocarii | `LOGIN_BLOCKED` | `LOGIN_BLOCKED` | `WARN` |
+
+Denumirile urmeaza separarea existenta: audit log-ul descrie faptul (login blocat), iar security event-ul interpretarea (atac brute-force detectat).
+
+Incidentul este legat de contul atacat prin `user_id` atunci cand contul exista, chiar daca incercarile nu l-au autentificat.
+
+### 196. Adresa IP in evenimente
+
+Tabelele `audit_logs` si `security_events` au acum coloana `ip_address` (`String(45)`, suficient pentru IPv6). Toate evenimentele inregistreaza IP-ul clientului: register, login, endpoint-urile administrative si schimbarile de rol/status.
+
+IP-ul este obtinut prin dependenta `get_client_ip()` din `app/api/deps.py`, din `request.client.host`. Valorile care nu sunt adrese IP valide sunt salvate ca `NULL` (de exemplu `testclient` in teste).
+
+Header-ul `X-Forwarded-For` nu este citit direct, deoarece poate fi falsificat de client. Daca aplicatia ruleaza in spatele unui reverse proxy, uvicorn trebuie pornit cu `--proxy-headers` si `--forwarded-allow-ips`, iar `request.client` va contine IP-ul real.
+
+`AuditLogRead` si `SecurityEventRead` expun campul `ip_address`.
+
+IP-ul pregateste o detectie viitoare: multe emailuri diferite incercate de pe acelasi IP (password spraying).
+
+### 197. Migratia
+
+Migratia `449c22b3652c_add_login_protection_events_and_ip_.py`:
+- adauga valorile noi in `audit_event_types` si `security_event_types`
+- adauga coloana `ip_address` in ambele tabele
+- creeaza indexul compus
+
+Downgrade-ul sterge indexul si coloanele, remapeaza randurile cu tipurile noi la `LOGIN_FAILED` si recreeaza tipurile enum fara valorile noi.
+
+Verificare pe baza temporara: `upgrade`, `alembic check`, randuri cu valorile noi, `downgrade`, din nou `upgrade` si `alembic check`.
+
+### 198. Problema intalnita in teste: prepared statements
+
+Dupa adaugarea noilor interogari, doua teste picau intermitent cu:
+
+```
+cache lookup failed for type ...
+```
+
+Cauza: psycopg pregateste pe server (prepared statement) o interogare executata de cel putin 5 ori pe aceeasi conexiune. Interogarea ramane legata de identificatorul intern (OID) al tipului enum. Fixture-ul de test recreeaza schema la fiecare test, deci tipurile enum primesc OID-uri noi, iar conexiunile refolosite din pool pastrau interogari legate de tipuri sterse.
+
+Rezolvare: in `tests/conftest.py`, dupa recrearea schemei, este apelat `test_engine.dispose()`, astfel incat fiecare test porneste pe conexiuni noi.
+
+Problema apare doar in teste, deoarece aplicatia reala nu recreeaza tipurile enum in timp ce ruleaza.
+
+### 199. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 86 passed
+
+Testele noi (`tests/test_login_protection.py`) acopera: atingerea pragului si incidentul, refuzul parolei corecte in timpul blocarii fara verificarea ei, blocarea emailurilor inexistente, expirarea blocarii, fereastra de timp, resetarea dupa login reusit, ignorarea esecurilor dinaintea unei blocari expirate, izolarea pe email, pragurile din configurare, inregistrarea IP-ului (IPv4 si IPv6) si expunerea lui prin API.
+
+Timpul scurs este simulat prin mutarea `created_at` al evenimentelor in trecut.
+
+Verificare inversa: fara verificarea blocarii pica 3 teste, fara prag pica 6, iar fara resetarea dupa login reusit / blocare pica 2.
+
+## Log Filtering - Phase 1
+
+### 200. Scopul etapei
+
+Endpoint-urile `GET /admin/audit-logs` si `GET /security/events` returnau doar ultimele `limit` evenimente, fara filtre si fara posibilitatea de a ajunge la evenimente mai vechi. Aceasta etapa le pregateste pentru dashboard-ul de securitate din frontend.
+
+### 201. Raspuns paginat prin cursor
+
+Raspunsul nu mai este o lista, ci un obiect (envelope):
+
+```json
+{
+  "items": [...],
+  "next_cursor": 123
+}
+```
+
+Pagina urmatoare se obtine cu `?before_id=123`. Cand nu mai exista rezultate, `next_cursor` este `null`.
+
+Evenimentele sunt ordonate dupa `id` descrescator, adica cele mai noi primele. Ordinea dupa `id` (si nu dupa `created_at`) este necesara pentru ca:
+- `id` este unic, deci nu exista egalitati intre evenimente
+- cursorul este tot un `id`, deci ordinea si cursorul folosesc aceeasi cheie
+- `created_at` este momentul de inceput al tranzactiei, deci un eveniment inserat mai tarziu poate avea un timestamp mai vechi
+
+Avantaje fata de `offset`:
+- paginile nu se decaleaza cand apar evenimente noi in timp ce analistul rasfoieste
+- interogarea ramane rapida si pe tabele mari, deoarece nu parcurge randurile sarite
+
+Pentru a sti daca exista o pagina urmatoare, se citeste un rand in plus fata de `limit`.
+
+Schimbarea formei raspunsului este o modificare de contract API. A fost facuta acum deoarece nu exista inca niciun client al acestor endpoint-uri.
+
+Schema generica `Page[ItemT]` din `app/schemas/pagination.py` foloseste sintaxa de generice din Python 3.12.
+
+### 202. Filtre
+
+Filtre comune (`app/schemas/event_filters.py`):
+
+| Parametru | Comportament |
+| --- | --- |
+| `user_id` | egalitate |
+| `email` | egalitate, fara diferenta intre litere mari si mici |
+| `ip_address` | IPv4 sau IPv6 valid; forma IPv6 este normalizata, deci `2001:DB8:0:0::1` gaseste `2001:db8::1` |
+| `since` | `created_at >= since` |
+| `until` | `created_at < until` |
+| `before_id` | cursorul de paginare |
+| `limit` | 1-200, implicit 50 |
+
+Filtre specifice:
+- audit logs: `event_type`, cu una sau mai multe valori (`?event_type=login_failed&event_type=login_locked`)
+- security events: `event_type` si `severity`, fiecare cu una sau mai multe valori
+
+Mai multe valori pentru acelasi parametru se combina cu `OR`; parametri diferiti se combina cu `AND`.
+
+Intervalul de timp este semi-deschis (`since <= created_at < until`), astfel incat intervale consecutive nu numara de doua ori acelasi eveniment.
+
+### 203. Validarea filtrelor
+
+Filtrele sunt definite ca modele Pydantic folosite pentru query parameters (`Annotated[AuditLogFilters, Query()]`). Raspund cu `422`:
+- `since` mai mare sau egal cu `until`
+- date fara fus orar (`AwareDatetime`), pentru a evita interpretari ambigue
+- valori invalide pentru `event_type`, `severity`, `ip_address`, `limit` sau `before_id`
+- parametri necunoscuti, prin `extra="forbid"`
+
+Ultima regula este importanta pentru securitate: un filtru scris gresit, de exemplu `?event_typ=login_failed`, ar fi fost altfel ignorat, iar analistul ar fi vazut rezultate nefiltrate crezand ca sunt filtrate.
+
+### 204. Auditarea consultarii logurilor
+
+Consultarea logurilor este acum auditata, cu tipuri noi in `AuditEventType`:
+- `AUDIT_LOGS_VIEWED`
+- `SECURITY_EVENTS_VIEWED`
+
+Mesajul contine filtrele folosite, de exemplu:
+
+```
+Viewed audit logs with event_type=['login_failed'], limit=10
+```
+
+Decizii:
+- evenimentul este inregistrat dupa interogare, deci raspunsul nu contine niciodata propria consultare
+- se creeaza doar audit log, nu si security event: consultarea este un fapt de audit, nu un semnal de securitate, si nu trebuie sa umple fluxul SIEM
+
+Valorile noi au fost adaugate prin migratia `1ff3830ec505_add_log_view_audit_event_types.py`. Downgrade-ul remapeaza randurile la `ADMIN_ENDPOINT_ACCESSED` si recreeaza tipul enum.
+
+### 205. Logica de interogare comuna
+
+Filtrele comune, ordonarea si paginarea sunt implementate o singura data, in `fetch_event_page()` din `app/services/event_query.py`, folosita de ambele servicii. Fiecare serviciu adauga doar filtrele specifice (`event_type`, `severity`).
+
+`fetch_event_page()` este o functie generica cu `EventT: AuditLog | SecurityEvent`. Varianta initiala, cu constrangeri `(AuditLog, SecurityEvent)`, era rezolvata gresit de Pylance pentru apelul cu `AuditLog`.
+
+### 206. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 107 passed
+- migratia: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+
+Testele noi (`tests/test_event_logs_api.py`) acopera: acces interzis pentru user normal, ordinea, parcurgerea completa prin cursor, stabilitatea paginilor la evenimente noi, ordinea dupa insertie chiar daca timestamp-urile sunt inverse, fiecare filtru si combinarea lor, intervalul semi-deschis, query-urile invalide si auditarea consultarii.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea `extra="forbid"`, eliminarea normalizarii emailului, cursor inclusiv, interval inchis, ordonare dupa `created_at`.
+
+Cele 3 teste existente care asteptau o lista au fost actualizate pentru noua forma a raspunsului.
+
+## Observability - Phase 1
+
+### 207. Scopul etapei
+
+"Observability-first" este unul dintre principiile proiectului, iar Prometheus si Grafana fac parte din MVP-ul DevOps. Pana acum, backend-ul nu expunea metrici, scria loguri nestructurate, iar `/health` raspundea `ok` chiar daca PostgreSQL era oprit.
+
+Aceasta etapa introduce:
+- metrici Prometheus pentru HTTP si pentru security events
+- loguri structurate, cu un request id pe fiecare cerere
+- un health check care verifica baza de date
+- Prometheus si Grafana in Docker Compose, cu dashboard provizionat automat
+
+### 208. Metrici
+
+Metricile sunt definite in `app/core/metrics.py` si expuse la `GET /metrics`, in formatul text Prometheus.
+
+| Metrica | Tip | Etichete |
+| --- | --- | --- |
+| `sentinelcore_http_requests_total` | Counter | `method`, `route`, `status_code` |
+| `sentinelcore_http_request_duration_seconds` | Histogram | `method`, `route` |
+| `sentinelcore_security_events_total` | Counter | `event_type`, `severity` |
+
+Fiecare combinatie distincta de etichete devine o serie separata in Prometheus. De aceea etichetele provin din multimi mici si fixe:
+- `route` este sablonul rutei (`/admin/users/{user_id}`), nu calea concreta (`/admin/users/42`)
+- caile care nu corespund niciunei rute primesc `route="unmatched"`
+- metodele HTTP necunoscute primesc `method="OTHER"`
+
+Altfel, oricine ar putea crea un numar nelimitat de serii trimitand cereri catre cai sau metode inventate.
+
+`sentinelcore_security_events_total` este incrementat dupa commit-ul fiecarui security event, in cele trei locuri care le creeaza: `create_security_event()`, `_commit_user_change()` si `lock_login()`. O singura metrica acopera login-uri reusite si esuate, blocari, incidente brute-force si schimbari administrative.
+
+Metricile sunt pastrate in memoria procesului si pornesc de la zero la fiecare restart; functiile `rate()` si `increase()` din Prometheus trateaza aceste resetari. Configuratia presupune un singur proces uvicorn; mai multi workeri ar necesita modul multiprocess din `prometheus_client`.
+
+### 209. Protectia `/metrics`
+
+Daca `METRICS_TOKEN` este setat in `.env`, `/metrics` cere `Authorization: Bearer <token>` si raspunde altfel cu `401`. Daca este gol sau lipseste, endpoint-ul este deschis, ceea ce este potrivit pentru dezvoltare locala.
+
+Token-ul este comparat cu `hmac.compare_digest`, in timp constant, astfel incat timpul de raspuns nu dezvaluie cat de mult din token a fost ghicit.
+
+`/metrics` nu apare in documentatia OpenAPI.
+
+### 210. Request id si loguri structurate
+
+Middleware-ul `observe_requests` din `app/api/middleware.py`:
+- refoloseste header-ul `X-Request-ID` primit, daca are maximum 64 de caractere din `A-Z a-z 0-9 . _ -`, altfel genereaza unul nou
+- intoarce request id-ul in header-ul `X-Request-ID` al raspunsului
+- il pastreaza intr-un `ContextVar`, astfel incat orice log scris in timpul cererii il contine
+- scrie un singur log pe cerere, cu `method`, `route`, `path`, `status_code`, `duration_ms` si `client_ip`
+- inregistreaza metricile HTTP
+
+Validarea request id-ului primit impiedica injectarea de text arbitrar, de exemplu linii noi, in loguri si header-e.
+
+Formatul logurilor se alege din `.env`:
+
+```env
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+```
+
+- `json`: un obiect JSON pe linie, pentru colectoare de loguri
+- `text`: linii lizibile in terminal, cu aceleasi campuri
+
+Exemplu JSON:
+
+```json
+{"timestamp": "2026-10-06T16:00:03.871220+00:00", "level": "INFO", "logger": "sentinelcore.request", "message": "Request completed", "request_id": "demo-trace-1", "method": "GET", "route": "/health", "path": "/health", "status_code": 200, "duration_ms": 0.22, "client_ip": "127.0.0.1"}
+```
+
+Logurile uvicorn trec prin acelasi format. Access log-ul propriu al uvicorn este dezactivat, deoarece ar dubla logul scris de middleware.
+
+### 211. Health checks
+
+- `GET /health`: liveness, adica procesul ruleaza si raspunde; nu depinde de baza de date
+- `GET /health/ready`: readiness, adica aplicatia poate servi trafic; executa `SELECT 1` si raspunde `503` cu `{"status": "unavailable", "database": "unavailable"}` daca PostgreSQL nu este disponibil
+
+Separarea permite unui orchestrator sa nu reporneasca procesul cand doar baza de date este temporar indisponibila, dar sa nu-i trimita trafic pana cand aceasta revine.
+
+### 212. Prometheus si Grafana
+
+`docker-compose.yml` contine acum serviciile `prometheus` (`prom/prometheus:v3.15.0`) si `grafana` (`grafana/grafana:13.2.3`). Configuratia este in `infra/`:
+
+```text
+infra/
+├── prometheus/
+│   └── prometheus.yml
+└── grafana/
+    ├── provisioning/
+    │   ├── datasources/prometheus.yml
+    │   └── dashboards/sentinelcore.yml
+    └── dashboards/
+        └── sentinelcore-overview.json
+```
+
+Ambele servicii folosesc `network_mode: host` si asculta doar pe `127.0.0.1`:
+- Prometheus colecteaza backend-ul pornit local pe `localhost:8000`, fara ca uvicorn sa fie pornit pe `0.0.0.0`
+- nimic nu este expus in reteaua locala
+
+Host networking este suportat complet pe Linux.
+
+Fisierele de configurare sunt montate cu `:ro,z`. Optiunea `z` reeticheteaza fisierele pentru SELinux, necesara pe Fedora, la fel ca la Gitleaks; pe sisteme fara SELinux este ignorata.
+
+Dashboard-ul `SentinelCore Overview` este provizionat automat si contine:
+- Security: incidente brute-force, incercari blocate, login-uri esuate, dezactivari de conturi, security events pe minut dupa tip si dupa severitate
+- HTTP: request-uri pe secunda dupa ruta, raspunsuri dupa status code, latenta p95 dupa ruta, procentul de erori 5xx
+
+Pornire:
+
+```bash
+docker compose up -d prometheus grafana
+```
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`, user `admin`, parola `sentinelcore` (doar local)
+
+### 213. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 132 passed
+
+Testele noi (`tests/test_observability.py`) acopera: generarea, refolosirea si respingerea request id-urilor, logul per cerere, propagarea request id-ului in logurile scrise in timpul cererii, ambele formate de log, etichetele bazate pe sabloane, gruparea cailor si metodelor necunoscute, histograma de durata, numararea security events, protectia `/metrics` si readiness-ul cu baza de date disponibila si indisponibila.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: cale concreta in loc de sablon, request id nevalidat, request id nepropagat in loguri, token nevalidat, incident nenumarat.
+
+Verificare end-to-end, pe o baza temporara migrata:
+- backend pornit cu loguri JSON, Prometheus si Grafana pornite prin Docker Compose
+- un atac brute-force simulat: 4 raspunsuri `401`, apoi `429` cu `Retry-After: 900`
+- Prometheus colecteaza backend-ul (`health: up`) si raporteaza exact evenimentele generate
+- Grafana provizioneaza datasource-ul si dashboard-ul, iar toate cele 12 panouri returneaza date
+
+Verificarea a gasit o problema: panoul pentru erorile 5xx nu afisa nimic cand nu existau erori, deoarece impartirea unei serii goale nu produce rezultat. Expresia foloseste acum `or vector(0)`, astfel incat afiseaza `0`.
+
+## JWT Hardening and Sessions - Phase 1
+
+### 214. Scopul etapei
+
+Token-ul JWT continea doar `sub` (emailul) si `exp`. Nu exista logout real: un token furat ramanea valid pana la expirare, iar butonul **Authorize** din Swagger nu functiona, deoarece login-ul accepta doar JSON.
+
+Etapa este necesara inainte de frontend, care are nevoie de logout si de un contract stabil pentru token.
+
+### 215. Continutul token-ului
+
+| Claim | Valoare |
+| --- | --- |
+| `iss` | `JWT_ISSUER`, implicit `sentinelcore` |
+| `aud` | `JWT_AUDIENCE`, implicit `sentinelcore-api` |
+| `sub` | id-ul userului, ca string (RFC 7519 cere string) |
+| `jti` | id-ul sesiunii (UUID) |
+| `iat` | momentul emiterii |
+| `exp` | momentul expirarii |
+
+La fiecare request sunt verificate semnatura, algoritmul, emitentul, audienta si expirarea, iar toate cele sase claim-uri sunt obligatorii.
+
+`sub` este acum id-ul userului, nu emailul: id-ul nu se schimba niciodata, pe cand emailul ar putea fi modificat in viitor. Token-urile emise inainte de aceasta etapa sunt refuzate, deci fiecare user trebuie sa se autentifice din nou o data.
+
+Raspunsul de login include `expires_in`, in secunde, ca in raspunsul standard OAuth2.
+
+### 216. Configurare mai stricta
+
+- `SECRET_KEY` trebuie sa aiba cel putin 32 de bytes; altfel aplicatia nu porneste
+- `ALGORITHM` accepta doar `HS256`, `HS384` sau `HS512`; `none` si algoritmii asimetrici sunt respinsi la pornire
+
+Prima regula previne chei slabe pentru HMAC. A doua previne configurari in care token-urile nesemnate sau semnate altfel ar putea fi acceptate.
+
+### 217. Sesiuni
+
+Tabela noua `user_sessions`:
+- `id`: UUID aleator, deci id-urile nu pot fi ghicite
+- `user_id`
+- `created_at`, `expires_at`
+- `revoked_at`: setat la logout sau revocare
+- `ip_address`, `user_agent`
+
+Fiecare login creeaza o sesiune, iar id-ul ei devine `jti` in token. La fiecare request, `get_current_session()` verifica token-ul, apoi userul, apoi ca sesiunea exista, apartine userului din `sub`, nu este revocata si nu a expirat.
+
+Userul inactiv este verificat inaintea sesiunii, astfel incat un cont dezactivat primeste in continuare `403 Inactive user`, nu un `401` generic.
+
+Timpii sesiunii (`created_at`, `expires_at`) si cei din token (`iat`, `exp`) vin din ceasul aplicatiei. PyJWT respinge token-urile cu `iat` in viitor, deci un ceas al bazei de date usor inaintea aplicatiei ar fi invalidat token-uri abia emise.
+
+### 218. Endpoint-uri noi
+
+| Endpoint | Efect |
+| --- | --- |
+| `POST /auth/token` | login prin formular OAuth2 (`username` = email); folosit de Swagger UI |
+| `POST /auth/logout` | revoca sesiunea token-ului curent; `204` |
+| `POST /auth/logout-all` | revoca toate sesiunile userului, inclusiv cea curenta; `204` |
+| `GET /users/me/sessions` | sesiunile active, cu `current: true` pentru cea curenta |
+| `DELETE /users/me/sessions/{session_id}` | revoca una dintre sesiunile proprii; `204` |
+
+`/auth/login` si `/auth/token` folosesc aceeasi functie interna, deci au aceeasi protectie brute-force, aceleasi evenimente si aceeasi creare de sesiune. Esecurile din ambele endpoint-uri se aduna la acelasi prag.
+
+Revocarea unei sesiuni care apartine altui user raspunde `404 Session not found`, la fel ca pentru o sesiune inexistenta, astfel incat id-urile sesiunilor altor useri nu pot fi confirmate.
+
+`/auth/token` necesita dependenta `python-multipart`, folosita de FastAPI pentru formulare.
+
+### 219. Revocare la dezactivare
+
+Dezactivarea unui cont revoca toate sesiunile lui, in acelasi commit cu schimbarea de status si evenimentele aferente. Reactivarea nu le restaureaza: userul trebuie sa se autentifice din nou.
+
+### 220. Evenimente si migratie
+
+Tipuri noi in `AuditEventType`:
+- `SESSION_REVOKED`: logout sau revocarea unei sesiuni proprii
+- `ALL_SESSIONS_REVOKED`: logout de pe toate sesiunile
+
+Logout-ul este un fapt de audit, nu un semnal de securitate, deci nu creeaza security events.
+
+Migratia `232fc184b0d7_add_user_sessions.py` creeaza tabela `user_sessions` si adauga valorile noi. Downgrade-ul remapeaza randurile la `ADMIN_ENDPOINT_ACCESSED`, recreeaza tipul enum si sterge tabela.
+
+Sesiunile expirate raman in tabela. O curatare periodica poate fi adaugata ulterior.
+
+### 221. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pytest -> 164 passed
+- migratia: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+
+Testele noi (`tests/test_sessions_and_tokens.py`) acopera:
+- continutul token-ului si legatura cu sesiunea
+- 13 variante de token invalid: cheie gresita, emitent sau audienta gresite, claim-uri lipsa, `sub` sau `jti` invalide, token expirat, alt algoritm, token nesemnat (`alg: none`), token in formatul vechi, sesiune inexistenta
+- sesiunea altui user folosita cu `sub` propriu
+- validarea `SECRET_KEY` si a algoritmului
+- lista sesiunilor, logout, logout-all, revocarea unei sesiuni proprii si refuzul revocarii sesiunilor altor useri
+- sesiunile expirate
+- revocarea la dezactivare
+- login-ul prin formular OAuth2, protectia brute-force comuna si configuratia Swagger
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: acceptarea sesiunii altui user, acceptarea sesiunilor revocate, dezactivarea verificarii `aud` si a claim-urilor obligatorii, dezactivarea fara revocarea sesiunilor.
+
+### 222. Curatarea periodica a sesiunilor
+
+Sesiunile expirate sau revocate raman in `user_sessions`, utile pentru investigatii (cine era logat, de unde). Pentru a nu creste nelimitat, sunt sterse dupa o perioada de retentie:
+
+```env
+SESSION_RETENTION_DAYS=30
+SESSION_CLEANUP_INTERVAL_MINUTES=60
+```
+
+`delete_stale_sessions()` sterge sesiunile expirate sau revocate de mai mult de `SESSION_RETENTION_DAYS` zile. Sesiunile active nu sunt sterse niciodata.
+
+Curatarea ruleaza in doua moduri:
+- automat, in procesul API: un task pornit in `lifespan` ruleaza la fiecare `SESSION_CLEANUP_INTERVAL_MINUTES` minute si este oprit la shutdown; `0` il dezactiveaza
+- manual sau din cron: `python -m app.cli cleanup-sessions`
+
+Task-ul periodic ruleaza curatarea intr-un thread separat (`asyncio.to_thread`), deoarece accesul la baza de date este sincron. O rulare esuata, de exemplu cand baza de date este temporar indisponibila, este logata si reincercata la urmatorul interval, fara a opri task-ul.
+
+Fiecare rulare scrie un log `Session cleanup completed`, cu numarul de sesiuni sterse, si incrementeaza metrica `sentinelcore_sessions_deleted_total`.
+
+Cu mai multi workeri uvicorn, fiecare ar rula propriul task. Stergerea este idempotenta, deci rezultatul ramane corect, dar in acel caz este preferabil `SESSION_CLEANUP_INTERVAL_MINUTES=0` si rularea din cron.
+
+### 223. Revocarea sesiunilor unui user de catre admin
+
+Endpoint nou:
+
+```http
+DELETE /admin/users/{user_id}/sessions
+```
+
+Raspuns: `200` cu `{"revoked_sessions": 2}`.
+
+Scop: deconectarea unui user de pe toate dispozitivele, de exemplu dupa o suspiciune de compromitere, fara dezactivarea contului. Userul se poate autentifica din nou imediat.
+
+Regulile sunt aceleasi ca la schimbarea statusului:
+
+| Situatie | Raspuns |
+| --- | --- |
+| Actorul nu este `admin` sau `owner` | 403, `Insufficient permissions` |
+| User inexistent | 404, `User not found` |
+| Propriul cont | 403, `Use /auth/logout-all to revoke your own sessions` |
+| Tinta este `owner` | 403, `Cannot revoke the sessions of an owner` |
+| `admin` asupra altui `admin` | 403, `Only an owner can revoke the sessions of an admin` |
+
+Regulile ierarhice sunt implementate o singura data, in `_ensure_can_manage_account()`, folosita de ambele endpoint-uri; fiecare actiune isi furnizeaza propriile mesaje.
+
+Revocarea si evenimentele sunt salvate intr-un singur commit, prin `_commit_user_change()`:
+- audit log `ALL_SESSIONS_REVOKED`
+- security event nou `USER_SESSIONS_REVOKED`, severitate `INFO`
+- mesaj: `Admin revoked 2 session(s) for user_id=5`
+
+Valoarea noua este adaugata prin migratia `c96113ce371b_add_user_sessions_revoked_security_event.py`. Migratia de sesiuni (`232fc184b0d7`) nu a fost modificata, deoarece era deja aplicata pe baza de development.
+
+### 224. Verificarea tipurilor cu Pyright
+
+Pylance verifica doar fisierele deschise in editor, deci fisierele noi nu erau verificate. Backend-ul a fost verificat integral cu Pyright, motorul pe care este construit Pylance:
+
+```bash
+npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations
+```
+
+Pyright a gasit 8 erori, inclusiv in fisiere din etape anterioare:
+- `auth.py`: `constraint_name` poate fi `None` la o eroare de unicitate
+- `session_service.py`: `rowcount` nu este declarat pe tipul `Result`; numarul de randuri este obtinut acum prin `RETURNING id`, corect si explicit
+- in teste: dictionare de parametri tipate prea larg, un `db.scalar()` care poate intoarce `None`, un mesaj de audit care poate fi `None`
+
+Dupa corecturi: `0 errors, 0 warnings`.
+
+Pyright nu ruleaza inca in CI; poate fi adaugat ca pas separat.
+
+### 225. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 184 passed
+- migratia noua: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+
+Testele noi (`tests/test_session_cleanup_and_admin_revoke.py`) acopera: stergerea doar a sesiunilor vechi, metrica si logul curatarii, continuarea task-ului periodic dupa o eroare, pornirea si oprirea task-ului in `lifespan`, comanda CLI, si endpoint-ul de admin: acces, matricea de roluri permise, evenimentele, cazul fara sesiuni active, toate restrictiile si userul inexistent.
+
+Verificare inversa: fiecare dintre urmatoarele modificari este detectata: nestergerea sesiunilor revocate, lipsa perioadei de retentie, oprirea task-ului la prima eroare, permiterea actiunii unui admin asupra altui admin. Netrimiterea anularii catre task la shutdown blocheaza oprirea aplicatiei, deci testul ramane blocat in loc sa pice.
+
+## Cookie Authentication - Phase 1
+
+### 226. Scopul etapei
+
+Frontend-ul are nevoie de o sesiune in browser. Pastrarea token-ului in `localStorage` sau `sessionStorage` l-ar expune oricarui script injectat (XSS). Token-ul este pus acum intr-un cookie `httpOnly`, pe care JavaScript nu il poate citi.
+
+Autentificarea prin `Authorization: Bearer` ramane neschimbata pentru Swagger si pentru clienti API.
+
+### 227. Login din browser
+
+```http
+POST /auth/session
+```
+
+Primeste acelasi body JSON ca `/auth/login`, foloseste aceeasi functie interna (deci aceeasi protectie brute-force, aceleasi evenimente si aceeasi sesiune) si raspunde `204 No Content`, fara token in body. Seteaza doua cookie-uri:
+
+| Cookie | Continut | `httpOnly` |
+| --- | --- | --- |
+| `sentinelcore_session` | token-ul JWT | da |
+| `sentinelcore_csrf` | token-ul CSRF | nu, frontend-ul trebuie sa-l citeasca |
+
+Ambele au `Secure`, `SameSite=Strict`, `Path=/` si `Max-Age` egal cu durata token-ului.
+
+`Secure` este controlat de `AUTH_COOKIE_SECURE`, implicit `true`. Browserele trateaza `http://localhost` ca origine sigura, deci cookie-urile functioneaza si local.
+
+### 228. Protectia CSRF
+
+Browserul ataseaza cookie-urile automat, inclusiv la cereri pornite de alte site-uri. De aceea, orice cerere autentificata prin cookie cu metoda `POST`, `PUT`, `PATCH` sau `DELETE` trebuie sa trimita header-ul `X-CSRF-Token`, cu valoarea cookie-ului `sentinelcore_csrf`. Altfel raspunsul este `403 CSRF token missing or invalid`.
+
+Token-ul CSRF este un HMAC-SHA256 al id-ului sesiunii, calculat cu `SECRET_KEY` (signed double-submit, varianta recomandata de OWASP). Avantaje:
+- este valid doar pentru sesiunea respectiva
+- nu poate fi falsificat prin plantarea unui cookie CSRF propriu
+- nu necesita stocare suplimentara
+
+Comparatia se face in timp constant (`hmac.compare_digest`).
+
+Cererile cu `Authorization: Bearer` nu au nevoie de token CSRF: browserul nu trimite niciodata acest header din proprie initiativa. Daca o cerere contine si header, si cookie, header-ul are prioritate.
+
+### 229. Login CSRF
+
+Un site strain ar putea incerca sa logheze victima in contul atacatorului, trimitand un formular catre endpoint-ul de login. Formularele HTML pot trimite doar `application/x-www-form-urlencoded`, `multipart/form-data` sau `text/plain`, iar `/auth/session` accepta doar JSON: FastAPI raspunde `422` pentru orice alt tip de continut. O cerere `fetch` cu JSON de pe alt site ar necesita aprobare CORS, pe care backend-ul nu o acorda.
+
+Comportamentul este fixat prin teste, astfel incat o schimbare viitoare sa nu-l slabeasca neobservat.
+
+### 230. Logout
+
+`/auth/logout` si `/auth/logout-all` functioneaza pentru ambele tipuri de autentificare. Pe langa revocarea sesiunii in baza de date, sterg cele doua cookie-uri (`Max-Age=0`).
+
+### 231. Integrarea cu frontend-ul
+
+In development, frontend-ul va rula pe Vite si va trimite cererile `/api` catre backend printr-un proxy. Frontend-ul si API-ul par astfel sa fie pe aceeasi origine: nu este nevoie de CORS, iar cookie-urile `SameSite=Strict` functioneaza. In productie, acelasi efect se obtine servind frontend-ul si API-ul prin acelasi reverse proxy.
+
+### 232. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 205 passed
+
+Testele noi (`tests/test_cookie_auth.py`) acopera: atributele cookie-urilor si lipsa token-ului din body, legarea token-ului CSRF de sesiune, autentificarea prin cookie, respingerea body-urilor non-JSON la login, protectia brute-force comuna, setarea `Secure`, toate variantele de token CSRF invalid, cereri reusite cu token CSRF, metodele sigure, cererile Bearer fara CSRF, prioritatea header-ului, cookie-uri invalide, logout-ul cu stergerea cookie-urilor si revocarea reala a token-ului.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea verificarii CSRF, un token CSRF nelegat de sesiune, cookie de sesiune citibil din JavaScript, logout fara stergerea cookie-urilor, cookie-ul preferat in locul header-ului.
+
+## My Account API - Phase 1
+
+### 233. Scopul etapei
+
+Pana acum, evenimentele de securitate puteau fi citite doar de `admin`, `owner` si `security_analyst`. Perspectiva "Contul meu" din frontend are nevoie ca orice utilizator sa-si vada propriul istoric si sa se poata deconecta de pe celelalte dispozitive.
+
+### 234. Activitatea propriului cont
+
+```http
+GET /users/me/activity
+```
+
+Intoarce evenimentele de securitate despre contul curent, cu aceeasi paginare prin cursor ca listele de administrare (`items`, `next_cursor`, `before_id`, `limit`). Filtre acceptate: `event_type`, `severity`, `since`, `until`. Orice alt parametru (de exemplu `user_id` sau `email`) primeste `422`, deci endpoint-ul nu poate fi folosit pentru a citi evenimentele altcuiva.
+
+Ce intra in istoric:
+- evenimentele legate de cont prin `user_id`
+- incercarile de login esuate sau blocate care contin doar emailul contului: o parola gresita nu leaga incercarea de user, dar proprietarul contului trebuie sa o vada
+- dintre acestea din urma, doar cele de dupa crearea contului; incercarile facute pe acel email inainte de inregistrare raman ascunse
+
+Raspunsul contine doar `id`, `event_type`, `severity`, `ip_address` si `created_at`. Campul `message` este omis: este scris pentru operatori, in engleza, si poate numi alte conturi (de exemplu "Owner changed role for user_id=12"). Frontend-ul descrie evenimentele dupa tip, in limba interfetei.
+
+Citirea propriului istoric nu este auditata: nu expune datele altcuiva, iar un rand de audit la fiecare deschidere a paginii ar ingropa intrarile care conteaza.
+
+Evenimentele de administrare sunt inregistrate pe actor. Un admin vede in istoricul sau "Ai schimbat rolul unui utilizator"; utilizatorul afectat nu vede inca schimbarea, pentru ca evenimentele nu au un camp pentru tinta. Este o limitare cunoscuta, notata pentru o etapa viitoare.
+
+### 235. Deconectarea celorlalte dispozitive
+
+```http
+DELETE /users/me/sessions
+```
+
+Revoca toate sesiunile active ale utilizatorului, cu exceptia celei din care vine cererea, si raspunde `{"revoked_sessions": N}`. Spre deosebire de `/auth/logout-all`, utilizatorul ramane conectat. Creeaza audit log de tip nou `OTHER_SESSIONS_REVOKED`.
+
+`stage_revoke_all_sessions()` primeste un parametru optional `keep_session_id`, deci aceeasi functie serveste logout-all, revocarea de catre admin si aceasta actiune.
+
+### 236. Refactorizarea filtrelor
+
+`EventFilters` a fost impartit:
+- `EventPageFilters`: intervalul de timp si cursorul, comune tuturor listelor
+- `EventFilters`: adauga `user_id`, `email` si `ip_address`, doar pentru listele de administrare
+
+`fetch_event_page()` aplica acum doar intervalul si cursorul; filtrele de identitate sunt construite de `event_filter_conditions()`. Astfel, `MyActivityFilters` nu mosteneste filtre care ar permite citirea altor conturi.
+
+### 237. Migratii
+
+- `OTHER_SESSIONS_REVOKED` in `audit_event_types`; la downgrade, randurile devin `ALL_SESSIONS_REVOKED`
+- index pe `security_events.user_id`, folosit de istoricul propriu si de filtrul `user_id`
+
+### 238. Problema intalnita: Alembic ignora `DATABASE_URL`
+
+URL-ul bazei de date era scris direct in `alembic.ini`, iar `migrations/env.py` nu citea setarile aplicatiei. O comanda precum `DATABASE_URL=...temp alembic upgrade head` rula deci pe baza de development. Asa a fost descoperit: verificarea migratiilor pe o baza temporara a aplicat migratiile pe baza `sentinelcore`. Downgrade-ul imediat a readus-o la starea initiala, fara pierderi de date.
+
+Acum `env.py` seteaza URL-ul din `settings.database_url`, iar `alembic.ini` nu mai contine nicio conexiune. Verificarea a fost reluata pe o baza temporara: upgrade complet, `alembic check` fara diferente fata de modele, downgrade, din nou upgrade; baza de development a ramas neatinsa.
+
+### 239. Validarea locala
+
+- ruff check -> passed
+- ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 223 passed
+
+Testele noi (`tests/test_my_account.py`) acopera: autentificarea obligatorie, ordinea evenimentelor, includerea incercarilor esuate care contin doar emailul, ascunderea evenimentelor altor conturi si a celor de dinainte de crearea contului, campurile din raspuns, filtrele, paginarea, respingerea filtrelor de identitate, lipsa auditului la citire, revocarea celorlalte sesiuni cu pastrarea celei curente, izolarea fata de alti useri si cerinta CSRF pentru cererile prin cookie.
+
+Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea limitei de timp pentru incercarile pe email, potrivirea oricarui email, revocarea inclusiv a sesiunii curente.
