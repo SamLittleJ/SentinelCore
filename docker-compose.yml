@@ -9,8 +9,10 @@ services:
       POSTGRES_USER: sentinelcore
       POSTGRES_PASSWORD: sentinelcore
       POSTGRES_DB: sentinelcore
+    # Bound to localhost only: the credentials above are public, so the
+    # database must not be reachable from the rest of the network.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - sentinelcore_postgres_data:/var/lib/postgresql/data
 
