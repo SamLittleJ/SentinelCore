@@ -178,6 +178,13 @@
     font-size: 14px;
   }
 
+  /* Scrollbars in the theme's colors. color-scheme alone is not enough:
+     some browsers (headless Firefox among them) still draw light scrollbars
+     on the dark theme. */
+  :root {
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent;
+  }
+
   /* Times, IPs, ids and counts line up in columns. */
   .font-mono,
   .tabular-nums {

@@ -32,11 +32,13 @@ src/
 │   ├── layout/      # structura aplicației: bara laterală, meniul contului
 │   └── ui/          # componente shadcn/ui (generate, apoi ajustate)
 ├── features/
+│   ├── account/     # perspectiva „Contul meu”: sesiuni, activitate
 │   ├── auth/        # client API pentru autentificare, hook-uri, protecția rutelor
+│   ├── org/         # perspectiva „Organizația”: jurnale, filtre, detalii
 │   └── theme/       # tema întunecată / luminoasă
 ├── i18n/            # traduceri în română și engleză
 ├── lib/             # clientul API, configurarea TanStack Query, utilitare
-├── pages/           # paginile aplicației
+├── pages/           # paginile aplicației; cele ale organizației se încarcă la cerere (pages/lazy.ts)
 ├── test/            # configurarea testelor și serverul API simulat (MSW)
 ├── routes.tsx       # rutele, folosite și în teste
 └── main.tsx         # punctul de intrare

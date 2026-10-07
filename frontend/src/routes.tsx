@@ -7,6 +7,7 @@ import { MyActivityPage } from '@/pages/MyActivityPage'
 import { MyOverviewPage } from '@/pages/MyOverviewPage'
 import { MySessionsPage } from '@/pages/MySessionsPage'
 import { NotFoundPage, OrganizationOverviewPage, PlaceholderPage } from '@/pages/SimplePages'
+import { OrgAuditPage, OrgEventsPage } from '@/pages/lazy'
 
 // Shared by the browser router (main.tsx) and the memory router in tests.
 export const appRoutes: RouteObject[] = [
@@ -26,8 +27,8 @@ export const appRoutes: RouteObject[] = [
             element: <RequireOrganizationAccess />,
             children: [
               { index: true, element: <OrganizationOverviewPage /> },
-              { path: 'events', element: <PlaceholderPage title="nav.securityEvents" /> },
-              { path: 'audit', element: <PlaceholderPage title="nav.auditLog" /> },
+              { path: 'events', element: <OrgEventsPage /> },
+              { path: 'audit', element: <OrgAuditPage /> },
               { path: 'users', element: <PlaceholderPage title="nav.users" /> },
             ],
           },

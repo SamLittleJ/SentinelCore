@@ -3948,3 +3948,40 @@ Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit, pr
 - analistul nu poate debloca (`403`), vede contul in `locked=true` si `accounts_locked: 1`; adminul deblocheaza, iar userul se poate autentifica din nou
 - evenimentele: `ACCOUNT_LOCKED` (`incident`, cu motiv), `LOGIN_BLOCKED` pe cont, `USER_SESSIONS_REVOKED` cu motiv, `ACCOUNT_UNLOCKED`
 - capturi reale in Firefox, in ambele teme, ale paginii Activitatea mea a contului deblocat si ale paginii de login cu mesajul pentru cont blocat
+
+## Event Ordering - Phase 1
+
+### 257. Problema
+
+Listele de evenimente (`/security/events`, `/admin/audit-logs`, istoricul propriu si istoricul unui cont) erau ordonate dupa `id`, adica dupa ordinea inregistrarii. Un eveniment inregistrat dupa altele mai noi, de exemplu unul venit cu intarziere dintr-o sursa externa, aparea deasupra lor, desi s-a petrecut mai devreme. Problema a aparut in capturile paginii Evenimente, cu evenimente inserate cu o data din trecut, si ar fi devenit reala odata cu ingestia din faza A.
+
+### 258. Solutia
+
+Evenimentele sunt ordonate acum dupa `created_at`, descrescator, iar intre evenimente cu acelasi `created_at` dupa `id`. Ordinea este totala, deci paginarea intoarce fiecare eveniment exact o data.
+
+Paginarea foloseste un cursor pe perechea `(created_at, id)` (keyset), dar API-ul nu s-a schimbat: cursorul ramane `before_id`, id-ul ultimului eveniment din pagina. Serverul citeste momentul acelui eveniment intr-o subinterogare si compara perechile:
+
+```sql
+WHERE (created_at, id) < ((SELECT created_at FROM security_events WHERE id = :before_id), :before_id)
+ORDER BY created_at DESC, id DESC
+```
+
+Un cursor necunoscut face comparatia `NULL`, deci pagina este goala. Lista de utilizatori ramane ordonata dupa `id`: conturile nu au date din trecut.
+
+Testul vechi `test_pagination_follows_insertion_order_not_timestamps` a fost inlocuit. El pornea de la observatia corecta ca `created_at` este momentul inceperii tranzactiei, deci poate fi in afara ordinii de inregistrare; un cursor doar pe timp ar fi sarit sau repetat evenimente. Cursorul pe pereche rezolva exact acest caz.
+
+### 259. Indexuri
+
+Migratia `fae4d7e28eb6` adauga `ix_security_events_created_at_id` si `ix_audit_logs_created_at_id` pe `(created_at, id)`. Pe 50.000 de evenimente, `EXPLAIN` arata o scanare inversa a indexului, cu comparatia pe pereche ca si conditie de index si fara sortare.
+
+### 260. Validarea locala
+
+- ruff, bandit, pyright -> fara probleme
+- pytest -> 284 passed
+- migratia: upgrade, `alembic check`, downgrade (indexurile dispar), din nou upgrade si `alembic check`
+
+Teste noi: evenimentele inregistrate tarziu apar la momentul lor, paginarea dupa timp cu momente egale si in afara ordinii returneaza fiecare eveniment o data, un cursor necunoscut intoarce o pagina goala, jurnalul de audit este ordonat dupa timp.
+
+Verificare inversa: ordonarea doar dupa `id`, lipsa departajarii dupa `id`, cursorul comparat doar pe timp si cursorul comparat doar pe `id` fac fiecare cel putin un test sa pice.
+
+Verificare end-to-end: doua evenimente inserate ultimele, cu ore din trecut, apar prin API si in pagina Evenimente la sfarsitul listei, la ora lor.

@@ -362,6 +362,11 @@ La acest moment:
 - analistul de securitate poate izola conturi suspecte: închide sesiunile și blochează temporar login-ul, cu motiv obligatoriu
 - adminii și owner-ul pot ridica o blocare înainte de expirare
 - backend-ul are 281 de teste automate validate, iar frontend-ul 86
+- perspectiva "Organizația" are paginile Evenimente de securitate și Jurnal de audit, cu filtre păstrate în adresă și panou de detalii
+- paginile organizației se încarcă la cerere
+- frontend-ul are 111 teste automate validate
+- evenimentele sunt listate după momentul în care s-au petrecut, nu după ordinea înregistrării
+- backend-ul are 284 de teste automate validate
 ---
 
 ## 11. Current Sprint
@@ -432,6 +437,5 @@ Standardul urmarit:
 
 Pasul imediat este construirea paginilor perspectivei "Organizația", pe API-ul din Organization API - Phase 1 și Account Containment - Phase 1:
 
-- Evenimente de securitate și Jurnal de audit: tabel comun cu filtre păstrate în adresă și panou de detalii
 - Utilizatori: listă cu căutare și filtre, detaliu cu istoricul contului, acțiunile de administrare și cele de izolare (închiderea sesiunilor, blocarea temporară)
 - Prezentare: indicatori pe 24 de ore și 7 zile, incidente recente, surse cu cele mai multe eșecuri

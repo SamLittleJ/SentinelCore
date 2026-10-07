@@ -91,8 +91,14 @@ def add_audit_log(
     db_session: Session,
     event_type: AuditEventType = AuditEventType.LOGIN_FAILED,
     email: str | None = None,
+    minutes: int = 0,
 ) -> int:
-    audit_log = AuditLog(event_type=event_type, email=email, message="seeded")
+    audit_log = AuditLog(
+        event_type=event_type,
+        email=email,
+        message="seeded",
+        created_at=BASE_TIME + timedelta(minutes=minutes),
+    )
     db_session.add(audit_log)
     db_session.commit()
     return audit_log.id
@@ -157,23 +163,83 @@ def test_cursor_pagination_returns_every_event_once(
     assert seen == sorted(ids, reverse=True)
 
 
-def test_pagination_follows_insertion_order_not_timestamps(
+def test_events_are_listed_by_time_even_when_recorded_late(
     client: TestClient,
     db_session: Session,
     analyst_headers: dict[str, str],
 ) -> None:
-    # created_at is the transaction start time, so an event inserted later can
-    # carry an earlier timestamp. Paging must follow the id-based cursor.
-    ids = [add_security_event(db_session, minutes=-i) for i in range(4)]
+    # An event can be recorded after newer ones, for example when it reaches
+    # the system late. It is listed at the time it happened.
+    recorded_first = add_security_event(db_session, minutes=30)
+    recorded_late = add_security_event(db_session, minutes=10)
+    newest = add_security_event(db_session, minutes=40)
 
-    first = client.get("/security/events", params={"limit": 2}, headers=analyst_headers)
+    response = client.get("/security/events", headers=analyst_headers)
+
+    assert event_ids(response) == [newest, recorded_first, recorded_late]
+
+
+def test_pagination_follows_time_and_breaks_ties_by_id(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+) -> None:
+    # created_at is the transaction start time, so events recorded in order
+    # can carry out-of-order or equal timestamps.
+    minutes = [5, 0, 5, 3, 5, 1, 0]
+    ids = [add_security_event(db_session, minutes=m) for m in minutes]
+    by_time = sorted(zip(minutes, ids, strict=True), reverse=True)
+    expected = [event_id for _, event_id in by_time]
+
+    seen: list[int] = []
+    params: dict[str, int] = {"limit": 2}
+    while True:
+        response = client.get(
+            "/security/events", params=params, headers=analyst_headers
+        )
+        seen.extend(event_ids(response))
+        next_cursor = response.json()["next_cursor"]
+        if next_cursor is None:
+            break
+        params = {"limit": 2, "before_id": next_cursor}
+
+    assert seen == expected
+
+
+def test_unknown_cursor_returns_an_empty_page(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+) -> None:
+    add_security_event(db_session)
+
+    response = client.get(
+        "/security/events", params={"before_id": 999999}, headers=analyst_headers
+    )
+
+    assert event_ids(response) == []
+    assert response.json()["next_cursor"] is None
+
+
+def test_audit_logs_are_listed_by_time(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+) -> None:
+    recorded_first = add_audit_log(db_session, minutes=30)
+    recorded_late = add_audit_log(db_session, minutes=10)
+
+    first = client.get(
+        "/admin/audit-logs", params={"limit": 1}, headers=analyst_headers
+    )
     second = client.get(
-        "/security/events",
-        params={"limit": 2, "before_id": first.json()["next_cursor"]},
+        "/admin/audit-logs",
+        params={"limit": 1, "before_id": first.json()["next_cursor"]},
         headers=analyst_headers,
     )
 
-    assert event_ids(first) + event_ids(second) == sorted(ids, reverse=True)
+    assert event_ids(first) == [recorded_first]
+    assert event_ids(second) == [recorded_late]
 
 
 def test_pages_stay_stable_when_new_events_arrive(
