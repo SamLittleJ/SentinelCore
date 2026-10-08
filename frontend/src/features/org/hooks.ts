@@ -8,6 +8,7 @@ import {
   type AuditLog,
   fetchAuditLogs,
   fetchSecurityEvents,
+  fetchSecuritySummary,
   fetchUser,
   fetchUserActivity,
   fetchUsers,
@@ -15,7 +16,7 @@ import {
   revokeUserSessions,
   type SecurityEvent,
 } from './api'
-import { type LogFilters, searchQuery, sinceFor } from './filters'
+import { type LogFilters, searchQuery, sinceFor, type TimeRange } from './filters'
 import type { UserFilters } from './user-filters'
 
 // Everything under this key is organization data, not the reader's own.
@@ -26,6 +27,13 @@ const usersKey = [...orgKey, 'users'] as const
 export const userListKey = [...usersKey, 'list'] as const
 const userKey = (userId: number) => [...usersKey, 'detail', userId] as const
 const userActivityKey = (userId: number) => [...usersKey, 'activity', userId] as const
+export const securitySummaryKey = [...orgKey, 'security-summary'] as const
+// Under the events key, so whatever refreshes the event log refreshes it too.
+export const recentIncidentsKey = [...securityEventsKey, 'recent-incidents'] as const
+
+// How many incidents the overview lists, and how far back it looks.
+export const RECENT_INCIDENTS = 5
+export const RECENT_INCIDENTS_RANGE = '7d' satisfies TimeRange
 
 interface Cursor {
   beforeId: number
@@ -84,6 +92,34 @@ export function useAuditLogs(filters: LogFilters<AuditEventType>) {
   return useLogPages<AuditLog, AuditEventType>(auditLogsKey, filters, (query, signal) =>
     fetchAuditLogs({ ...query, eventType: filters.types }, signal),
   )
+}
+
+/** The counts behind the organization overview. They are not audited, but
+ * they reload only with the incidents beside them, so the two never disagree. */
+export function useSecuritySummary() {
+  return useQuery({
+    queryKey: securitySummaryKey,
+    queryFn: ({ signal }) => fetchSecuritySummary(signal),
+    refetchOnWindowFocus: false,
+  })
+}
+
+/** The latest incidents for the overview. Reading them is audited, like any
+ * read of the event log. */
+export function useRecentIncidents() {
+  return useQuery({
+    queryKey: recentIncidentsKey,
+    queryFn: ({ signal }) =>
+      fetchSecurityEvents(
+        {
+          severity: ['incident'],
+          since: sinceFor(RECENT_INCIDENTS_RANGE),
+          limit: RECENT_INCIDENTS,
+        },
+        signal,
+      ),
+    refetchOnWindowFocus: false,
+  })
 }
 
 // Reading accounts is audited too, so these do not reload on window focus.
