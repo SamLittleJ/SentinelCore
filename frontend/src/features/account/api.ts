@@ -23,11 +23,15 @@ export const SECURITY_EVENT_TYPES = [
   'user_sessions_revoked',
   'account_locked',
   'account_unlocked',
+  // Alerts raised by the backend's detection rules.
+  'password_spray_detected',
+  'dormant_account_login',
+  'privileged_role_granted',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 
-// Actions an operator takes on an account. They reach the affected account's
-// activity too, marked `as_target`.
+// Actions an operator takes on an account, and the alerts they raise. They
+// reach the affected account's activity too, marked `as_target`.
 export const ACCOUNT_ACTION_TYPES = [
   'user_role_changed',
   'user_activated',
@@ -35,6 +39,7 @@ export const ACCOUNT_ACTION_TYPES = [
   'user_sessions_revoked',
   'account_locked',
   'account_unlocked',
+  'privileged_role_granted',
 ] as const satisfies readonly SecurityEventType[]
 export type AccountActionType = (typeof ACCOUNT_ACTION_TYPES)[number]
 

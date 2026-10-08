@@ -395,3 +395,23 @@ The new tests cover: the six tiles with their 24-hour and 7-day counts, plural t
 Reverse check: each of the following changes makes at least one test fail: a severity tile linking without its severity, the incident list without a page size, the incident list without its 7-day window, bars not scaled to the largest, and a refresh that reloads only the counts.
 
 End-to-end check, with the real backend on a temporary database and Vite running: seven accounts, a brute-force attack (five failed sign-ins), a lock and a deactivation through the API as the owner, and failed sign-ins from four more addresses (IPv4 and IPv6) and older events added in the database. The page showed the counts the API returned, and each visit added one `security_events_viewed` audit entry with its filters (`limit=5, severity=['incident'], since=...`) and nothing for the counts. Real Firefox screenshots in both themes and at phone width (390 px). After the screenshots, the "Updated" line was aligned to the left on phones, under the refresh button.
+
+## Stage 6: Detection alerts
+
+### 41. The new event types
+
+The backend's detection rules raise three new security event types, which the frontend now names in both languages and offers in the event log's type filter:
+
+| Type | Event log | My activity |
+| --- | --- | --- |
+| `password_spray_detected` | Password spray detected | (names no account, so it never appears there) |
+| `dormant_account_login` | Sign-in to a long-dormant account | Sign-in after a long period of inactivity |
+| `privileged_role_granted` | Privileged role granted | You granted a privileged role / You were granted a privileged role |
+
+`privileged_role_granted` joins the account action types, so the account that received the role reads it in the second person, as with a role change. The technique each detection stands for (`mitre_technique`) is shown in a later stage.
+
+### 42. Local validation
+
+- eslint, tsc -> no problems
+- vitest -> 153 passed; the My activity test now includes the new alerts, as actor and as target
+- build -> successful

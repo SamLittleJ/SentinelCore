@@ -134,6 +134,9 @@ const en: typeof ro = {
     user_sessions_revoked: "You ended a user's sessions",
     account_locked: 'You temporarily locked an account',
     account_unlocked: 'You unlocked an account',
+    password_spray_detected: 'Password spray attack detected',
+    dormant_account_login: 'Sign-in after a long period of inactivity',
+    privileged_role_granted: 'You granted a privileged role',
   },
   eventsAsTarget: {
     user_role_changed: 'Your role was changed',
@@ -142,6 +145,7 @@ const en: typeof ro = {
     user_sessions_revoked: 'An administrator ended your sessions',
     account_locked: 'Your account was temporarily locked',
     account_unlocked: 'Your account was unlocked',
+    privileged_role_granted: 'You were granted a privileged role',
   },
   orgLog: {
     refresh: 'Refresh',
@@ -204,6 +208,9 @@ const en: typeof ro = {
       user_sessions_revoked: 'Sessions ended by an operator',
       account_locked: 'Account temporarily locked',
       account_unlocked: 'Account unlocked',
+      password_spray_detected: 'Password spray detected',
+      dormant_account_login: 'Sign-in to a long-dormant account',
+      privileged_role_granted: 'Privileged role granted',
     },
   },
   audit: {

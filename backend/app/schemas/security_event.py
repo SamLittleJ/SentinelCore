@@ -23,6 +23,8 @@ class SecurityEventRead(BaseModel):
     source: str
     message: str
     created_at: datetime
+    # The MITRE ATT&CK technique a detection stands for, e.g. "T1110.003".
+    mitre_technique: str | None
 
     model_config = ConfigDict(from_attributes=True)
 
