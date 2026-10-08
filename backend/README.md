@@ -1,24 +1,24 @@
 # SentinelCore Backend
 
-API FastAPI cu SQLAlchemy 2, PostgreSQL, Alembic și autentificare JWT.
+A FastAPI API with SQLAlchemy 2, PostgreSQL, Alembic and JWT authentication.
 
-## Structura
+## Structure
 
 ```text
 app/
-├── api/        # routere și dependențe (sesiune DB, utilizator curent, RBAC)
-├── core/       # configurare, conexiune DB, hashing parole și JWT
-├── models/     # modele ORM
-├── schemas/    # scheme Pydantic pentru input și output
-├── services/   # logica de business
-└── main.py     # punctul de intrare al aplicației
-migrations/     # migrații Alembic
-tests/          # teste pytest
+├── api/        # routers and dependencies (DB session, current user, RBAC)
+├── core/       # settings, DB connection, password hashing and JWT
+├── models/     # ORM models
+├── schemas/    # Pydantic schemas for input and output
+├── services/   # business logic
+└── main.py     # application entry point
+migrations/     # Alembic migrations
+tests/          # pytest tests
 ```
 
-## Setup local
+## Local setup
 
-Comenzile se rulează din directorul `backend/`, cu PostgreSQL pornit prin `docker compose up -d` din rădăcina repository-ului.
+Run the commands from `backend/`, with PostgreSQL started by `docker compose up -d` from the repository root.
 
 ```bash
 python -m venv .venv
@@ -29,11 +29,11 @@ python -m alembic upgrade head
 python -m uvicorn app.main:app --reload
 ```
 
-`.[dev]` instalează și uneltele de dezvoltare: pytest, httpx, Ruff și Bandit. Pentru rularea aplicației este suficient `python -m pip install -e .`.
+`.[dev]` also installs the development tools: pytest, httpx, Ruff and Bandit. To only run the application, `python -m pip install -e .` is enough.
 
-## Protecție la brute-force
+## Brute-force protection
 
-Login-urile eșuate repetate pentru același email blochează temporar login-ul pe acel email. Pragurile sunt configurabile în `.env`:
+Repeated failed logins for the same email temporarily block login for that email. The thresholds are configurable in `.env`:
 
 ```env
 LOGIN_MAX_FAILED_ATTEMPTS=5
@@ -41,109 +41,107 @@ LOGIN_FAILURE_WINDOW_MINUTES=15
 LOGIN_LOCKOUT_MINUTES=15
 ```
 
-În spatele unui reverse proxy, pornește uvicorn cu `--proxy-headers --forwarded-allow-ips=<IP-ul proxy-ului>`, altfel toate evenimentele vor înregistra IP-ul proxy-ului.
+Behind a reverse proxy, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>`; otherwise every event records the proxy's IP.
 
-## Observabilitate
+## Observability
 
-- `GET /health`: procesul rulează
-- `GET /health/ready`: aplicația poate servi trafic; răspunde `503` dacă baza de date nu e disponibilă
-- `GET /metrics`: metrici Prometheus; dacă `METRICS_TOKEN` e setat, cere `Authorization: Bearer <token>`
-- fiecare răspuns conține `X-Request-ID`, prezent și în toate logurile cererii
+- `GET /health`: the process is running
+- `GET /health/ready`: the application can serve traffic; answers `503` when the database is unavailable
+- `GET /metrics`: Prometheus metrics; when `METRICS_TOKEN` is set, requires `Authorization: Bearer <token>`
+- every response carries `X-Request-ID`, which also appears in all of the request's logs
 
-Logurile se configurează în `.env`:
+Logging is configured in `.env`:
 
 ```env
 LOG_LEVEL=INFO
-LOG_FORMAT=text   # json pentru colectoare de loguri
+LOG_FORMAT=text   # json for log collectors
 ```
 
-## Autentificare
+## Authentication
 
-- **Browser (frontend):** `POST /auth/session` setează cookie-ul httpOnly `sentinelcore_session` și cookie-ul `sentinelcore_csrf`. Orice cerere POST/PUT/PATCH/DELETE autentificată prin cookie trebuie să trimită valoarea cookie-ului CSRF în header-ul `X-CSRF-Token`.
-- **API și Swagger:** `POST /auth/login` (JSON) sau `POST /auth/token` (formular OAuth2) întorc un token trimis apoi ca `Authorization: Bearer <token>`. Aceste cereri nu au nevoie de token CSRF.
+- **Browser (frontend):** `POST /auth/session` sets the httpOnly `sentinelcore_session` cookie and the `sentinelcore_csrf` cookie. Every POST/PUT/PATCH/DELETE request authenticated by cookie must send the CSRF cookie's value in the `X-CSRF-Token` header.
+- **API and Swagger:** `POST /auth/login` (JSON) or `POST /auth/token` (OAuth2 form) return a token, then sent as `Authorization: Bearer <token>`. These requests need no CSRF token.
 
-## Sesiuni
+## Sessions
 
-Fiecare login creează o sesiune, revocabilă prin `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` sau, de către un operator, prin `POST /admin/users/{id}/revoke-sessions`.
+Every login creates a session, revocable through `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` or, by an operator, `POST /admin/users/{id}/revoke-sessions`.
 
-Un utilizator se poate deconecta de pe celelalte dispozitive, rămânând conectat pe cel curent, prin `DELETE /users/me/sessions`. Istoricul de securitate al propriului cont este disponibil la `GET /users/me/activity`.
+Users can sign out of their other devices while staying signed in on the current one with `DELETE /users/me/sessions`. The security history of one's own account is at `GET /users/me/activity`.
 
-## Perspectiva organizației
-
-Pentru `admin`, `owner` și `security_analyst` (analistul doar citește):
-
-| Endpoint | Ce întoarce |
-|----------|-------------|
-| `GET /security/events` | Evenimente de securitate, cu filtre și paginare prin cursor |
-| `GET /admin/audit-logs` | Audit logs, cu aceleași filtre |
-| `GET /security/summary` | Numere pe 24 de ore și 7 zile, login-uri blocate, IP-urile cu cele mai multe eșecuri, conturi |
-| `GET /admin/users` | Utilizatori; filtre `q`, `role`, `is_active`, paginare prin cursor |
-| `GET /admin/users/{id}` | Detaliile unui utilizator |
-| `GET /admin/users/{id}/activity` | Istoricul de securitate al unui cont |
-
-Filtrele de evenimente includ `target_user_id`, contul asupra căruia a acționat un operator. Lista de utilizatori acceptă și `locked`.
-
-Acțiuni asupra unui cont:
-
-| Endpoint | Cine | Ce face |
-|----------|------|---------|
-| `POST /admin/users/{id}/revoke-sessions` | admin, owner, analist | Închide toate sesiunile; cere `reason` |
-| `POST /admin/users/{id}/lock` | admin, owner, analist | Blochează login-ul `duration_hours` (1-168) și închide sesiunile; cere `reason` |
-| `POST /admin/users/{id}/unlock` | admin, owner | Ridică blocarea înainte de expirare |
-| `PATCH /admin/users/{id}/status` | admin, owner | Activează sau dezactivează contul |
-| `PATCH /admin/users/{id}/role` | owner | Schimbă rolul |
-
-Nimeni nu acționează asupra propriului cont sau asupra unui owner; la schimbarea statusului, doar owner-ul acționează asupra unui admin.
-
-## Migrații
-
-Alembic folosește aceeași setare `DATABASE_URL` ca aplicația, din mediu sau din `.env`. Pentru o bază temporară:
-
-```bash
-DATABASE_URL=postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/alta_baza python -m alembic upgrade head
-```
-
-Sesiunile expirate sau revocate de mai mult de `SESSION_RETENTION_DAYS` zile sunt șterse automat de API, la fiecare `SESSION_CLEANUP_INTERVAL_MINUTES` minute. Curățarea poate fi rulată și manual sau din cron:
+Expired sessions, or sessions revoked more than `SESSION_RETENTION_DAYS` days ago, are deleted by the API every `SESSION_CLEANUP_INTERVAL_MINUTES` minutes. The cleanup can also run by hand or from cron:
 
 ```bash
 python -m app.cli cleanup-sessions
 ```
 
-## Verificare de tipuri
+## Organization scope
 
-Pylance verifică doar fișierele deschise în editor. Pentru tot backend-ul, cu același motor (Pyright):
+For `admin`, `owner` and `security_analyst` (the analyst only reads):
+
+| Endpoint | Returns |
+|----------|---------|
+| `GET /security/events` | Security events, with filters and cursor pagination |
+| `GET /admin/audit-logs` | Audit logs, with the same filters |
+| `GET /security/summary` | Counts over 24 hours and 7 days, blocked logins, the IPs with the most failures, accounts |
+| `GET /admin/users` | Users; filters `q`, `role`, `is_active`, cursor pagination |
+| `GET /admin/users/{id}` | One user's details |
+| `GET /admin/users/{id}/activity` | One account's security history |
+
+The event filters include `target_user_id`, the account an operator acted on. The user list also accepts `locked`.
+
+Actions on an account:
+
+| Endpoint | Who | What it does |
+|----------|-----|--------------|
+| `POST /admin/users/{id}/revoke-sessions` | admin, owner, analyst | Closes every session; requires `reason` |
+| `POST /admin/users/{id}/lock` | admin, owner, analyst | Blocks login for `duration_hours` (1-168) and closes the sessions; requires `reason` |
+| `POST /admin/users/{id}/unlock` | admin, owner | Lifts the lock before it expires |
+| `PATCH /admin/users/{id}/status` | admin, owner | Activates or deactivates the account |
+| `PATCH /admin/users/{id}/role` | owner | Changes the role |
+
+Nobody acts on their own account or on an owner; for status changes, only an owner acts on an admin.
+
+## Migrations
+
+```bash
+python -m alembic revision --autogenerate -m "describe the change"
+python -m alembic upgrade head
+python -m alembic check    # checks that the models and the DB schema match
+```
+
+Review autogenerated migrations by hand before applying them.
+
+Alembic uses the same `DATABASE_URL` setting as the application, from the environment or from `.env`. For a temporary database:
+
+```bash
+DATABASE_URL=postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/other_db python -m alembic upgrade head
+```
+
+## Type checking
+
+Pylance only checks the files open in the editor. For the whole backend, with the same engine (Pyright):
 
 ```bash
 npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations
 ```
 
-## Migrații
+## Tests
 
-```bash
-python -m alembic revision --autogenerate -m "descriere modificare"
-python -m alembic upgrade head
-python -m alembic check    # verifică dacă modelele și schema DB sunt sincronizate
-```
-
-Migrațiile generate automat trebuie verificate manual înainte de aplicare.
-
-## Teste
-
-Testele rulează pe baza de date separată `sentinelcore_test`, niciodată pe baza de development. Creare, o singură dată:
+The tests run against the separate `sentinelcore_test` database, never against the development one. Create it once:
 
 ```bash
 docker exec sentinelcore-postgres createdb -U sentinelcore sentinelcore_test
 ```
 
-Rulare:
+Run:
 
 ```bash
 python -m pytest -v
 ```
 
-Adresa bazei de test poate fi schimbată prin variabila `TEST_DATABASE_URL`; numele ei trebuie să conțină `sentinelcore_test`.
+The test database address can be changed with `TEST_DATABASE_URL`; its name must contain `sentinelcore_test`.
 
-## Verificări rulate și în CI
+## Checks that also run in CI
 
 ```bash
 python -m ruff check .
@@ -152,7 +150,7 @@ python -m bandit -r app -c pyproject.toml
 python -m pytest -v
 ```
 
-Scanarea de secrete cu Gitleaks se rulează din rădăcina repository-ului. Pe Fedora, opțiunea `:Z` este necesară din cauza SELinux:
+The Gitleaks secret scan runs from the repository root. On Fedora, the `:Z` option is required because of SELinux:
 
 ```bash
 docker run --rm -v "$(pwd):/repo:Z" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose

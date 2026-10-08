@@ -1,25 +1,25 @@
 # SentinelCore
 
-Platformă API-first pentru Identity and Access Management, audit logging și monitorizarea evenimentelor de securitate (SIEM-light), construită ca monolit modular.
+An API-first platform for identity and access management, audit logging and security event monitoring (SIEM-light), built as a modular monolith.
 
-## Structura repository-ului
+## Repository layout
 
 ```text
 .
-├── backend/              # API FastAPI, modele SQLAlchemy, migrații Alembic, teste
-├── frontend/             # aplicația web (React, TypeScript, Vite, Tailwind CSS, shadcn/ui)
-├── docs/                 # documentația proiectului, pe etape
-├── infra/                # configurație Prometheus și Grafana
-├── .github/workflows/    # CI backend (Ruff, Bandit, pytest, Gitleaks) și frontend
-└── docker-compose.yml    # PostgreSQL, Prometheus și Grafana pentru development local
+├── backend/              # FastAPI API, SQLAlchemy models, Alembic migrations, tests
+├── frontend/             # web app (React, TypeScript, Vite, Tailwind CSS, shadcn/ui)
+├── docs/                 # project documentation, by stage
+├── infra/                # Prometheus and Grafana configuration
+├── .github/workflows/    # backend CI (Ruff, Bandit, pytest, Gitleaks) and frontend CI
+└── docker-compose.yml    # PostgreSQL, Prometheus and Grafana for local development
 ```
 
-## Pornire rapidă
+## Quick start
 
-Cerințe: Docker, Python 3.12+, Node.js (doar pentru frontend).
+Requirements: Docker, Python 3.12+, Node.js (frontend only).
 
 ```bash
-# PostgreSQL local și baza de date separată pentru teste
+# Local PostgreSQL and a separate database for tests
 docker compose up -d
 docker exec sentinelcore-postgres createdb -U sentinelcore sentinelcore_test
 
@@ -33,9 +33,9 @@ python -m alembic upgrade head
 python -m uvicorn app.main:app --reload
 ```
 
-API-ul rulează la `http://localhost:8000`, iar documentația interactivă la `http://localhost:8000/docs`. PostgreSQL ascultă doar pe `localhost`, pentru că parola de development din `docker-compose.yml` este publică.
+The API runs at `http://localhost:8000`, with interactive docs at `http://localhost:8000/docs`. PostgreSQL listens on `localhost` only, because the development password in `docker-compose.yml` is public.
 
-Frontend, într-un alt terminal:
+Frontend, in another terminal:
 
 ```bash
 cd frontend
@@ -43,30 +43,30 @@ npm install
 npm run dev
 ```
 
-Aplicația web rulează la `http://localhost:5173`. Detalii: [frontend/README.md](frontend/README.md).
+The web app runs at `http://localhost:5173`. Details: [frontend/README.md](frontend/README.md).
 
-În Swagger UI, butonul **Authorize** cere emailul în câmpul `username` și parola.
+In Swagger UI, the **Authorize** button takes the email in the `username` field, plus the password.
 
-## Monitorizare
+## Monitoring
 
 ```bash
 docker compose up -d prometheus grafana
 ```
 
 - Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (user `admin`, parola `sentinelcore`, doar local), dashboard-ul **SentinelCore Overview**
+- Grafana: http://localhost:3000 (user `admin`, password `sentinelcore`, local only), dashboard **SentinelCore Overview**
 
-Prometheus colectează metricile backend-ului pornit local pe portul 8000. Serviciile folosesc host networking, suportat complet pe Linux.
+Prometheus scrapes the backend running locally on port 8000. The services use host networking, which is fully supported on Linux.
 
-Detalii despre backend, teste și verificări: [backend/README.md](backend/README.md).
+Backend, tests and checks: [backend/README.md](backend/README.md).
 
-## Documentație
+## Documentation
 
-- [00 - Project Foundation](docs/00-project-foundation.md): scop, arhitectură, roluri, MVP și stadiul curent
-- [01 - Backend Foundation](docs/01-backend-foundation.md): jurnalul tehnic al fiecărei etape din backend
-- [02 - Decisions Log](docs/02-decisions-log.md): deciziile tehnice luate pe parcurs
-- [03 - Frontend Foundation](docs/03-frontend-foundation.md): jurnalul tehnic al frontend-ului
+- [00 - Project Foundation](docs/00-project-foundation.md): purpose, architecture, roles, MVP and current status
+- [01 - Backend Foundation](docs/01-backend-foundation.md): the technical journal of every backend stage
+- [02 - Decisions Log](docs/02-decisions-log.md): the technical decisions made along the way
+- [03 - Frontend Foundation](docs/03-frontend-foundation.md): the technical journal of the frontend
 
-## Licență
+## License
 
 [MIT](LICENSE)

@@ -1,54 +1,54 @@
 # SentinelCore Frontend
 
-Aplicația web SentinelCore: React 19, TypeScript, Vite, Tailwind CSS și componente shadcn/ui.
+The SentinelCore web app: React 19, TypeScript, Vite, Tailwind CSS and shadcn/ui components.
 
-## Pornire
+## Getting started
 
-Backend-ul trebuie să ruleze local pe portul 8000 (vezi [backend/README.md](../backend/README.md)).
+The backend must be running locally on port 8000 (see [backend/README.md](../backend/README.md)).
 
 ```bash
 npm install
 npm run dev
 ```
 
-Aplicația rulează la `http://localhost:5173`. Vite trimite cererile `/api/*` către backend, astfel încât frontend-ul și API-ul sunt pe aceeași origine: nu e nevoie de CORS, iar cookie-urile de sesiune funcționează.
+The app runs at `http://localhost:5173`. Vite forwards `/api/*` requests to the backend, so the frontend and the API share an origin: no CORS is needed and the session cookies work.
 
-## Comenzi
+## Commands
 
-| Comandă | Ce face |
+| Command | What it does |
 | --- | --- |
-| `npm run dev` | server de dezvoltare cu reîncărcare automată |
+| `npm run dev` | development server with hot reload |
 | `npm run lint` | ESLint |
-| `npm run typecheck` | verificarea tipurilor TypeScript |
-| `npm test` | testele Vitest |
-| `npm run test:watch` | testele, rerulate la fiecare modificare |
-| `npm run build` | build de producție în `dist/` |
+| `npm run typecheck` | TypeScript type check |
+| `npm test` | the Vitest tests |
+| `npm run test:watch` | the tests, rerun on every change |
+| `npm run build` | production build into `dist/` |
 
-## Structura
+## Structure
 
 ```text
 src/
 ├── components/
-│   ├── layout/      # structura aplicației: bara laterală, meniul contului
-│   └── ui/          # componente shadcn/ui (generate, apoi ajustate)
+│   ├── layout/      # app structure: sidebar, account menu
+│   └── ui/          # shadcn/ui components (generated, then adjusted)
 ├── features/
-│   ├── account/     # perspectiva „Contul meu”: sesiuni, activitate
-│   ├── auth/        # client API pentru autentificare, hook-uri, protecția rutelor
-│   ├── org/         # perspectiva „Organizația”: jurnale, filtre, detalii
-│   └── theme/       # tema întunecată / luminoasă
-├── i18n/            # traduceri în română și engleză
-├── lib/             # clientul API, configurarea TanStack Query, utilitare
-├── pages/           # paginile aplicației; cele ale organizației se încarcă la cerere (pages/lazy.ts)
-├── test/            # configurarea testelor și serverul API simulat (MSW)
-├── routes.tsx       # rutele, folosite și în teste
-└── main.tsx         # punctul de intrare
+│   ├── account/     # the "My account" scope: sessions, activity
+│   ├── auth/        # authentication API client, hooks, route protection
+│   ├── org/         # the "Organization" scope: logs, filters, details
+│   └── theme/       # dark / light theme
+├── i18n/            # Romanian and English translations
+├── lib/             # API client, TanStack Query setup, utilities
+├── pages/           # app pages; the organization pages load on demand (pages/lazy.ts)
+├── test/            # test setup and the mocked API server (MSW)
+├── routes.tsx       # the routes, also used by the tests
+└── main.tsx         # entry point
 ```
 
-## Autentificare
+## Authentication
 
-Login-ul folosește `POST /api/auth/session`. Backend-ul pune token-ul într-un cookie httpOnly, pe care codul frontend nu îl poate citi. Pentru cererile care modifică date, clientul API (`src/lib/api.ts`) citește cookie-ul `sentinelcore_csrf` și îl trimite în header-ul `X-CSRF-Token`.
+Login uses `POST /api/auth/session`. The backend puts the token in an httpOnly cookie that frontend code cannot read. For requests that change data, the API client (`src/lib/api.ts`) reads the `sentinelcore_csrf` cookie and sends it in the `X-CSRF-Token` header.
 
-## Temă și traduceri
+## Theme and translations
 
-- Tema implicită este cea întunecată; utilizatorul poate alege luminoasă sau „ca sistemul” din meniul contului. Culorile sunt definite ca variabile CSS în `src/index.css`.
-- Limba implicită este româna. Textele sunt în `src/i18n/locales/`; fișierul englez este tipat după cel românesc, deci o cheie lipsă oprește verificarea de tipuri.
+- The default theme is dark; users can pick light or "match system" from the account menu. Colors are defined as CSS variables in `src/index.css`.
+- The default language is Romanian. Strings live in `src/i18n/locales/`; the English file is typed after the Romanian one, so a missing key fails the type check.
