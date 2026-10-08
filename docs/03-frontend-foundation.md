@@ -351,3 +351,47 @@ Reverse check: each of the following changes makes at least one test fail: an an
 
 End-to-end check, with the real backend on a temporary database and Vite running: ten accounts, with sessions ended and a lock by the analyst, a deactivation by an admin and a role change by the owner. Through the proxy, the API refused an analyst's unlock, a lock on the owner and an admin deactivating another admin (`403`), the state filters returned the expected accounts, and a cookie action without the CSRF header got `403`, with it `200`. Every list, account and history read appeared in the audit log, with the target for account reads, and no `ADMIN_ACCESS` security event was created. Real Firefox screenshots, in both themes: the list (filtered too), a locked account as an admin, the lock form as an analyst, the event panel with the account links, and phone width (390 px). After the screenshots: the state moved under the email on phones, and the account links got their own row and an arrow.
 
+
+## Stage 5: Organization - Overview
+
+### 36. What was built
+
+The Overview page of the Organization scope (`/org`), for `admin`, `owner` and `security_analyst`, on `GET /security/summary` from Organization API - Phase 1 and on `GET /security/events`. It replaces the placeholder, loads on demand like the other organization pages, and completes the scope. No backend change was needed.
+
+### 37. The counts
+
+Six tiles, each a link to the records behind it:
+
+| Tile | Headline | Beside it | Opens |
+| --- | --- | --- | --- |
+| Incidents, Warnings, Informational events | count over 24 hours | count over 7 days | the event log, that severity, 24 hours |
+| Failed sign-ins | count over 24 hours | emails locked now by brute-force protection | the event log, failed sign-ins, 24 hours |
+| Locked accounts | accounts an operator locked, lock in force | | the user list, Locked |
+| Deactivated accounts | count | out of all accounts | the user list, Deactivated |
+
+The 24-hour and 7-day counts are shown together rather than behind a switch: the API gives failed sign-ins and their sources over 24 hours only, so a switch would change half the page. Severity tiles carry the severity icon; the numbers stay in the text color, never the severity color. Numbers are formatted for the interface language through a new `number` formatter in `lib/format.ts`. Links are built with the pages' own address writers (`writeLogFilters`, `writeUserFilters`), so they stay in step with what those pages read.
+
+### 38. Latest incidents and failed sign-in sources
+
+- **Latest incidents:** the 5 newest incidents of the last 7 days, in the log table, with the same details panel and account links as the event log, and a link to every incident. The request asks the API for a page of 5 (`limit`, new in `fetchSecurityEvents`). Showing them is audited, like any read of the event log, and the section says so.
+- **Failed sign-in sources:** the up to 5 addresses with the most failed sign-ins over 24 hours, as bars scaled to the largest, in the accent color, with the count written beside each. Each row opens the failed sign-ins from that address.
+
+### 39. Reloading
+
+The counts are not audited, but they reload only with the incidents, on the page's refresh button, never on window focus, so the two always describe the same moment and the audit log gains no automatic entries. The header shows when the counts were computed (`generated_at`, on the database clock). The incidents query sits under the event log's key, so whatever refreshes the log (an account action, the log's own refresh) refreshes it too.
+
+If the counts fail to load, the tiles give way to an error with a retry, the sources say "Unavailable", and the incidents stay; a failed incident list has its own retry.
+
+### 40. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 153 passed
+- build -> successful; the page is its own chunk (about 8 KB)
+- npm audit -> 0 vulnerabilities
+
+The new tests cover: the six tiles with their 24-hour and 7-day counts, plural texts and links; the latest incidents with the request sent (severity, page size, a 7-day window), the details panel and its account links; the sources ranked with their links and bar widths; the empty states; a failed summary with the incidents kept and a working retry; and the refresh reloading both.
+
+Reverse check: each of the following changes makes at least one test fail: a severity tile linking without its severity, the incident list without a page size, the incident list without its 7-day window, bars not scaled to the largest, and a refresh that reloads only the counts.
+
+End-to-end check, with the real backend on a temporary database and Vite running: seven accounts, a brute-force attack (five failed sign-ins), a lock and a deactivation through the API as the owner, and failed sign-ins from four more addresses (IPv4 and IPv6) and older events added in the database. The page showed the counts the API returned, and each visit added one `security_events_viewed` audit entry with its filters (`limit=5, severity=['incident'], since=...`) and nothing for the counts. Real Firefox screenshots in both themes and at phone width (390 px). After the screenshots, the "Updated" line was aligned to the left on phones, under the refresh button.

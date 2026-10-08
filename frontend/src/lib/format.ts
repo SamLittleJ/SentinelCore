@@ -38,7 +38,7 @@ export function formatRelative(value: string | Date, locale: string, now = Date.
   return formatDate(value, locale)
 }
 
-/** Date formatters bound to the interface language. */
+/** Date and number formatters bound to the interface language. */
 export function useFormatters() {
   const { i18n } = useTranslation()
   const locale = i18n.language
@@ -46,5 +46,6 @@ export function useFormatters() {
     date: (value: string | Date) => formatDate(value, locale),
     dateTime: (value: string | Date) => formatDateTime(value, locale),
     relative: (value: string | Date) => formatRelative(value, locale),
+    number: (value: number) => new Intl.NumberFormat(locale).format(value),
   }
 }

@@ -59,6 +59,8 @@ export interface LogQuery {
   userId?: number
   targetUserId?: number
   beforeId?: number | null
+  // Page size; the API defaults to 50.
+  limit?: number
 }
 
 export interface SecurityEventQuery extends LogQuery {
@@ -78,6 +80,7 @@ function logParams(query: LogQuery): URLSearchParams {
   if (query.userId !== undefined) params.set('user_id', String(query.userId))
   if (query.targetUserId !== undefined) params.set('target_user_id', String(query.targetUserId))
   if (query.beforeId) params.set('before_id', String(query.beforeId))
+  if (query.limit !== undefined) params.set('limit', String(query.limit))
   return params
 }
 
@@ -103,6 +106,33 @@ export function fetchAuditLogs(
   const params = logParams(query)
   for (const type of query.eventType ?? []) params.append('event_type', type)
   return apiRequest<Page<AuditLog>>(withQuery('/admin/audit-logs', params), { signal })
+}
+
+export interface SeverityCounts {
+  info: number
+  warn: number
+  incident: number
+}
+
+/** Organization-wide aggregates, measured back from `generated_at` on the
+ * database clock. Reading them is not audited: they hold counts, not records. */
+export interface SecuritySummary {
+  generated_at: string
+  last_24h: SeverityCounts
+  last_7d: SeverityCounts
+  failed_logins_24h: number
+  // Emails whose logins brute-force protection blocks right now.
+  locked_logins: number
+  // The addresses with the most failed logins in the last 24 hours, at most 5.
+  top_failed_login_sources: { ip_address: string; failed_logins: number }[]
+  users_total: number
+  users_inactive: number
+  // Accounts an operator has locked, whose lock has not expired.
+  accounts_locked: number
+}
+
+export function fetchSecuritySummary(signal?: AbortSignal): Promise<SecuritySummary> {
+  return apiRequest<SecuritySummary>('/security/summary', { signal })
 }
 
 // Account states the user list filters by. The API filters `is_active` and

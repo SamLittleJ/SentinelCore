@@ -3,7 +3,7 @@ import { setupServer } from 'msw/node'
 
 import type { ActivityEvent, Page, Session } from '@/features/account/api'
 import type { Role, User } from '@/features/auth/api'
-import type { AuditLog, SecurityEvent } from '@/features/org/api'
+import type { AuditLog, SecurityEvent, SecuritySummary } from '@/features/org/api'
 
 export function makeUser(role: Role = 'user', overrides: Partial<User> = {}): User {
   return {
@@ -74,6 +74,21 @@ export function makeAuditLog(overrides: Partial<AuditLog> = {}): AuditLog {
   }
 }
 
+export function makeSummary(overrides: Partial<SecuritySummary> = {}): SecuritySummary {
+  return {
+    generated_at: new Date().toISOString(),
+    last_24h: { info: 0, warn: 0, incident: 0 },
+    last_7d: { info: 0, warn: 0, incident: 0 },
+    failed_logins_24h: 0,
+    locked_logins: 0,
+    top_failed_login_sources: [],
+    users_total: 1,
+    users_inactive: 0,
+    accounts_locked: 0,
+    ...overrides,
+  }
+}
+
 export function page<T>(items: T[], nextCursor: number | null = null): Page<T> {
   return { items, next_cursor: nextCursor }
 }
@@ -83,6 +98,7 @@ export const server = setupServer(
   http.get('/api/users/me/sessions', () => HttpResponse.json([makeSession()])),
   http.get('/api/users/me/activity', () => HttpResponse.json(page([]))),
   http.get('/api/security/events', () => HttpResponse.json(page([]))),
+  http.get('/api/security/summary', () => HttpResponse.json(makeSummary())),
   http.get('/api/admin/audit-logs', () => HttpResponse.json(page([]))),
   http.get('/api/admin/users', () => HttpResponse.json(page([]))),
   http.get('/api/admin/users/:userId', ({ params }) =>

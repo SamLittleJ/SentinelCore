@@ -261,10 +261,10 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - login through an httpOnly cookie and protected routes
 - two scopes:
   - **My account:** Overview (security summary and recent alerts), My sessions, My activity;
-  - **Organization:** Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; these pages load on demand
+  - **Organization:** an Overview (incidents, warnings and informational events over 24 hours and 7 days, failed sign-ins and the addresses behind them, locked and deactivated accounts, the latest incidents); Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; these pages load on demand
 
 ### Quality and delivery
-- 284 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 147 frontend tests (Vitest with a mocked API)
+- 284 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 153 frontend tests (Vitest with a mocked API)
 - the schema is managed with Alembic; `alembic check` confirms the models and the database match
 - the backend passes Pyright type checking with no errors
 - backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
@@ -278,7 +278,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 
 The project grows toward a DevSecOps showcase, in phases:
 
-- **A. Application:** the "Organization" scope (in progress), event ingestion with an API key, and detection rules mapped to MITRE ATT&CK.
+- **A. Application:** the "Organization" scope (done), event ingestion with an API key, detection rules mapped to MITRE ATT&CK, and an attack simulator that measures them.
 - **B. Containers and local Kubernetes:** hardened images, a Helm chart on kind, migrations and session cleanup as Kubernetes jobs.
 - **C. Supply chain CI:** SAST, dependency, IaC and image scanning, an SBOM, signed images and build provenance.
 - **D. Infrastructure as code and GitOps:** Terraform, cloud access through OIDC, Argo CD with canary rollouts, preview environments.
@@ -332,4 +332,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The next step is the last page of the "Organization" scope, the Overview, on `GET /security/summary`: indicators over 24 hours and 7 days, recent incidents, and the sources with the most failures.
+The "Organization" scope is complete. The next step continues phase A on the backend: new detection rules mapped to MITRE ATT&CK (password spray, a new country or device, privilege escalation, a dormant account), an ingestion endpoint authenticated with an API key, and an attack simulator that mixes normal traffic with attacks, so detection can be measured: detection rate, false positives and time to detect.

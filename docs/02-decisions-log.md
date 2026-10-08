@@ -408,3 +408,10 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - A change the API answers with the account replaces the cached account instead of reading it again, since every account read is audited.
 - The details panel of a log record links to the accounts it names.
 
+## Organization overview
+
+- The overview shows the last 24 hours as the headline and the last 7 days beside each count, with no switch between them; the API gives failed sign-ins and their sources over 24 hours only, so a switch would leave half the page unchanged.
+- The overview lists the 5 newest incidents of the last 7 days. Showing them is audited like any read of the event log (`security_events_viewed`); the counts are not, since they hold no records.
+- The counts and the incidents reload together, only on the page's refresh button, never on window focus, so they always describe the same moment and the audit log gains no automatic entries.
+- Every count opens the records behind it: the event log filtered by severity or type over 24 hours, or the user list filtered by state. Each failed sign-in source opens the failed sign-ins from that address.
+- The failed sign-in sources are bars scaled to the largest, in the accent color, with the count written beside each, so the number never rests on bar length alone.
