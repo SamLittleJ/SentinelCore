@@ -141,6 +141,7 @@ def _log_in(
             severity=SecuritySeverity.WARN,
             email=email,
             ip_address=client_ip,
+            user_agent=user_agent,
             message=message,
         )
 
@@ -169,6 +170,7 @@ def _log_in(
             user=user,
             email=email,
             ip_address=client_ip,
+            user_agent=user_agent,
             message=message,
         )
 
@@ -208,6 +210,7 @@ def _log_in(
             user=user,
             email=email,
             ip_address=client_ip,
+            user_agent=user_agent,
             message=message,
         )
 
@@ -230,6 +233,7 @@ def _log_in(
         severity=SecuritySeverity.INFO,
         user=user,
         ip_address=client_ip,
+        user_agent=user_agent,
         message=f"Successful login for user: {user.email}",
     )
 

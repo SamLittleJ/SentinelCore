@@ -20,6 +20,9 @@ export const AUDIT_EVENT_TYPES = [
   'users_viewed',
   'account_locked',
   'account_unlocked',
+  'api_key_created',
+  'api_key_revoked',
+  'api_keys_viewed',
 ] as const
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number]
 

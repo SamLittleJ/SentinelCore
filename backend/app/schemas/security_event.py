@@ -20,6 +20,7 @@ class SecurityEventRead(BaseModel):
     target_user_id: int | None
     email: str | None
     ip_address: str | None
+    user_agent: str | None
     source: str
     message: str
     created_at: datetime

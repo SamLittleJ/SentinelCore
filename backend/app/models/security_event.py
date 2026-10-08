@@ -29,12 +29,20 @@ class SecurityEventType(StrEnum):
     USER_SESSIONS_REVOKED = "user_sessions_revoked"
     ACCOUNT_LOCKED = "account_locked"
     ACCOUNT_UNLOCKED = "account_unlocked"
+    API_KEY_CREATED = "api_key_created"
+    API_KEY_REVOKED = "api_key_revoked"
     # Alerts raised by the detection rules (services/detection_service.py).
     # An event type, not a password.
     PASSWORD_SPRAY_DETECTED = "password_spray_detected"  # nosec B105
     DORMANT_ACCOUNT_LOGIN = "dormant_account_login"
     PRIVILEGED_ROLE_GRANTED = "privileged_role_granted"
 
+
+# The sources this application stamps on its own events. Ingested events
+# carry their API key's source, which may not be one of these.
+BACKEND_SOURCE = "backend"
+DETECTION_SOURCE = "detection"
+RESERVED_SOURCES = frozenset({BACKEND_SOURCE, DETECTION_SOURCE})
 
 # The MITRE ATT&CK technique each detection stands for
 # (https://attack.mitre.org/techniques/).
@@ -110,7 +118,14 @@ class SecurityEvent(Base):
 
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
-    source: Mapped[str] = mapped_column(String(100), nullable=False, default="backend")
+    # The client's User-Agent header, for sign-ins.
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # "backend" for this application's own events, "detection" for alerts, or
+    # the source of the API key that sent an ingested event.
+    source: Mapped[str] = mapped_column(
+        String(100), nullable=False, default=BACKEND_SOURCE
+    )
 
     message: Mapped[str] = mapped_column(Text, nullable=False)
 

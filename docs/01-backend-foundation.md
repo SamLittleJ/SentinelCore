@@ -4086,3 +4086,69 @@ The new tests (`tests/test_detection.py`) send sign-ins from a fixed address thr
 Reverse check: each of the following changes makes at least one test fail: a spray threshold off by one, counting failures instead of emails, ignoring the previous spray alert, ignoring the window, measuring dormancy from creation only, leaving the analyst role out, and dropping either call to `run_detection` or the rule guard.
 
 End-to-end check, with the real backend on a temporary database and Vite running, through the proxy: ten failed sign-ins for ten different emails raised one `password_spray_detected` incident (T1110.003, source `detection`); the first sign-in of an account created 200 days earlier raised `dormant_account_login` ("200 days after the account's creation"); the owner promoting a user to admin through the browser session raised `privileged_role_granted` with the target. The event log returned each with its `mitre_technique`, the summary counted them, and real Firefox screenshots of the event log, in both themes, showed the new names.
+
+## Event Ingestion - Phase 1
+
+### 272. Purpose of the stage
+
+SentinelCore so far saw only its own sign-ins. A SIEM collects signals from the systems around it: a VPN, an identity provider, a cluster's audit log. This stage lets other systems send security events through an API key, and runs the same detection rules on them. It is also how the attack simulator of the next stages will reach the rules: every sign-in to this application comes from the address of its client, so attacks from many addresses can only arrive as reported events.
+
+### 273. API keys
+
+```http
+POST /admin/api-keys
+{"name": "Corporate VPN", "source": "vpn", "expires_in_days": 90}
+
+GET  /admin/api-keys
+POST /admin/api-keys/{key_id}/revoke
+```
+
+- Only the owner creates and revokes keys: a key writes into the detection pipeline, and could flood it or mislead it. Admins and analysts list them; the listing is audited (`API_KEYS_VIEWED`).
+- A key reads `sck_<prefix>_<secret>`. The 8-character prefix finds the key and is safe to show; the secret is 32 random bytes. The full key is in the creation response only; the database keeps the prefix and a SHA-256 hash of the secret. A fast hash is enough here, unlike for passwords: the secret is random and long, so it cannot be guessed back from its hash.
+- Every key expires after 30, 90 or 365 days, chosen at creation, and can be revoked at once. Revoking a revoked key changes nothing.
+- `source` (2-50 characters, letters, digits, `_.-`, stored lowercase) is stamped on every event the key sends. `backend` and `detection` are reserved, so an ingested event can never pass for one of the application's own.
+- Creating and revoking a key are recorded in the audit log and as security events (`API_KEY_CREATED`, `API_KEY_REVOKED`, `info`), together with the change, in one transaction.
+
+### 274. The ingestion endpoint
+
+```http
+POST /ingest/events
+Authorization: Bearer sck_1f9fb450_...
+{"events": [{"event_type": "login_failed", "occurred_at": "2026-10-09T08:15:00Z",
+             "email": "mihai.pop@example.com", "ip_address": "203.0.113.77",
+             "user_agent": "Mozilla/5.0 ..."}]}
+```
+
+- **Authentication.** A missing, malformed, unknown, revoked or expired key, a wrong secret, or a user's token all get the same `401 Invalid API key`. The secret's hash is compared in constant time. The key's `last_used_at` is updated with each request.
+- **What is accepted.** Only sign-ins (`login_success`, `login_failed`), 1-500 per request, all or nothing. `occurred_at` must carry a time zone, be at most 5 minutes ahead of the server and at most a year old. Unknown fields are refused, so a sender cannot set the severity, the source or the message: the server sets the severity (`info` for a success, `warn` for a failure) and writes the message (`Failed sign-in for <email>, reported by <source>`).
+- **Storage.** Each event keeps the time it happened as `created_at`, so the event log shows it at that time. A successful sign-in is linked to the account with that email, if there is one; a failed one names only the email, as for the application's own sign-ins.
+- **Detection.** The events are stored in one transaction, then go through the detection rules in the order they happened.
+- **The answer** is `202` with `{"accepted": N}`. Alerts the events raised are not reported: a sender with a stolen key must not learn what the rules catch.
+- The new `sentinelcore_ingested_events_total{source}` metric counts them; there is one series per key source.
+
+### 275. Brute-force protection and reported sign-ins
+
+The lockout protects this application's own sign-in, so it counts only events from the `backend` source. Reported failures reach the detection rules but never lock anyone out of this application, and a reported success never resets this application's failure count, which would otherwise let a stolen key keep a brute-force attack under the limit.
+
+### 276. The user agent of sign-ins
+
+Security events have a new `user_agent` column, filled for this application's sign-ins (success, failure, blocked) from the `User-Agent` header, and for ingested ones from the event. `SecurityEventRead` returns it. The next stage's rule compares devices with it.
+
+### 277. Migrations
+
+`3acb81248c5a`: the `api_keys` table, the `security_events.user_agent` column, `API_KEY_CREATED` and `API_KEY_REVOKED` in both event types, and `API_KEYS_VIEWED` in the audit types. On downgrade the key events are deleted, as no older type means the same, and the table and column are dropped.
+
+### 278. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 344 passed
+- the migration: upgrade, `alembic check`, a key, key events, an ingested sign-in with a user agent and an audit row inserted, a downgrade (key events deleted, the ingested sign-in kept, the table and column dropped), then an upgrade and `alembic check` again
+
+The new tests (`tests/test_api_keys.py`, `tests/test_ingestion.py`) cover: a key shown once and stored as a hash, its lifetime, the events and messages; the listing without secrets and its audit entry; only the owner issuing and revoking; invalid names, sources (reserved, also in capitals), lifetimes and extra fields; revoking once and an unknown key; ingested events stored with their source, time, severity, account link and user agent; every kind of missing or invalid key, a wrong secret, revoked and expired keys, a user token; invalid events (type, severity or source set by the sender, future, too old or naive times, bad email, IP or user agent) refusing the whole request; batch bounds; the spray rule firing on ingested events; reported failures and successes leaving the lockout alone; the metric; and the user agent of this application's sign-ins.
+
+Reverse check: each of the following changes makes at least one test fail: accepting a revoked key, accepting an expired key, skipping the secret comparison, storing events at the time they arrive, linking failed sign-ins to accounts, skipping detection for ingested events, counting reported failures toward the lockout, letting a reported success reset it, dropping the reserved-source check, letting admins issue keys, and not recording the user agent. Two of these were not caught at first; the lockout test was tightened and the reset test added.
+
+End-to-end check, with the real backend on a temporary database and Vite running, through the proxy: the owner created a key (a cookie request without the CSRF header got `403`), an admin's attempt got `403`; twelve failed sign-ins for twelve emails from `203.0.113.77` and a sign-in from `198.51.100.20` were accepted (`202`, `{"accepted": 13}`) and raised one `password_spray_detected` incident; a wrong key got `401`; after the owner revoked the key, it got `401` too. The database held the prefix and a 64-character hash, without the secret. Real Firefox screenshots of the event log in both themes and of the audit log.
+

@@ -61,6 +61,21 @@ DETECTION_SPRAY_WINDOW_MINUTES=15
 DETECTION_DORMANT_DAYS=90
 ```
 
+
+## Event ingestion
+
+Other systems report sign-ins with an API key. The owner creates one (`POST /admin/api-keys`, with a name, a `source` label and a lifetime of 30, 90 or 365 days); the response holds the full key, shown only once. Then:
+
+```bash
+curl -X POST http://localhost:8000/ingest/events \
+  -H "Authorization: Bearer sck_<prefix>_<secret>" \
+  -H "Content-Type: application/json" \
+  -d '{"events": [{"event_type": "login_failed", "occurred_at": "2026-10-09T08:15:00Z",
+                   "email": "mihai.pop@example.com", "ip_address": "203.0.113.77"}]}'
+```
+
+Accepted types are `login_success` and `login_failed`, up to 500 per request. Events keep the time they happened (at most a year ago), are stored with the key's source and go through the detection rules. The answer is `202 {"accepted": N}`. Revoke a key with `POST /admin/api-keys/{id}/revoke`.
+
 ## Observability
 
 - `GET /health`: the process is running

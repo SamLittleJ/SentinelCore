@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.metrics import record_security_event
 from app.models.security_event import (
+    DETECTION_SOURCE,
     SecurityEvent,
     SecurityEventType,
     SecuritySeverity,
@@ -32,8 +33,6 @@ from app.models.security_event import (
 from app.models.user import User, UserRole
 
 logger = logging.getLogger(__name__)
-
-DETECTION_SOURCE = "detection"
 
 
 @dataclass(frozen=True)
