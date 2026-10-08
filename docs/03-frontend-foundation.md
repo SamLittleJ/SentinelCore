@@ -1,104 +1,104 @@
 # 03 - Frontend Foundation
 
-## Scop
+## Purpose
 
-Acest document descrie fundatia aplicatiei web SentinelCore: directia vizuala, baza tehnica si primele ecrane functionale.
+This document describes the foundation of the SentinelCore web app: its visual direction, its technical base and its first working screens.
 
 ---
 
-## Etapa 1: Fundatia frontend-ului
+## Stage 1: The frontend foundation
 
-### 1. Directia vizuala
+### 1. Visual direction
 
-Au fost comparate trei directii vizuale, aplicate pe acelasi ecran de evenimente de securitate. A fost aleasa **directia A, "consola de operatiuni"**:
-- tema intunecata implicita, cu varianta luminoasa completa
-- interfata densa, potrivita pentru analisti care urmaresc evenimente mult timp
-- `IBM Plex Sans` pentru interfata si `IBM Plex Mono` pentru date tehnice: ore, IP-uri, tipuri de evenimente, nume de utilizator
+Three visual directions were compared, each applied to the same security events screen. **Direction A, "operations console"**, was chosen:
+- dark theme by default, with a complete light variant
+- a dense interface, suited to analysts who watch events for long stretches
+- `IBM Plex Sans` for the interface and `IBM Plex Mono` for technical data: times, IPs, event types, usernames
 
-Paleta initiala a fost considerata prea stearsa. Din trei palete mai vii a fost aleasa **"Electric"**: albastru electric pe bleumarin.
+The initial palette was judged too dull. Out of three more vivid palettes, **"Electric"** was chosen: electric blue on navy.
 
-Principiile paletei:
-- culorile au fost generate in spatiul OKLCH, unde luminozitatea perceputa este controlabila direct
-- pe tema intunecata, fundalul nu este negru, iar textul nu este alb pur (contrast in jur de 14:1), pentru a reduce oboseala ochilor
-- toate perechile text/fundal trec de pragul WCAG AA
-- cele cinci culori de grafic au trecut validatorul de palete pe ambele teme, inclusiv separarea pentru daltonism; ordinea lor este fixa
-- culorile de severitate (info, avertizare, incident, succes) sunt separate de culoarea de brand si apar mereu cu text si forma, nu doar prin culoare
+Palette principles:
+- the colors were generated in the OKLCH space, where perceived lightness can be controlled directly
+- on the dark theme, the background is not black and the text is not pure white (contrast around 14:1), to reduce eye strain
+- every text/background pair passes the WCAG AA threshold
+- the five chart colors passed the palette validator on both themes, including the color-blindness separation; their order is fixed
+- the severity colors (info, warning, incident, success) are separate from the brand color and always come with text and a shape, never color alone
 
-### 2. Doua perspective: Contul meu si Organizatia
+### 2. Two scopes: My account and Organization
 
-SentinelCore este gandit ca un hub de monitorizare cu doua perspective:
-- **Contul meu**: orice utilizator isi urmareste propriul cont (sesiuni, activitate, alerte)
-- **Organizatia**: administratorii si analistii de securitate urmaresc toate conturile
+SentinelCore is designed as a monitoring hub with two scopes:
+- **My account**: every user watches their own account (sessions, activity, alerts)
+- **Organization**: administrators and security analysts watch every account
 
-Comutatorul dintre perspective apare doar pentru rolurile `admin`, `owner` si `security_analyst`. Ruta `/org` este protejata si in frontend, dar autorizarea reala ramane in API: frontend-ul doar evita afisarea unor pagini ale caror cereri ar fi oricum refuzate.
+The scope switcher appears only for the `admin`, `owner` and `security_analyst` roles. The `/org` route is also protected in the frontend, but the real authorization stays in the API: the frontend only avoids showing pages whose requests would be refused anyway.
 
-### 3. Baza tehnica
+### 3. Technical base
 
-| Zona | Alegere |
+| Area | Choice |
 | --- | --- |
 | Framework | React 19, TypeScript, Vite |
-| Stiluri | Tailwind CSS 4, variabile CSS pentru tema |
-| Componente | shadcn/ui (pe primitive Radix), copiate in `src/components/ui` |
-| Rutare | React Router 8 |
-| Date de la server | TanStack Query |
-| Traduceri | i18next, romana implicit, engleza disponibila |
-| Fonturi | `@fontsource`, servite din aplicatie |
-| Teste | Vitest, Testing Library, MSW pentru API simulat |
+| Styles | Tailwind CSS 4, CSS variables for the theme |
+| Components | shadcn/ui (on Radix primitives), copied into `src/components/ui` |
+| Routing | React Router 8 |
+| Server data | TanStack Query |
+| Translations | i18next, Romanian by default, English available |
+| Fonts | `@fontsource`, served by the app |
+| Tests | Vitest, Testing Library, MSW for a mocked API |
 
-Fonturile sunt incluse in build in loc sa fie incarcate de la Google Fonts: browserul nu face cereri catre terti, iar o politica CSP stricta ramane posibila. Subsetul `latin-ext` acopera `ă`, `ș` si `ț`.
+The fonts are bundled into the build instead of being loaded from Google Fonts: the browser makes no third-party requests, and a strict CSP remains possible. The `latin-ext` subset covers `ă`, `ș` and `ț`.
 
-### 4. Problema intalnita: shadcn si pachetul `cn`
+### 4. Problem encountered: shadcn and the `cn` package
 
-Initializarea interactiva `shadcn init` s-a blocat asteptand o alegere, asa ca `components.json` a fost scris manual. La adaugarea componentelor, CLI-ul nu a rezolvat aliasul `@/lib/utils`: a generat `import { cn } from "cn"` si a instalat un pachet npm fara legatura cu proiectul, numit `cn`.
+The interactive `shadcn init` hung waiting for a choice, so `components.json` was written by hand. When components were added, the CLI did not resolve the `@/lib/utils` alias: it generated `import { cn } from "cn"` and installed an unrelated npm package called `cn`.
 
-Pachetul a fost dezinstalat, iar importurile corectate catre `@/lib/utils`. Componentele importa acum doar pachete cunoscute: `radix-ui`, `lucide-react`, `class-variance-authority` si React.
+The package was uninstalled and the imports were pointed back at `@/lib/utils`. The components now import only known packages: `radix-ui`, `lucide-react`, `class-variance-authority` and React.
 
-Lectia: comenzile care modifica dependentele trebuie verificate in `package.json` dupa rulare, chiar si cand vin de la unelte cunoscute.
+Lesson: after running a command that changes dependencies, check `package.json`, even when the command comes from a well-known tool.
 
-### 5. Autentificarea in browser
+### 5. Authentication in the browser
 
-Frontend-ul foloseste autentificarea prin cookie introdusa in backend:
-- login prin `POST /api/auth/session`; token-ul ajunge intr-un cookie `httpOnly`, pe care codul frontend nu il poate citi
-- clientul API (`src/lib/api.ts`) trimite automat header-ul `X-CSRF-Token`, cu valoarea cookie-ului `sentinelcore_csrf`, la orice cerere `POST`, `PUT`, `PATCH` sau `DELETE`
-- erorile backend-ului devin `ApiError`, cu `status`, `detail` si `Retry-After`
+The frontend uses the cookie authentication introduced in the backend:
+- login through `POST /api/auth/session`; the token goes into an `httpOnly` cookie that frontend code cannot read
+- the API client (`src/lib/api.ts`) automatically sends the `X-CSRF-Token` header, with the value of the `sentinelcore_csrf` cookie, on every `POST`, `PUT`, `PATCH` or `DELETE` request
+- backend errors become an `ApiError`, with `status`, `detail` and `Retry-After`
 
-In development, Vite trimite cererile `/api/*` catre backend (`localhost:8000`). Frontend-ul si API-ul sunt astfel pe aceeasi origine: nu este nevoie de CORS, iar cookie-urile `SameSite=Strict` sunt trimise normal.
+In development, Vite forwards `/api/*` requests to the backend (`localhost:8000`). The frontend and the API therefore share an origin: no CORS is needed, and the `SameSite=Strict` cookies are sent normally.
 
-### 6. Sesiunea si protectia rutelor
+### 6. Session and route protection
 
-- utilizatorul curent este citit din `/users/me` prin TanStack Query
-- `RequireAuth` trimite vizitatorii fara sesiune la `/login?next=<pagina>`, iar dupa login ii readuce pe pagina ceruta
-- parametrul `next` accepta doar cai interne ale aplicatiei; o adresa ca `/login?next=https://evil.example` duce la `/me` (protectie impotriva open redirect)
-- un cont dezactivat ajunge la pagina de login, cu explicatie
-- orice raspuns `401` primit in timpul folosirii (sesiune expirata sau revocata) declanseaza reverificarea utilizatorului si trimiterea la login
-- erorile de retea sunt reincercate de doua ori, iar apoi este afisat un ecran cu buton de reincercare
-- logout-ul goleste toate datele din cache, pentru ca urmatorul utilizator sa nu vada nimic din sesiunea anterioara
+- the current user is read from `/users/me` through TanStack Query
+- `RequireAuth` sends visitors without a session to `/login?next=<page>`, and brings them back to the requested page after login
+- the `next` parameter accepts only internal app paths; an address like `/login?next=https://evil.example` leads to `/me` (open redirect protection)
+- a deactivated account lands on the login page, with an explanation
+- any `401` received during use (expired or revoked session) triggers a recheck of the user and a redirect to login
+- network errors are retried twice, then a screen with a retry button is shown
+- logout clears all cached data, so the next user sees nothing from the previous session
 
-Mesajele de eroare de la login sunt specifice: credentiale gresite, cont dezactivat, date invalide, server indisponibil si blocare brute-force, cu numarul de minute calculat din `Retry-After`.
+The login error messages are specific: wrong credentials, deactivated account, invalid input, server unavailable, and the brute-force block, with the number of minutes computed from `Retry-After`.
 
-### 7. Tema si limba
+### 7. Theme and language
 
-- tema implicita este cea intunecata; din meniul contului se poate alege luminoasa sau "ca sistemul", iar alegerea este pastrata
-- limba implicita este romana; engleza se alege din acelasi meniu, iar atributul `lang` al paginii este actualizat
-- fisierul de traduceri in engleza este tipat dupa cel in romana, deci o cheie lipsa sau in plus opreste verificarea de tipuri
-- formele de plural romanesti sunt tratate corect: "1 minut", "2 minute", "20 de minute"
+- the default theme is dark; the account menu offers light or "match system", and the choice is remembered
+- the default language is Romanian; English is chosen from the same menu, and the page's `lang` attribute is updated
+- the English translation file is typed after the Romanian one, so a missing or extra key fails the type check
+- Romanian plural forms are handled correctly: "1 minut", "2 minute", "20 de minute"
 
-### 8. Ecrane in aceasta etapa
+### 8. Screens at this stage
 
-- pagina de login
-- structura aplicatiei: bara laterala cu comutatorul de perspectiva, navigarea si meniul contului
-- **Contul meu / Prezentare**: profilul utilizatorului
-- pagini de rezerva pentru sectiunile din etapele urmatoare: sesiuni, activitate, evenimente de securitate, jurnal de audit, utilizatori
+- the login page
+- the app structure: the sidebar with the scope switcher, the navigation and the account menu
+- **My account / Overview**: the user's profile
+- placeholder pages for the sections of the next stages: sessions, activity, security events, audit log, users
 
-### 9. Securitatea dependentelor
+### 9. Dependency security
 
-`npm audit` a gasit 10 vulnerabilitati (7 de severitate mare) in lockfile-ul mostenit din template, aproape toate in unelte de build si dezvoltare. Toate aveau versiuni corectate compatibile si au fost rezolvate prin `npm audit fix`, fara schimbari de versiune majora. Vite a urcat la 8.3.3.
+`npm audit` found 10 vulnerabilities (7 high severity) in the lockfile inherited from the template, almost all in build and development tools. All of them had compatible fixed versions and were resolved with `npm audit fix`, with no major version changes. Vite went up to 8.3.3.
 
-CI-ul ruleaza `npm audit --audit-level=high` la fiecare Pull Request.
+CI runs `npm audit --audit-level=high` on every pull request.
 
-### 10. CI pentru frontend
+### 10. Frontend CI
 
-Workflow-ul `.github/workflows/frontend-ci.yml` ruleaza la Pull Request-uri catre `main` si la push pe `main` cu modificari in `frontend/`:
+The `.github/workflows/frontend-ci.yml` workflow runs on pull requests to `main` and on pushes to `main` that change `frontend/`:
 - `npm ci`
 - `npm audit --audit-level=high`
 - `npm run lint`
@@ -106,185 +106,185 @@ Workflow-ul `.github/workflows/frontend-ci.yml` ruleaza la Pull Request-uri catr
 - `npm test`
 - `npm run build`
 
-### 11. Validarea locala
+### 11. Local validation
 
-- eslint -> fara probleme
-- tsc -> fara erori
+- eslint -> no problems
+- tsc -> no errors
 - vitest -> 49 passed
-- build -> reusit
-- npm audit -> 0 vulnerabilitati
+- build -> successful
+- npm audit -> 0 vulnerabilities
 
-Testele acopera: clientul API (CSRF doar pe cereri care modifica date, erori, `Retry-After`, raspunsuri `204`), filtrarea parametrului `next`, login-ul cu toate tipurile de eroare, redirectionarea dupa login, protectia rutelor si a perspectivei de organizatie, tema, limba, logout-ul cu token CSRF si iesirea din aplicatie cand sesiunea se termina.
+The tests cover: the API client (CSRF only on requests that change data, errors, `Retry-After`, `204` responses), filtering of the `next` parameter, login with every error type, the redirect after login, protection of the routes and of the organization scope, the theme, the language, logout with the CSRF token, and leaving the app when the session ends.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: parametrul `next` nefiltrat, lipsa header-ului CSRF, lipsa verificarii rolului pentru `/org`, ignorarea unui `401` primit in timpul folosirii.
+Reverse check: each of the following changes makes at least one test fail: an unfiltered `next` parameter, a missing CSRF header, a missing role check on `/org`, ignoring a `401` received during use.
 
-Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit:
-- prin proxy: login `204` cu cookie `httpOnly`, `/users/me` autentificat prin cookie, logout fara CSRF `403`, cu CSRF `204`, apoi `401`
-- capturi reale in Firefox ale paginii de login si ale celor doua perspective, pentru un utilizator cu rol de analist
+End-to-end check, with the real backend on a temporary database and Vite running:
+- through the proxy: login `204` with an `httpOnly` cookie, `/users/me` authenticated by cookie, logout without CSRF `403`, with CSRF `204`, then `401`
+- real Firefox screenshots of the login page and of both scopes, for a user with the analyst role
 
-### 12. Ce urmeaza
+### 12. What comes next
 
-Etapa 2 este descrisa mai jos. Urmeaza:
-- **Etapa 3, Organizatia**: evenimente de securitate si jurnal de audit, cu filtrele si paginarea existente, plus administrarea utilizatorilor
-- **Etapa 4**: dashboard-uri cu carduri si grafice
+Stage 2 is described below. Next up:
+- **Stage 3, Organization**: security events and the audit log, with the existing filters and pagination, plus user administration
+- **Stage 4**: dashboards with cards and charts
 
-## Etapa 2: Contul meu
+## Stage 2: My account
 
-### 13. Ce a fost construit
+### 13. What was built
 
-Backend-ul a primit doua endpoint-uri (detalii in `docs/01-backend-foundation.md`, sectiunea "My Account API - Phase 1"):
-- `GET /users/me/activity`: evenimentele de securitate despre propriul cont
-- `DELETE /users/me/sessions`: deconectarea celorlalte dispozitive
+The backend got two endpoints (details in `docs/01-backend-foundation.md`, section "My Account API - Phase 1"):
+- `GET /users/me/activity`: the security events about one's own account
+- `DELETE /users/me/sessions`: signing out of the other devices
 
-Frontend-ul are trei pagini reale in perspectiva "Contul meu".
+The frontend has three real pages in the "My account" scope.
 
-### 14. Prezentare
+### 14. Overview
 
-Deasupra profilului apare un rezumat de securitate:
-- **Sesiuni active**, cu link catre gestionarea lor
-- **Autentificarea anterioara**: cand si de pe ce IP. Cea mai noua autentificare este chiar sesiunea curenta, asa ca este afisata cea dinaintea ei: daca utilizatorul nu o recunoaste, contul poate fi compromis
-- **Alerte din ultimele 30 de zile**: avertismentele si incidentele. Se citeste o singura pagina de 50; daca exista mai multe, numarul apare ca "50+"
+A security summary sits above the profile:
+- **Active sessions**, with a link to manage them
+- **Previous sign-in**: when and from which IP. The newest sign-in is the current session itself, so the one before it is shown: if the user does not recognize it, the account may be compromised
+- **Alerts, last 30 days**: the warnings and incidents. A single page of 50 is read; when there are more, the number shows as "50+"
 
-Sub rezumat sunt ultimele 5 alerte si un link catre activitate, filtrata pe alerte. Daca una dintre cereri esueaza, doar cifra respectiva apare ca "Indisponibil"; restul paginii functioneaza.
+Below the summary are the latest 5 alerts and a link to the activity page, filtered to alerts. If one of the requests fails, only that figure shows as "Unavailable"; the rest of the page works.
 
-### 15. Sesiunile mele
+### 15. My sessions
 
-- sesiunea din acest browser apare prima, marcata "Aceasta sesiune", cu butonul "Deconecteaza-te"
-- fiecare sesiune arata dispozitivul, IP-ul, cand a inceput si cand expira
-- celelalte sesiuni pot fi inchise individual sau toate odata; ambele actiuni cer confirmare in pagina, fara dialoguri
-- daca o sesiune era deja inchisa (`404`), pagina explica asta si reincarca lista
+- the session in this browser comes first, marked "This session", with a "Sign out" button
+- each session shows the device, the IP, when it started and when it expires
+- the other sessions can be ended one by one or all at once; both actions ask for confirmation in the page, without dialogs
+- if a session had already ended (`404`), the page says so and reloads the list
 
-Dispozitivul este dedus din `User-Agent` (de exemplu "Firefox pe Linux", "Chrome pe Android"). Header-ul este trimis de client si poate fi falsificat, deci este doar un indiciu; textul complet apare la trecerea mouse-ului peste nume. Clientii necunoscuti, de exemplu scripturile, apar ca "Dispozitiv necunoscut".
+The device is inferred from `User-Agent` (for example "Firefox on Linux", "Chrome on Android"). The header is sent by the client and can be forged, so it is only a hint; the full string appears on hover. Unknown clients, such as scripts, show as "Unknown device".
 
-Butoanele "Inchide sesiunea" se repeta pe fiecare rand, asa ca fiecare este legat prin `aria-describedby` de numele dispozitivului, pentru cititoarele de ecran.
+The "End session" buttons repeat on every row, so each one is linked to the device name through `aria-describedby`, for screen readers.
 
-### 16. Activitatea mea
+### 16. My activity
 
-- tabel cu evenimentul, severitatea, IP-ul si data; data relativa apare la trecerea mouse-ului
-- filtru "Tot" / "Doar alerte", pastrat in adresa (`/me/activity?filter=alerts`), deci linkul din Prezentare deschide direct alertele; o valoare necunoscuta este ignorata
-- paginile mai vechi se incarca la cerere, cu cursorul primit de la API
+- a table with the event, severity, IP and date; the relative date appears on hover
+- an "All" / "Alerts only" filter, kept in the address (`/me/activity?filter=alerts`), so the link from Overview opens the alerts directly; an unknown value is ignored
+- older pages load on demand, with the cursor returned by the API
 
-Evenimentele sunt descrise dupa tip, in limba interfetei. Severitatea apare mereu ca icon si cuvant, nu doar prin culoare.
+Events are described by type, in the interface language. Severity always appears as an icon and a word, never as color alone.
 
-### 17. Componente noi
+### 17. New components
 
-- `SeverityBadge`: severitatea cu icon, text si culorile de severitate ale temei; va fi refolosita in perspectiva Organizatia
-- `ActivityTable`: tabelul de evenimente, folosit in Prezentare si in Activitate
-- `lib/format.ts`: date absolute si relative ("acum 5 minute", "peste 25 de minute"), in limba interfetei; dupa 30 de zile se afiseaza data exacta
+- `SeverityBadge`: the severity with an icon, text and the theme's severity colors; it will be reused in the Organization scope
+- `ActivityTable`: the event table, used in Overview and in Activity
+- `lib/format.ts`: absolute and relative dates ("5 minutes ago", "in 25 minutes"), in the interface language; after 30 days the exact date is shown
 
-### 18. Validarea locala
+### 18. Local validation
 
-- eslint -> fara probleme
-- tsc -> fara erori
+- eslint -> no problems
+- tsc -> no errors
 - vitest -> 83 passed
-- build -> reusit
+- build -> successful
 
-Testele noi acopera: recunoasterea dispozitivelor, formatarea datelor relative, ordinea si continutul sesiunilor, inchiderea unei sesiuni cu confirmare si anulare, sesiunea deja inchisa, eroarea la inchidere, inchiderea celorlalte sesiuni, deconectarea din pagina, descrierea evenimentelor, filtrul de alerte si pastrarea lui in adresa, paginarea, starile goale, rezumatul din Prezentare si comportamentul cand o cerere esueaza.
+The new tests cover: device recognition, relative date formatting, the order and content of sessions, ending a session with confirmation and cancellation, a session that had already ended, an error while ending, ending the other sessions, signing out from the page, event descriptions, the alerts filter and keeping it in the address, pagination, empty states, the Overview summary, and the behavior when a request fails.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: sesiunea curenta neadusa prima, paginarea fara cursor, lipsa semnului "+" pentru mai mult de o pagina de alerte, filtrul de alerte fara severitati, afisarea sesiunii curente ca "autentificare anterioara".
+Reverse check: each of the following changes makes at least one test fail: the current session not brought first, pagination without the cursor, a missing "+" when there is more than one page of alerts, an alerts filter without severities, showing the current session as the "previous sign-in".
 
-Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit:
-- prin proxy: istoricul propriu contine autentificarile reusite si esuate, `user_id` ca parametru primeste `422`, deconectarea celorlalte dispozitive fara CSRF `403`, cu CSRF `200`, cu sesiunea curenta pastrata si audit log `OTHER_SESSIONS_REVOKED`
-- capturi reale in Firefox ale celor trei pagini, in tema intunecata, si ale paginii de sesiuni in tema luminoasa; dupa ele, tabelul de alerte din Prezentare a fost intins pe toata latimea, ca sa se alinieze cu rezumatul
+End-to-end check, with the real backend on a temporary database and Vite running:
+- through the proxy: the personal history contains the successful and failed sign-ins, `user_id` as a parameter gets `422`, signing out of the other devices without CSRF `403`, with CSRF `200`, with the current session kept and an `OTHER_SESSIONS_REVOKED` audit log
+- real Firefox screenshots of the three pages in the dark theme, and of the sessions page in the light theme; afterwards, the alerts table in Overview was stretched to full width, to line up with the summary
 
-Optiunea `baseUrl` a fost scoasa din `tsconfig.json` si `tsconfig.app.json`: TypeScript 6, folosit de VS Code, o marca drept depreciata (eroare), iar din TypeScript 4.1 alias-ul `@/*` din `paths` functioneaza si fara ea. Proiectul a fost verificat atat cu TypeScript 5.9, cat si cu TypeScript 6.
+The `baseUrl` option was removed from `tsconfig.json` and `tsconfig.app.json`: TypeScript 6, used by VS Code, flags it as deprecated (an error), and since TypeScript 4.1 the `@/*` alias in `paths` works without it. The project was checked with both TypeScript 5.9 and TypeScript 6.
 
-Bundle-ul JavaScript are aproximativ 564 KB. Impartirea lui pe pagini ramane pentru etapa 3, cand vor exista paginile perspectivei Organizatia.
+The JavaScript bundle is about 564 KB. Splitting it by page is left for stage 3, when the Organization pages exist.
 
-### 19. Ajustare de layout: continut centrat
+### 19. Layout adjustment: centered content
 
-Pe monitoare late, continutul statea lipit de bara laterala, iar jumatatea dreapta a ecranului ramanea goala. Acum toate paginile sunt intr-o singura coloana de cel mult 1024 px (`max-w-5xl`), centrata in spatiul de langa bara laterala. Latimea este aceeasi pe toate paginile, ca titlul sa nu-si schimbe pozitia la navigare; paginile nu mai au latimi proprii.
+On wide monitors, the content stuck to the sidebar and the right half of the screen stayed empty. All pages now sit in a single column of at most 1024 px (`max-w-5xl`), centered in the space next to the sidebar. The width is the same on every page, so the title does not move when navigating; pages no longer set their own widths.
 
-Spatiul de deasupra continutului a crescut la 48 px pe ecrane mari (32 px pe telefon), iar cel de jos la 48 px.
+The space above the content grew to 48 px on large screens (32 px on phones), and the space below to 48 px.
 
-## Organizatia - PR 1 (backend)
+## Organization - PR 1 (backend)
 
-### 20. Actiunile primite in Activitatea mea
+### 20. Actions received in My activity
 
-Backend-ul inregistreaza acum tinta actiunilor de administrare, iar istoricul propriu include si actiunile facute asupra contului, marcate cu `as_target: true`. Fara o schimbare in frontend, utilizatorul afectat ar fi vazut textul actorului ("Ai schimbat rolul unui utilizator").
+The backend now records the target of administrative actions, and the personal history also includes actions taken on the account, marked `as_target: true`. Without a frontend change, the affected user would have seen the actor's text ("You changed a user's role").
 
-`ActivityTable` foloseste pentru aceste elemente textele noi din `eventsAsTarget`:
-- "Rolul tau a fost schimbat"
-- "Contul tau a fost reactivat" / "Contul tau a fost dezactivat"
-- "Un administrator ti-a inchis sesiunile"
+`ActivityTable` uses the new `eventsAsTarget` strings for these items:
+- "Your role was changed"
+- "Your account was reactivated" / "Your account was deactivated"
+- "An administrator ended your sessions"
 
-Tipurile care pot fi primite sunt listate in `ACCOUNT_ACTION_TYPES` (`features/account/api.ts`). Adresa IP a acestor elemente vine `null` de la API (este a operatorului), deci coloana arata "—".
+The types that can be received are listed in `ACCOUNT_ACTION_TYPES` (`features/account/api.ts`). The IP address of these items comes back `null` from the API (it is the operator's), so the column shows "—".
 
-Validare: eslint, tsc, vitest (84 passed), build. Verificare inversa: ignorarea campului `as_target` face testul nou sa pice.
+Validation: eslint, tsc, vitest (84 passed), build. Reverse check: ignoring the `as_target` field makes the new test fail.
 
-## Izolarea conturilor (backend)
+## Account containment (backend)
 
-### 21. Contul blocat
+### 21. The locked account
 
-Backend-ul poate bloca temporar un cont. Frontend-ul trateaza doua situatii noi:
-- la login, `403` cu `detail` `Account temporarily locked` afiseaza "Contul este blocat temporar din motive de securitate. Contacteaza un administrator.", separat de mesajul pentru cont dezactivat; ambele raspunsuri au acelasi status, deci diferenta se face dupa `detail` (`isAccountLockedError()` in `features/auth/api.ts`)
-- o sesiune refuzata cu acelasi raspuns duce la `/login?reason=locked`, cu acelasi mesaj
+The backend can lock an account temporarily. The frontend handles two new situations:
+- at login, a `403` with the `detail` `Account temporarily locked` shows "This account is temporarily locked for security reasons. Contact an administrator.", separate from the message for a deactivated account; both responses have the same status, so they are told apart by `detail` (`isAccountLockedError()` in `features/auth/api.ts`)
+- a session refused with the same response leads to `/login?reason=locked`, with the same message
 
-In Activitatea mea apar tipurile noi: "Contul tau a fost blocat temporar" / "Contul tau a fost deblocat" pentru contul afectat si "Ai blocat temporar un cont" / "Ai deblocat un cont" pentru operator. `User` are campul `locked_until`.
+My activity shows the new types: "Your account was temporarily locked" / "Your account was unlocked" for the affected account, and "You temporarily locked an account" / "You unlocked an account" for the operator. `User` has the `locked_until` field.
 
-Validare: eslint, tsc, vitest (86 passed), build, `npm audit`. Verificare inversa: ignorarea `detail` la `403` face testele noi sa pice. Capturi reale in Firefox, in ambele teme, ale paginii de login pentru cont blocat si ale paginii Activitatea mea dupa blocare si deblocare.
+Validation: eslint, tsc, vitest (86 passed), build, `npm audit`. Reverse check: ignoring `detail` on a `403` makes the new tests fail. Real Firefox screenshots, in both themes, of the login page for a locked account and of the My activity page after a lock and an unlock.
 
-## Etapa 3: Organizatia - Evenimente si Audit
+## Stage 3: Organization - Events and Audit
 
-### 22. Ce a fost construit
+### 22. What was built
 
-Primele doua pagini ale perspectivei Organizatia, pentru `admin`, `owner` si `security_analyst`:
-- Evenimente de securitate (`/org/events`), pe `GET /security/events`
-- Jurnal de audit (`/org/audit`), pe `GET /admin/audit-logs`
+The first two pages of the Organization scope, for `admin`, `owner` and `security_analyst`:
+- Security events (`/org/events`), on `GET /security/events`
+- Audit log (`/org/audit`), on `GET /admin/audit-logs`
 
-Ambele folosesc aceleasi componente: bara de filtre, tabelul si panoul de detalii.
+Both use the same components: the filter bar, the table and the details panel.
 
-### 23. Filtrele
+### 23. The filters
 
-- **Interval**: ultima ora, 24 de ore, 7 zile (implicit), 30 de zile, tot. Inceputul intervalului se calculeaza cand se incarca prima pagina; paginile urmatoare il pastreaza, ca "Incarca mai multe" sa nu mute fereastra.
-- **Severitate** (doar la evenimente): butoane care se pot combina.
-- **Tipuri**: un meniu cu casute, care ramane deschis cat timp se aleg mai multe tipuri.
-- **Cautare**: email sau adresa IP exacta, intr-un singur camp. O adresa IPv4 sau orice valoare cu `:` (IPv6) merge la filtrul `ip_address`, restul la `email`. Cautarea porneste la Enter sau la butonul de cautare, nu la fiecare tasta.
-- **Cont / Tinta**: `user_id` si `target_user_id`, afisate ca etichete care se pot elimina; vin din link-uri sau din panoul de detalii.
+- **Time range**: last hour, 24 hours, 7 days (default), 30 days, all. The start of the range is computed when the first page loads; later pages keep it, so "Load more" does not shift the window.
+- **Severity** (events only): buttons that can be combined.
+- **Types**: a menu with checkboxes, which stays open while several types are picked.
+- **Search**: an exact email or IP address, in a single field. An IPv4 address or any value with `:` (IPv6) goes to the `ip_address` filter, everything else to `email`. The search runs on Enter or on the search button, not on every keystroke.
+- **Account / Target**: `user_id` and `target_user_id`, shown as removable chips; they come from links or from the details panel.
 
-Toate filtrele sunt pastrate in adresa (`range`, `type`, `severity`, `q`, `user`, `target`), deci o vedere filtrata poate fi trimisa ca link. Valorile invalide din adresa sunt ignorate; valorile implicite nu apar in adresa. Un filtru respins de API (`422`, de exemplu o adresa IP gresita) are mesajul sau.
+Every filter is kept in the address (`range`, `type`, `severity`, `q`, `user`, `target`), so a filtered view can be shared as a link. Invalid values in the address are ignored; default values are left out of the address. A filter the API rejects (`422`, for example a malformed IP address) has its own message.
 
-### 24. Tabelul si detaliile
+### 24. The table and the details
 
-Coloanele: data, eveniment, severitate (doar la evenimente), cont, adresa IP. Evenimentele sunt descrise neutru ("Rol schimbat", "Cont blocat temporar"), nu la persoana a doua ca in Activitatea mea; textele sunt in `orgEvents.types` si `audit.types`.
+The columns: time, event, severity (events only), account, IP address. Events are described neutrally ("Role changed", "Account temporarily locked"), not in the second person as in My activity; the strings are in `orgEvents.types` and `audit.types`.
 
-Un clic oriunde pe rand deschide detaliile; de la tastatura, descrierea evenimentului este un buton. Detaliile sunt intr-un panou lateral (Radix Dialog: focusul ramane in panou, Escape il inchide, focusul revine pe rand). Panoul arata contul (email si id), tinta, adresa IP, sursa, mesajul pentru operatori si actiuni care restrang lista: "Doar acest cont", "Doar aceasta tinta", "Doar aceasta adresa IP". O incercare esuata care numeste doar un email restrange dupa email.
+A click anywhere on a row opens the details; from the keyboard, the event description is a button. The details are in a side panel (Radix Dialog: focus stays in the panel, Escape closes it, focus returns to the row). The panel shows the account (email and id), the target, the IP address, the source, the message for operators, and actions that narrow the list: "Only this account", "Only this target", "Only this IP address". A failed attempt that names only an email narrows by email.
 
-### 25. Reincarcarea si auditul
+### 25. Reloading and auditing
 
-Fiecare incarcare a acestor pagini este auditata de backend. De aceea, listele nu se reincarca singure cand fereastra revine in focus (`refetchOnWindowFocus: false`); pagina are un buton "Reimprospateaza", care revine la prima pagina, cu intervalul masurat din acel moment. Pagina de audit spune explicit ca si consultarea ei este inregistrata.
+Every load of these pages is audited by the backend. That is why the lists do not reload on their own when the window regains focus (`refetchOnWindowFocus: false`); the page has a "Refresh" button, which goes back to the first page, with the range measured from that moment. The audit page says explicitly that viewing it is recorded too.
 
-### 26. Componente comune noi
+### 26. New shared components
 
-- `PagedResults`: starile de incarcare, eroare (cu reincercare) si lista goala, plus "Incarca mai multe", pentru orice lista citita cu cursor; folosita si de Activitatea mea
-- `SegmentedControl`: butoane exclusive, folosite pentru interval si pentru filtrul din Activitatea mea; pe ecrane inguste trec pe randul urmator
-- `ui/sheet.tsx`: panoul lateral, pe Radix Dialog
-- `features/org`: clientul API, filtrele din adresa, hook-urile, bara de filtre, tabelul si detaliile
+- `PagedResults`: the loading, error (with retry) and empty states, plus "Load more", for any list read with a cursor; also used by My activity
+- `SegmentedControl`: mutually exclusive buttons, used for the time range and for the My activity filter; on narrow screens they wrap to the next line
+- `ui/sheet.tsx`: the side panel, on Radix Dialog
+- `features/org`: the API client, the address filters, the hooks, the filter bar, the table and the details
 
-Textele "Incarca mai multe", "Se incarca" si "Ai ajuns la inceputul istoricului" au trecut din `activity` in `paging`.
+The "Load more", "Loading…" and "You reached the start of your history." strings moved from `activity` to `paging`.
 
-### 27. Impartirea bundle-ului
+### 27. Splitting the bundle
 
-Paginile organizatiei se incarca la cerere (`React.lazy` in `pages/lazy.ts`, cu un `Suspense` in `AppShell`). Codul lor (aproximativ 21 KB) nu mai ajunge la utilizatorii obisnuiti, iar avertismentul Vite pentru chunk-uri peste 500 KB a disparut: aplicatia are acum un chunk principal (~311 KB) si unul cu bibliotecile comune (~262 KB). Incarcarea initiala totala ramane aproape aceeasi, pentru ca bibliotecile (React, Radix, i18next) domina.
+The organization pages load on demand (`React.lazy` in `pages/lazy.ts`, with a `Suspense` in `AppShell`). Their code (about 21 KB) no longer reaches regular users, and the Vite warning for chunks over 500 KB is gone: the app now has a main chunk (~311 KB) and one with the shared libraries (~262 KB). The total initial load stays nearly the same, because the libraries (React, Radix, i18next) dominate.
 
-### 28. Validarea locala
+### 28. Local validation
 
-- eslint -> fara probleme
-- tsc (5.9 si 6.0) -> fara erori
+- eslint -> no problems
+- tsc (5.9 and 6.0) -> no errors
 - vitest -> 111 passed
-- build -> reusit, fara avertismentul de dimensiune
-- npm audit -> 0 vulnerabilitati
+- build -> successful, without the size warning
+- npm audit -> 0 vulnerabilities
 
-Testele noi acopera: descrierile neutre, intervalul implicit si "Tot", severitatea si tipurile (cu adresa actualizata), citirea filtrelor dintr-un link, cautarea dupa email si IPv6 cu focusul pastrat, eliminarea etichetelor si resetarea, panoul de detalii si actiunile lui, deschiderea cu mouse-ul si inchiderea cu Escape, paginarea cu acelasi interval, reimprospatarea, filtrul invalid, cele doua stari goale, jurnalul de audit (fara severitate, mesaj lipsa, filtrul de tinta) si functiile de filtrare.
+The new tests cover: the neutral descriptions, the default range and "All", severity and types (with the address updated), reading the filters from a link, searching by email and by IPv6 with focus kept, removing chips and resetting, the details panel and its actions, opening with the mouse and closing with Escape, pagination with the same range, refreshing, the invalid filter, the two empty states, the audit log (no severity, missing message, the target filter) and the filter functions.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: intervalul recalculat la fiecare pagina, IP-ul cautat ca email, actiunea de tinta care filtreaza actorul, tipuri necunoscute acceptate din adresa, intervalul implicit scris in adresa, meniul de tipuri inchis la prima alegere, mesajul pentru filtrul invalid ignorat, campul de cautare care nu urmareste schimbarile din afara, randurile care nu se deschid, textul pentru lista goala care ignora filtrele.
+Reverse check: each of the following changes makes at least one test fail: the range recomputed on every page, an IP searched as an email, the target action filtering the actor, unknown types accepted from the address, the default range written into the address, the types menu closing at the first pick, the invalid filter message ignored, a search field that does not follow outside changes, rows that do not open, an empty-list text that ignores the filters.
 
-Un test a prins o problema reala: campul de cautare era remontat la fiecare cautare (prin `key`) si pierdea focusul dupa Enter. Acum isi sincronizeaza valoarea in timpul randarii, fara remontare.
+A test caught a real problem: the search field was remounted on every search (through `key`) and lost focus after Enter. It now syncs its value during render, without remounting.
 
-Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit: date create prin API (login-uri reusite si esuate, brute force, schimbare de rol, blocare si deblocare, inchiderea sesiunilor, dezactivare) si cateva login-uri esuate inserate direct, cu adrese diferite. Capturi reale in Firefox, ca analist, in ambele teme: evenimentele, jurnalul de audit, panoul de detalii deschis, filtre active si lungimea de telefon (390 px). Dupa capturi: antetele "Cont" si "Adresa IP" nu mai folosesc fontul monospace, iar butoanele de interval trec pe randul urmator pe telefon, in loc sa iasa din ecran.
+End-to-end check, with the real backend on a temporary database and Vite running: data created through the API (successful and failed sign-ins, brute force, a role change, a lock and an unlock, closing sessions, a deactivation) and a few failed sign-ins inserted directly, with different addresses. Real Firefox screenshots, as an analyst, in both themes: the events, the audit log, the open details panel, active filters and phone width (390 px). After the screenshots: the "Account" and "IP address" headers no longer use the monospace font, and the time range buttons wrap to the next line on phones instead of overflowing the screen.
 
-Observatie: listele erau ordonate dupa `id` (ordinea inregistrarii), nu dupa `created_at`, iar evenimentele inserate cu o data din trecut apareau deasupra celor mai noi. Rezolvat in backend (Event Ordering - Phase 1, `docs/01`): listele sunt ordonate dupa moment, iar frontend-ul nu s-a schimbat.
+Observation: the lists were ordered by `id` (the order of recording), not by `created_at`, so events inserted with a past date appeared above newer ones. Fixed in the backend (Event Ordering - Phase 1, `docs/01`): the lists are ordered by the moment of the event, and the frontend did not change.
 
-### 29. Barele de derulare
+### 29. Scrollbars
 
-Pe telefon, sub meniul orizontal al barei laterale aparea o bara de derulare alba, si in tema intunecata. `color-scheme` era deja setat, dar unele browsere (printre ele Firefox fara interfata, folosit pentru capturi) il ignora pentru barele de derulare. Acum `:root` are `scrollbar-color` din culorile temei (`--muted-foreground` la 45%, pe fundal transparent), iar meniul orizontal are bara subtire (`scrollbar-width: thin`). Capturile la 390 px, in ambele teme, arata o bara discreta in culorile temei.
+On phones, a white scrollbar appeared under the sidebar's horizontal menu, even in the dark theme. `color-scheme` was already set, but some browsers (among them headless Firefox, used for the screenshots) ignore it for scrollbars. `:root` now has a `scrollbar-color` from the theme colors (`--muted-foreground` at 45%, on a transparent track), and the horizontal menu has a thin scrollbar (`scrollbar-width: thin`). The screenshots at 390 px, in both themes, show a discreet scrollbar in the theme colors.

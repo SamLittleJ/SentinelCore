@@ -1,314 +1,399 @@
-- monorepo in loc de doua repo-uri
-- modular monolith in loc de microservicii
-- web-first in MVP
-- venv separat in backend
-- rulare backend cu `python -m uvicorn`
-- configuratia backend-ului este centralizata prin `app/core/config.py` folosing `pydantic-settings`
-- baza de date locala pentru development ruleaza cu Docker Compose folosind PostgreSQL
-- SQLAlchemy este folosit ca fundatie ORM
-- Proiectul foloseste importuri absolute incepand direct din `app` pentru a evita module duplicate si inconsitente
-- Prima entitate ORM este `User`, legata la tabela `users`
-- În această etapă, `Base.metadata.create_all(...)` este folosit doar pentru validarea modelului și a conexiunii ORM. Gestionarea structurii bazei de date va fi mutată ulterior în Alembic.
-- Input-ul si output-ul API sunt separate de modelul ORM prin Pydantic schemas
-- Sesiunea DB pentru endpoint-uri este gestionata prin `get_db()` in `app/api/deps.py`
-- Hashing-ul parolelor este centralizat in `app/core/security.py`
-- Logica de business pentru user este mutata in `app/services/user_service.py`
-- Endpoint-ul de register este implementat in `app/api/routes/auth.py`
-- Crearea de utilizatori verifica explicit duplicatele pe `email` si `username`
-- Parolele nu sunt stocate raw, se salveaza doar `hashed_password`
-- Primul flux end-to-end validat este `POST /auth/register`
-- Token-ul JWT este folosit nu doar pentru emitere, ci si pentru identificarea utilizatorului curent.
-- Claim-ul `sub` din JWT contine email-ul utilizatorului in etapa actuala
-- Utilizatorul curent este obtinut prin dependenta `get_current_user()`.
-- MVP-ul RBAC foloseste un camp `role` in modelul `User`.
-- Rolurile sunt definite prin enum-ul `UserRole`.
-- Rolul implicit la register este `user`.
-- Autorizarea pe rol se face prin dependenta `require_role()`.
-- Endpoint-urile protejate pe rol returneaza `403 Forbidden` cand utilizatorul nu are permisiunea necesara.
-- Endpoint-ul `GET /users/admin-only` este folosit pentru validarea fundatiei RBAC.
-- Modificarile de schema locale sunt inca validate prin reset local si `create_all()`, nu prin migratii Alembic.
-- Audit logging-ul este stocat in PostgreSQL in tabela `audit_logs`.
-- Evenimentele de audit sunt definite prin enum-ul `AuditEventType`.
-- Modelul `AuditLog` permite `user_id` optional pentru cazurile in care evenimentul nu are un user valid asociat.
-- Campul `email` este pastrat in audit log pentru a permite urmarirea tentativelor de login esuate.
-- Logica de creare a evenimentelor de audit este centralizata in `app/services/audit_service.py`.
-- Endpoint-ul `POST /auth/register` creeaza eveniment `USER_REGISTERED`.
-- Endpoint-ul `POST /auth/login` creeaza evenimente `LOGIN_SUCCESS` si `LOGIN_FAILED`.
-- Endpoint-ul `GET /users/admin-only` creeaza eveniment `ADMIN_ENDPOINT_ACCESSED` pentru acces permis.
-- In etapa actuala, accesul refuzat prin RBAC nu este inca auditat.
-- Pentru MVP, valorile enum-ului de audit sunt acceptate in forma salvata de SQLAlchemy, de exemplu `USER_REGISTERED`.
-- Audit logs sunt expuse prin endpoint-ul `GET /admin/audit-logs`.
-- Endpoint-ul de audit este disponibil doar pentru rolurile `admin`, `owner` si `security_analyst`.
-- Userii obisnuiti primesc `403 Forbidden` la accesarea audit logs.
-- Audit logs sunt returnate prin schema `AuditLogRead`, nu direct ca model ORM necontrolat.
-- Listarea audit logs este limitata prin paramentrul `limit`.
-- Security events sunt separate de audit logs.
-- Audit logs reprezintă jurnalul factual al acțiunilor din sistem.
-- Security events reprezintă evenimente relevante pentru securitate și SIEM-light.
-- Security events sunt stocate în PostgreSQL în tabela `security_events`.
-- Evenimentele de securitate sunt definite prin enum-ul `SecurityEventType`.
-- Severitățile de securitate sunt definite prin enum-ul `SecuritySeverity`.
-- Severitățile inițiale sunt `info`, `warn` și `incident`.
-- Endpoint-ul `GET /security/events` expune evenimentele de securitate prin API.
-- Endpoint-ul `GET /security/events` este protejat prin RBAC.
-- Rolurile permise pentru consultarea security events sunt `admin`, `owner` și `security_analyst`.
-- Login failed este mapat ca security event cu severitate `warn`.
-- Register, login success și admin access sunt mapate ca security events cu severitate `info`.
-- Security events reprezintă începutul componentei SIEM-light din SentinelCore.
-- Schema bazei de date este gestionată prin Alembic, nu prin `Base.metadata.create_all()` la pornirea aplicației.
-- `create_all()` a fost folosit doar temporar pentru învățare și validare locală.
-- Migrațiile Alembic devin mecanismul standard pentru modificările viitoare ale schemei DB.
-- Schema bazei de date este gestionată prin Alembic.
-- `Base.metadata.create_all(bind=engine)` a fost eliminat din `app/main.py`.
-- `create_all()` a fost folosit doar temporar pentru învățare și validare locală.
-- Directorul Alembic standard este `migrations/`.
-- O denumire greșită inițială (`imigrations`) a fost corectată în `migrations`.
-- `migrations/env.py` folosește `target_metadata = Base.metadata`.
-- Modelele `User`, `AuditLog` și `SecurityEvent` sunt importate în `migrations/env.py` pentru autogenerate.
-- Migrația inițială creează tabelele `users`, `audit_logs` și `security_events`.
-- Tabela `alembic_version` confirmă versiunea curentă a schemei DB.
-- Modificările viitoare ale modelelor trebuie gestionate prin `alembic revision --autogenerate` și `alembic upgrade head`.
-- Migrațiile generate automat trebuie verificate manual înainte de aplicare.
-- Testele backend sunt rulate cu `pytest`.
-- FastAPI este testat prin `TestClient`, care necesită `httpx`.
-- Testele sunt plasate în directorul `backend/tests`.
-- Configurația pytest este definită în `pyproject.toml`.
-- Testele folosesc o bază de date separată: `sentinelcore_test`.
-- Testele nu trebuie să ruleze pe baza de date de development.
-- În teste, dependența `get_db()` este suprascrisă prin `app.dependency_overrides`.
-- `Base.metadata.create_all()` este permis doar în fixture-ul de test, nu în aplicația reală.
-- Aplicația reală folosește Alembic pentru gestionarea schemei DB.
-- Pachetul Python inclus la build este doar `app*`; `migrations*` și `tests*` sunt excluse din packaging.
-- Prima etapă de teste acoperă `/health`, register și login.
-- Testele au fost extinse în `Tests Foundation Phase 2`.
-- A fost creat fișierul `tests/test_protected_routes.py`.
-- Rutele protejate sunt testate automat cu token JWT valid.
-- Endpoint-ul `/users/me` este testat atât cu token valid, cât și fără token.
-- Endpoint-ul `/users/admin-only` este testat atât cu user normal, cât și cu user admin.
-- Pentru setup de test, userul este promovat la rolul `admin` direct în baza de date de test.
-- Promovarea directă la admin este acceptată doar în teste, nu ca logică de producție.
-- Endpoint-ul `/admin/audit-logs` este testat cu user admin.
-- Endpoint-ul `/security/events` este testat cu user admin.
-- Backend-ul are acum 11 teste automate validate prin `pytest`.
-- Testele acoperă fluxurile principale de IAM, JWT, RBAC, audit logs și security events.
-- A fost introdus workflow-ul `Backend CI` în GitHub Actions. 
-- Workflow-ul este definit în `.github/workflows/backend-ci.yml`. 
-- CI-ul rulează automat la `push` și `pull_request` pe branch-ul `main`. 
-- Pentru `push`, trigger-ul este limitat prin `paths` la modificări în `backend/**` și `.github/workflows/backend-ci.yml`; pentru `pull_request`, filtrul `paths` a fost eliminat. 
-- A fost păstrat `workflow_dispatch` pentru rulare manuală din GitHub Actions. 
-- Workflow-ul pornește un serviciu PostgreSQL folosind imaginea `postgres:17`, aceeasi versiune ca in Docker Compose. 
-- Baza de date folosită în CI este `sentinelcore_test`. 
-- Variabila `TEST_DATABASE_URL` indică explicit către baza de date de test. 
-- Variabila `DATABASE_URL` este setată în CI pentru ca aplicația să se poată importa corect. 
-- `SECRET_KEY` din CI trebuie să aibă cel puțin 32 bytes pentru a evita warning-urile HMAC SHA256. 
-- Acțiunile GitHub au fost actualizate la `actions/checkout@v5` și `actions/setup-python@v6`. 
-- A fost adăugată dependența `pydantic[email]` pentru suportul `EmailStr` în mediul CI. 
-- CI-ul rulează `python -m pip install -e .` în directorul `backend`. 
-- CI-ul rulează testele cu `python -m pytest -v`. 
-- Backend-ul are 11 teste automate validate în GitHub Actions. 
-- Warning-ul extern legat de `TestClient` / `httpx` este tolerat temporar, deoarece nu vine din codul propriu al aplicației.
-- A fost introdus Ruff pentru linting și verificarea formatării codului Python. 
-- Ruff este configurat în `backend/pyproject.toml`. 
-- Regulile activate includ `E`, `F`, `I`, `B` și `UP`. 
-- Backend-ul folosește `ruff check .` pentru verificări de linting. 
-- Backend-ul folosește `ruff format --check .` pentru verificarea formatării. 
-- Ruff a fost rulat local înainte de integrarea în CI. 
-- Problemele `B008` au fost rezolvate prin trecerea dependency injection-ului FastAPI la `typing.Annotated`. 
-- Problema `B904` a fost rezolvată prin `raise ... from exc`. 
-- Enum-urile definite ca `str` + `enum.Enum` au fost modernizate la `StrEnum`. 
-- Ruff a fost integrat în workflow-ul `.github/workflows/backend-ci.yml`. 
-- Pașii Ruff rulează în CI înainte de `pytest`. 
-- CI-ul backend validează acum atât calitatea codului, cât și testele funcționale. 
-- Workflow-ul GitHub Actions este verde cu Ruff lint, Ruff format check și 11 teste backend.
-- A fost introdus Bandit pentru scanarea de securitate a codului Python. 
-- Bandit este configurat în `backend/pyproject.toml`. 
-- Bandit scanează codul aplicației cu `python -m bandit -r app -c pyproject.toml`. 
-- Directoarele `tests`, `.venv` și `migrations` sunt excluse din scanarea Bandit. 
-- Raportarea Bandit `B106` pentru `token_type="bearer"` a fost analizată ca false positive. 
-- `B106` nu a fost dezactivată global; a fost folosit `# nosec B106` punctual. 
-- A fost introdus Gitleaks pentru scanarea secretelor în repository. 
-- Gitleaks scanează parole, tokenuri, API keys, private keys și alte secrete hardcodate. 
-- Local, pe Fedora, Gitleaks rulează prin Docker cu mount `:Z` pentru compatibilitate SELinux. 
-- Comanda locală Gitleaks este `docker run --rm -v "$(pwd):/repo:Z" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose`. 
-- În GitHub Actions, Gitleaks rulează ca job separat prin Docker. 
-- În CI nu este necesar `:Z`, deoarece problema a fost specifică mediului local Fedora/SELinux. 
-- Jobul Gitleaks folosește `actions/checkout@v5` cu `fetch-depth: 0`. 
-- `fetch-depth: 0` este folosit pentru ca Gitleaks să poată scana istoricul Git complet. 
-- Varianta `gitleaks/gitleaks-action@v2` a fost înlocuită cu rularea prin Docker pentru a evita warning-ul Node.js 20. 
-- Pipeline-ul backend validează acum Ruff, Bandit, Gitleaks și pytest. 
-- Security Checks Phase 1 este finalizată cu pipeline verde și fără warning-uri relevante.
-- Pana cand repo-ul devine public, vom lucra prin branch-uri si PR-uri manuale.
-- Repository-ul ramane privat in contul personal pe moment
-- Branch protection rule pentru `main` a fost creata, dar nu este enforce pe planul privat actual.
-- Pana la publicarea repository-ului, se va lucra disciplinat prin branch-uri si Pull Requests.
-- Pentru fiecare task now se creeaza un branch separat.
-- Pull Request-urile trebuie verificate cu CI verde inainte de merge.
-- Nu se va lucra direct pe `main`, chiar daca GitHub nu blocheaza tehnic acest lucru.
-- A fost introdus modulul Admin User Management Phase 1. 
-- A fost creat endpoint-ul `GET /admin/users`. 
-- Endpoint-ul permite listarea utilizatorilor existenți în sistem. 
-- Accesul la `GET /admin/users` este permis doar pentru rolurile `admin` și `owner`. 
-- Userii normali primesc `403 Forbidden` la accesarea endpoint-ului. 
-- A fost creat fișierul `app/api/routes/admin_users.py`. 
-- Routerul `admin_users` este înregistrat în `app/main.py`. 
-- Logica de listare a utilizatorilor este separată în `app/services/user_service.py`. 
-- Funcția `list_users()` folosește `limit` și `offset` pentru paginare de bază. 
-- Endpoint-ul folosește schema `UserRead` pentru a evita expunerea câmpurilor sensibile. 
-- `hashed_password` nu este returnat în răspunsul API. 
-- Accesarea listei de utilizatori generează audit log. 
-- Accesarea listei de utilizatori generează security event cu severitate `INFO`. 
-- Endpoint-ul este testat pentru user normal și user admin. 
-- Numărul testelor backend a crescut de la 11 la 13. 
-- Implementarea a fost făcută pe branch separat și validată prin Pull Request. 
-- `main` este tratat ca branch stabil, chiar dacă branch protection nu este enforce pe planul privat actual.
-- A fost introdus Admin User Management Phase 2. 
-- A fost creat endpoint-ul `GET /admin/users/{user_id}`. 
-- Endpoint-ul permite consultarea detaliilor unui utilizator individual. 
-- Accesul la `GET /admin/users/{user_id}` este permis doar pentru rolurile `admin` și `owner`. 
-- Userii normali primesc `403 Forbidden`. 
-- Dacă userul cerut nu există, API-ul returnează `404 Not Found`. 
-- Mesajul pentru user inexistent este `User not found`. 
-- A fost adăugată funcția `get_user_by_id()` în `app/services/user_service.py`. 
-- Endpoint-ul folosește schema `UserRead` pentru a evita expunerea câmpurilor sensibile. 
-- `hashed_password` nu este returnat în răspunsul API. 
-- Vizualizarea detaliilor unui user generează audit log. 
-- Vizualizarea detaliilor unui user generează security event cu severitate `INFO`. 
-- Endpoint-ul este testat pentru user normal, user admin și user inexistent. 
-- Numărul testelor backend a crescut de la 13 la 16. 
-- Implementarea a fost făcută pe branch separat și validată prin Pull Request.
-- Phase 3 role changes are restricted to an authenticated owner through `PATCH /admin/users/{user_id}/role`.
+# 02 - Decisions Log
+
+The technical decisions behind SentinelCore, in the order they were made, one per bullet. A later decision can replace an earlier one; those are marked *Superseded* with a pointer to what replaced them.
+
+## Foundation
+
+- A monorepo instead of two repositories.
+- A modular monolith instead of microservices.
+- Web-first for the MVP.
+- A separate virtual environment in `backend/`.
+- The backend runs with `python -m uvicorn`.
+- Backend configuration is centralized in `app/core/config.py`, using `pydantic-settings`.
+- The local development database is PostgreSQL, run with Docker Compose.
+- SQLAlchemy is the ORM foundation.
+- The project uses absolute imports starting from `app`, to avoid duplicate and inconsistent modules.
+- The first ORM entity is `User`, mapped to the `users` table.
+- At this stage, `Base.metadata.create_all(...)` is used only to validate the model and the ORM connection. Managing the database structure moves to Alembic later. *Superseded: see [Alembic migrations](#alembic-migrations).*
+- API input and output are separated from the ORM model by Pydantic schemas.
+- The DB session for endpoints is provided by `get_db()` in `app/api/deps.py`.
+- Password hashing is centralized in `app/core/security.py`.
+- User business logic lives in `app/services/user_service.py`.
+- The register endpoint is implemented in `app/api/routes/auth.py`.
+- Creating a user explicitly checks for duplicate `email` and `username`.
+- Passwords are never stored raw; only `hashed_password` is saved.
+- The first end-to-end flow validated is `POST /auth/register`.
+
+## Authentication and RBAC
+
+- The JWT is used not only when it is issued, but also to identify the current user.
+- The JWT `sub` claim holds the user's email at this stage. *Superseded: see [JWT and sessions](#jwt-and-sessions).*
+- The current user comes from the `get_current_user()` dependency.
+- The RBAC MVP uses a `role` field on the `User` model.
+- Roles are defined by the `UserRole` enum.
+- The default role at registration is `user`.
+- Role authorization goes through the `require_role()` dependency.
+- Role-protected endpoints return `403 Forbidden` when the user lacks the required permission.
+- The `GET /users/admin-only` endpoint is used to validate the RBAC foundation.
+- Local schema changes are still validated by a local reset and `create_all()`, not by Alembic migrations. *Superseded: see [Alembic migrations](#alembic-migrations).*
+
+## Audit logging
+
+- Audit logs are stored in PostgreSQL, in the `audit_logs` table.
+- Audit event types are defined by the `AuditEventType` enum.
+- The `AuditLog` model allows an optional `user_id`, for events with no valid user attached.
+- The `email` field is kept in the audit log, so failed login attempts can be traced.
+- Creating audit events is centralized in `app/services/audit_service.py`.
+- `POST /auth/register` creates a `USER_REGISTERED` event.
+- `POST /auth/login` creates `LOGIN_SUCCESS` and `LOGIN_FAILED` events.
+- `GET /users/admin-only` creates an `ADMIN_ENDPOINT_ACCESSED` event when access is allowed.
+- At this stage, access denied by RBAC is not audited yet.
+- For the MVP, audit enum values are accepted in the form SQLAlchemy stores them, for example `USER_REGISTERED`.
+- Audit logs are exposed through `GET /admin/audit-logs`.
+- The audit endpoint is available only to the `admin`, `owner` and `security_analyst` roles.
+- Regular users get `403 Forbidden` on the audit logs.
+- Audit logs are returned through the `AuditLogRead` schema, not directly as an unchecked ORM model.
+- Listing audit logs is bounded by the `limit` parameter. *Superseded: see [Log pagination and filters](#log-pagination-and-filters).*
+
+## Security events
+
+- Security events are separate from audit logs.
+- Audit logs are the factual journal of actions in the system.
+- Security events are the events relevant to security and SIEM-light.
+- Security events are stored in PostgreSQL, in the `security_events` table.
+- Security event types are defined by the `SecurityEventType` enum.
+- Security severities are defined by the `SecuritySeverity` enum.
+- The initial severities are `info`, `warn` and `incident`.
+- `GET /security/events` exposes the security events through the API.
+- `GET /security/events` is protected by RBAC.
+- The roles allowed to read security events are `admin`, `owner` and `security_analyst`.
+- A failed login maps to a security event with `warn` severity.
+- Register, successful login and admin access map to security events with `info` severity.
+- Security events are the start of SentinelCore's SIEM-light component.
+
+## Alembic migrations
+
+- The database schema is managed by Alembic, not by `Base.metadata.create_all()` at application startup.
+- `create_all()` was used only temporarily, for learning and local validation.
+- Alembic migrations become the standard mechanism for future schema changes.
+- `Base.metadata.create_all(bind=engine)` was removed from `app/main.py`.
+- The standard Alembic directory is `migrations/`.
+- An initial misnamed directory (`imigrations`) was renamed to `migrations`.
+- `migrations/env.py` uses `target_metadata = Base.metadata`.
+- The `User`, `AuditLog` and `SecurityEvent` models are imported in `migrations/env.py` for autogenerate.
+- The initial migration creates the `users`, `audit_logs` and `security_events` tables.
+- The `alembic_version` table records the current schema version.
+- Future model changes go through `alembic revision --autogenerate` and `alembic upgrade head`.
+- Autogenerated migrations are reviewed by hand before they are applied.
+
+## Tests
+
+- Backend tests run with `pytest`.
+- FastAPI is tested through `TestClient`, which requires `httpx`.
+- Tests live in `backend/tests`.
+- The pytest configuration is in `pyproject.toml`.
+- Tests use a separate database: `sentinelcore_test`.
+- Tests must never run against the development database.
+- In tests, the `get_db()` dependency is overridden through `app.dependency_overrides`.
+- `Base.metadata.create_all()` is allowed only in the test fixture, not in the real application.
+- The real application uses Alembic to manage the schema.
+- Only the `app*` package is included in the build; `migrations*` and `tests*` are excluded from packaging.
+- The first round of tests covers `/health`, register and login.
+- The tests were extended in Tests Foundation Phase 2.
+- `tests/test_protected_routes.py` was created.
+- Protected routes are tested automatically with a valid JWT.
+- `/users/me` is tested both with a valid token and without one.
+- `/users/admin-only` is tested both with a regular user and with an admin.
+- For test setup, the user is promoted to `admin` directly in the test database.
+- Direct promotion to admin is accepted only in tests, never as production logic.
+- `/admin/audit-logs` is tested with an admin user.
+- `/security/events` is tested with an admin user.
+- The backend now has 11 automated tests, passing with `pytest`.
+- The tests cover the main IAM, JWT, RBAC, audit log and security event flows.
+
+## Backend CI
+
+- The `Backend CI` workflow was introduced in GitHub Actions.
+- The workflow is defined in `.github/workflows/backend-ci.yml`.
+- CI runs automatically on `push` and `pull_request` to `main`.
+- For `push`, the trigger is limited by `paths` to changes in `backend/**` and `.github/workflows/backend-ci.yml`; for `pull_request`, the `paths` filter was removed.
+- `workflow_dispatch` was kept for manual runs from GitHub Actions.
+- The workflow starts a PostgreSQL service from the `postgres:17` image, the same version as in Docker Compose.
+- The CI database is `sentinelcore_test`.
+- `TEST_DATABASE_URL` points explicitly at the test database.
+- `DATABASE_URL` is set in CI so the application imports correctly.
+- The CI `SECRET_KEY` must be at least 32 bytes, to avoid the HMAC SHA256 warnings.
+- The GitHub actions were updated to `actions/checkout@v5` and `actions/setup-python@v6`.
+- The `pydantic[email]` dependency was added for `EmailStr` support in CI.
+- CI runs `python -m pip install -e .` in `backend/`.
+- CI runs the tests with `python -m pytest -v`.
+- The backend has 11 automated tests passing in GitHub Actions.
+- The external warning from `TestClient` / `httpx` is tolerated for now, since it does not come from the application's own code.
+
+## Code quality: Ruff
+
+- Ruff was introduced for linting and for checking Python formatting.
+- Ruff is configured in `backend/pyproject.toml`.
+- The enabled rules include `E`, `F`, `I`, `B` and `UP`.
+- The backend uses `ruff check .` for linting.
+- The backend uses `ruff format --check .` to check formatting.
+- Ruff was run locally before it was added to CI.
+- The `B008` findings were fixed by moving FastAPI dependency injection to `typing.Annotated`.
+- The `B904` finding was fixed with `raise ... from exc`.
+- Enums defined as `str` + `enum.Enum` were modernized to `StrEnum`.
+- Ruff was added to `.github/workflows/backend-ci.yml`.
+- The Ruff steps run in CI before `pytest`.
+- Backend CI now checks both code quality and functional tests.
+- The GitHub Actions workflow is green with Ruff lint, the Ruff format check and 11 backend tests.
+
+## Security checks: Bandit and Gitleaks
+
+- Bandit was introduced to scan the Python code for security issues.
+- Bandit is configured in `backend/pyproject.toml`.
+- Bandit scans the application code with `python -m bandit -r app -c pyproject.toml`.
+- The `tests`, `.venv` and `migrations` directories are excluded from the Bandit scan.
+- Bandit's `B106` report for `token_type="bearer"` was analyzed as a false positive.
+- `B106` was not disabled globally; a targeted `# nosec B106` was used instead.
+- Gitleaks was introduced to scan the repository for secrets.
+- Gitleaks looks for passwords, tokens, API keys, private keys and other hardcoded secrets.
+- Locally, on Fedora, Gitleaks runs through Docker with a `:Z` mount for SELinux compatibility.
+- The local Gitleaks command is `docker run --rm -v "$(pwd):/repo:Z" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose`.
+- In GitHub Actions, Gitleaks runs as a separate job through Docker.
+- CI does not need `:Z`, since the problem was specific to the local Fedora/SELinux environment.
+- The Gitleaks job uses `actions/checkout@v5` with `fetch-depth: 0`.
+- `fetch-depth: 0` lets Gitleaks scan the full Git history.
+- `gitleaks/gitleaks-action@v2` was replaced by running Gitleaks through Docker, to avoid the Node.js 20 warning.
+- The backend pipeline now checks Ruff, Bandit, Gitleaks and pytest.
+- Security Checks Phase 1 is complete, with a green pipeline and no relevant warnings.
+
+## Working on a private repository
+
+*Superseded: see [Public repository](#public-repository).*
+
+- Until the repository becomes public, work goes through branches and manual pull requests.
+- The repository stays private, in the personal account, for now.
+- A branch protection rule for `main` was created, but it is not enforced on the current private plan.
+- Until the repository is published, work goes through branches and pull requests, with discipline.
+- Every new task gets its own branch.
+- Pull requests must have a green CI before they are merged.
+- Nobody works directly on `main`, even though GitHub does not technically prevent it.
+
+## Admin user management - phases 1 and 2
+
+- Admin User Management Phase 1 was introduced.
+- The `GET /admin/users` endpoint was created.
+- It lists the users in the system.
+- Access to `GET /admin/users` is allowed only for the `admin` and `owner` roles. *Superseded: see [Organization API](#organization-api).*
+- Regular users get `403 Forbidden` on this endpoint.
+- `app/api/routes/admin_users.py` was created.
+- The `admin_users` router is registered in `app/main.py`.
+- The user listing logic is separated into `app/services/user_service.py`.
+- `list_users()` uses `limit` and `offset` for basic pagination. *Superseded: see [Organization API](#organization-api).*
+- The endpoint uses the `UserRead` schema, so sensitive fields are not exposed.
+- `hashed_password` is never returned by the API.
+- Listing users creates an audit log.
+- Listing users creates a security event with `INFO` severity. *Superseded: see [Organization API](#organization-api).*
+- The endpoint is tested with a regular user and an admin.
+- The number of backend tests grew from 11 to 13.
+- The work was done on a separate branch and validated through a pull request.
+- `main` is treated as the stable branch, even though branch protection is not enforced on the current private plan.
+- Admin User Management Phase 2 was introduced.
+- The `GET /admin/users/{user_id}` endpoint was created.
+- It shows one user's details.
+- Access to `GET /admin/users/{user_id}` is allowed only for the `admin` and `owner` roles. *Superseded: see [Organization API](#organization-api).*
+- Regular users get `403 Forbidden`.
+- When the requested user does not exist, the API returns `404 Not Found`.
+- The message for a missing user is `User not found`.
+- `get_user_by_id()` was added to `app/services/user_service.py`.
+- Viewing a user's details creates an audit log.
+- Viewing a user's details creates a security event with `INFO` severity. *Superseded: see [Organization API](#organization-api).*
+- The endpoint is tested with a regular user, an admin and a missing user.
+- The number of backend tests grew from 13 to 16.
+
+## Admin user management - phase 3: roles
+
+- Role changes are restricted to an authenticated owner, through `PATCH /admin/users/{user_id}/role`.
 - The endpoint forbids self-modification, modifying existing owners, and assigning the owner role.
-- Audit and security event identity fields record the actor; the message records the target ID and old/new roles.
-- A real role change and both event records share one commit, with rollback on commit failure. Existing event helpers commit independently and are not used for this transaction.
-- An allowed request for the existing role returns 200 without successful-change events. Owner restrictions still apply before this shortcut.
-- Phase 3 reuses existing event categories and requires no schema migration.
-- Local verification on 2026-10-06 confirmed 29 passing PostgreSQL tests, passing Ruff checks, and no Bandit security findings. Bandit emitted warnings about an existing `nosec` comment.
-- Transaction-failure testing and Phase 3 CI validation remain pending.
-- `migrations/env.py` importă explicit modulele cu modele, cu `# noqa: F401`, pentru ca `--autogenerate` să vadă schema completă.
-- `python -m alembic check` este folosit pentru a verifica sincronizarea dintre modele și schema DB.
-- Utilizatorii cu `is_active = False` primesc `403 Inactive user` la login și pe orice endpoint autentificat.
-- Login-ul pentru un user inactiv este înregistrat ca `LOGIN_FAILED`, cu severitate `WARN`.
-- Pentru un email inexistent, login-ul verifică parola contra unui hash fictiv, ca timpul de răspuns să nu dezvăluie existența contului.
-- Duplicatele la register sunt prinse și la nivel de index unic; `UniqueViolation` este transformat în `400`, nu `500`.
-- Uneltele de dezvoltare sunt în extra-ul `dev`; instalarea pentru development și CI este `pip install -e ".[dev]"`.
-- Dependențele au limite minime; `ruff` este fixat exact pentru a evita schimbări neașteptate în CI.
-- CI-ul și Docker Compose folosesc aceeași versiune PostgreSQL, `postgres:17`.
-- Phase 4 introduce `PATCH /admin/users/{user_id}/status` cu body `{"is_active": bool}`, consistent cu endpoint-ul de schimbare a rolului.
-- Activarea și dezactivarea sunt ierarhice: `admin` gestionează conturi `user` și `security_analyst`, iar `owner` gestionează și conturi `admin`.
-- Nimeni nu își poate schimba propriul status, iar statusul unui `owner` nu poate fi schimbat.
-- `is_active` este validat cu `StrictBool`, fără conversii implicite din string sau număr.
-- Schimbările administrative asupra userilor au tipuri dedicate de evenimente: `USER_ROLE_CHANGED`, `USER_ACTIVATED`, `USER_DEACTIVATED`.
-- Schimbarea de rol din Phase 3 folosește acum `USER_ROLE_CHANGED` în loc de `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`.
-- Valorile noi de enum sunt adăugate prin migrații scrise manual; `--autogenerate` nu detectează modificări ale valorilor unui enum.
-- Downgrade-ul pentru valori de enum recreează tipul PostgreSQL și remapează rândurile la tipurile generice anterioare.
-- Modificarea userului și evenimentele asociate sunt salvate printr-un singur commit, prin `_commit_user_change()`.
-- Username-ul are 3-50 caractere, doar `A-Z`, `a-z`, `0-9`, `_`, `.`, `-`, și este salvat în litere mici.
-- Email-ul este salvat și căutat în litere mici.
-- Parola la register are 12-128 caractere, fără reguli de compoziție.
-- Login-ul limitează parola doar la maximum 128 caractere, pentru compatibilitate cu conturile existente.
-- Regulile de input sunt definite ca tipuri `Annotated` reutilizabile în `app/schemas/user.py`.
-- Emailurile și username-urile existente sunt aduse la litere mici prin migrație; conflictele opresc migrația și se rezolvă manual.
-- Brute-force detection: 5 login-uri eșuate în 15 minute pentru același email blochează login-ul pe acel email timp de 15 minute; valorile sunt configurabile din `.env`.
-- Blocarea este pe email, nu pe email + IP, pentru a nu fi ocolită prin schimbarea IP-ului; riscul de blocare temporară a unei victime este acceptat.
-- În timpul blocării, răspunsul este `429` cu `Retry-After`, iar parola nu este verificată.
-- Emailurile inexistente sunt blocate identic, pentru a nu dezvălui existența conturilor.
-- Starea blocării este derivată din `security_events`, fără tabele sau coloane separate.
-- Comparațiile de timp pentru blocare folosesc ceasul bazei de date.
-- Incidentul folosește `BRUTE_FORCE_DETECTED` cu severitate `INCIDENT`; audit log-ul folosește `LOGIN_LOCKED`.
-- Încercările din timpul blocării sunt înregistrate ca `LOGIN_BLOCKED`, cu severitate `WARN`.
-- Toate audit logs și security events înregistrează `ip_address`, din `request.client.host`; `X-Forwarded-For` nu este citit direct.
-- În spatele unui reverse proxy, IP-ul real se obține prin `--proxy-headers` și `--forwarded-allow-ips` în uvicorn.
-- În teste, conexiunile sunt recreate după recrearea schemei, pentru a evita prepared statements legate de tipuri enum șterse.
-- `/admin/audit-logs` și `/security/events` returnează `{"items": [...], "next_cursor": ...}`, cu paginare prin cursor (`before_id`).
-- Evenimentele sunt ordonate după `id` descrescător, aceeași cheie ca a cursorului.
-- Filtrele comune sunt `user_id`, `email`, `ip_address`, `since`, `until`; audit logs adaugă `event_type`, iar security events adaugă `event_type` și `severity`.
-- Intervalul de timp este semi-deschis: `since <= created_at < until`.
-- Datele fără fus orar sunt respinse cu `422`.
-- Parametrii de query necunoscuți sunt respinși cu `422`, pentru ca un filtru scris greșit să nu fie ignorat.
-- Consultarea logurilor este auditată prin `AUDIT_LOGS_VIEWED` și `SECURITY_EVENTS_VIEWED`, doar în audit log, nu și ca security event.
-- Logica comună de filtrare și paginare este în `fetch_event_page()`.
-- Metricile sunt expuse în format Prometheus la `/metrics`, folosind `prometheus-client`.
-- Etichetele metricilor folosesc șablonul rutei, `unmatched` pentru căi necunoscute și `OTHER` pentru metode necunoscute, pentru a limita numărul de serii.
-- `sentinelcore_security_events_total` este incrementat după commit-ul fiecărui security event.
-- `/metrics` cere token Bearer doar dacă `METRICS_TOKEN` este setat; tokenul este comparat în timp constant.
-- Fiecare cerere are un request id, refolosit din `X-Request-ID` doar dacă este sigur, altfel generat.
-- Logurile sunt structurate, în format `json` sau `text`, configurabil prin `LOG_FORMAT`.
-- Access log-ul uvicorn este dezactivat; middleware-ul scrie un singur log pe cerere.
-- `/health` este liveness, iar `/health/ready` este readiness și verifică baza de date.
-- Prometheus și Grafana rulează în Docker Compose cu host networking, ascultând doar pe `127.0.0.1`.
-- Configurația Prometheus și Grafana este versionată în `infra/`, iar dashboard-ul este provizionat automat.
-- Imaginile Docker pentru Prometheus și Grafana sunt fixate la versiuni exacte.
-- `sub` din JWT este id-ul userului, ca string; emailul nu mai identifică userul în token.
-- Token-ul conține și verifică `iss`, `aud`, `jti`, `iat` și `exp`; toate claim-urile sunt obligatorii.
-- `SECRET_KEY` trebuie să aibă cel puțin 32 de bytes, iar `ALGORITHM` acceptă doar HS256, HS384 sau HS512.
-- Fiecare login creează o sesiune în `user_sessions`; `jti` din token este id-ul sesiunii.
-- Logout-ul revocă sesiunea curentă; `logout-all` revocă toate sesiunile userului.
-- Userii își pot lista și revoca propriile sesiuni; sesiunile altor useri răspund `404`.
-- Dezactivarea unui cont revocă toate sesiunile lui, în același commit; reactivarea nu le restaurează.
-- `/auth/token` oferă login prin formular OAuth2 pentru Swagger UI și folosește aceeași logică de login ca `/auth/login`.
-- Timpii sesiunii și ai token-ului vin din ceasul aplicației, pentru că PyJWT respinge `iat` din viitor.
-- Logout-ul și revocarea sesiunilor sunt doar evenimente de audit (`SESSION_REVOKED`, `ALL_SESSIONS_REVOKED`).
-- Sesiunile expirate sau revocate sunt păstrate `SESSION_RETENTION_DAYS` zile (implicit 30), apoi șterse; sesiunile active nu sunt șterse niciodată.
-- Curățarea rulează periodic în procesul API (`SESSION_CLEANUP_INTERVAL_MINUTES`, `0` dezactivează) și poate fi rulată manual cu `python -m app.cli cleanup-sessions`.
-- O curățare eșuată este logată și reîncercată la următorul interval.
-- Adminii pot revoca toate sesiunile unui user prin `DELETE /admin/users/{user_id}/sessions`, cu aceleași reguli ierarhice ca schimbarea statusului.
-- Regulile ierarhice de administrare a conturilor sunt centralizate în `_ensure_can_manage_account()`.
-- Revocarea de către admin creează audit log `ALL_SESSIONS_REVOKED` și security event `USER_SESSIONS_REVOKED`.
-- Migrațiile deja aplicate pe baza de development nu sunt modificate; schimbările noi primesc o migrație nouă.
-- Tipurile din backend sunt verificate integral cu Pyright, nu doar în fișierele deschise în Pylance.
-- Frontend-ul se autentifică prin cookie httpOnly `sentinelcore_session`, setat de `POST /auth/session`; token-ul nu apare în body și nu este accesibil din JavaScript.
-- Cookie-urile de autentificare au `Secure`, `SameSite=Strict` și `Path=/`; `Secure` poate fi dezactivat prin `AUTH_COOKIE_SECURE` doar pentru gazde HTTP de test.
-- Cererile POST/PUT/PATCH/DELETE autentificate prin cookie cer header-ul `X-CSRF-Token`, egal cu un HMAC al id-ului sesiunii (signed double-submit).
-- Cererile cu `Authorization: Bearer` nu cer token CSRF; header-ul are prioritate față de cookie.
-- `/auth/session` acceptă doar JSON, ceea ce blochează login CSRF prin formulare HTML.
-- Logout-ul șterge și cookie-urile de autentificare.
-- În development, frontend-ul folosește proxy-ul Vite pentru `/api`, deci frontend-ul și API-ul sunt pe aceeași origine, fără CORS.
-- Frontend-ul folosește direcția vizuală "consolă de operațiuni": temă întunecată implicită, cu variantă luminoasă completă, interfață densă, IBM Plex Sans și IBM Plex Mono.
-- Paleta aplicației este "Electric": albastru electric pe bleumarin, generată în OKLCH, cu contrast WCAG AA și culori de grafic validate pentru daltonism.
-- Culorile de severitate sunt separate de culoarea de brand și apar mereu cu text și formă.
-- Aplicația are două perspective: "Contul meu" pentru orice utilizator și "Organizația" pentru `admin`, `owner` și `security_analyst`.
-- Componentele sunt construite cu Tailwind CSS și shadcn/ui; culorile temei sunt variabile CSS.
-- Rutarea folosește React Router, iar datele de la server TanStack Query.
-- Interfața este în română (implicit) și engleză, prin i18next; traducerile în engleză sunt tipate după cele în română.
-- Fonturile sunt servite din aplicație prin `@fontsource`, fără cereri către Google Fonts.
-- Parametrul `next` de după login acceptă doar căi interne, pentru a preveni open redirect.
-- Orice răspuns `401` primit în timpul folosirii trimite utilizatorul la login; logout-ul golește tot cache-ul de date.
-- CI-ul frontend rulează `npm audit`, lint, verificarea tipurilor, testele și build-ul.
-- Orice utilizator își vede propriul istoric de securitate prin `GET /users/me/activity`; endpoint-ul nu acceptă filtre de identitate.
-- Istoricul propriu include încercările de login eșuate sau blocate care conțin doar emailul contului, dar numai pe cele de după crearea contului.
-- Istoricul propriu nu conține câmpul `message`; frontend-ul descrie evenimentele după tip, în limba interfeței.
-- Citirea propriului istoric nu este auditată.
-- `DELETE /users/me/sessions` deconectează celelalte dispozitive și păstrează sesiunea curentă; are audit log propriu, `OTHER_SESSIONS_REVOKED`.
-- Alembic citește `DATABASE_URL` din setările aplicației; `alembic.ini` nu conține nicio conexiune.
-- În interfață, "alertele" sunt evenimentele cu severitate `warn` sau `incident`.
-- Acțiunile care închid sesiuni cer confirmare în pagină, nu prin dialoguri.
-- Dispozitivul unei sesiuni este dedus din `User-Agent` și prezentat doar ca indiciu.
-- Filtrele paginilor sunt păstrate în adresă, ca să poată fi trimise ca link.
-- Evenimentele de securitate și audit logs au `target_user_id`: `user_id` este actorul, `target_user_id` contul asupra căruia s-a acționat.
-- Utilizatorul afectat vede în istoricul propriu acțiunile făcute asupra contului său (`as_target: true`), fără adresa IP și fără identitatea operatorului.
-- `GET /admin/users` folosește paginare prin cursor, ca listele de evenimente; paginarea prin `offset` a fost eliminată.
-- Căutarea utilizatorilor (`q`) este un subșir din email sau username, iar `%` și `_` sunt tratate ca text.
-- `security_analyst` poate citi utilizatorii și istoricul lor, dar nu îi poate modifica.
-- Citirile de utilizatori sunt doar evenimente de audit (`USERS_VIEWED`), nu security events.
-- Operatorii văd istoricul unui cont prin `GET /admin/users/{id}/activity`, același set de evenimente pe care îl vede proprietarul, cu toate câmpurile; consultarea este auditată.
-- `GET /security/summary` oferă numere agregate pentru prezentarea organizației și nu este auditat.
-- Perspectiva "Organizația" se livrează în patru PR-uri mici: backend, Evenimente + Audit, Utilizatori, Prezentare.
-- `security_analyst` poate izola conturi: închiderea tuturor sesiunilor și blocarea temporară a login-ului; dezactivarea rămâne la `admin` și `owner`.
-- Acțiunile de izolare se pot aplica oricărui cont, mai puțin owner-ului și propriului cont; orice operator poate izola un admin, pentru că acțiunile sunt reversibile.
-- Blocarea temporară durează între 1 oră și 7 zile, închide sesiunile, expiră singură și creează un eveniment de severitate `incident`.
-- Doar `admin` și `owner` pot ridica o blocare înainte de expirare.
-- Închiderea sesiunilor și blocarea cer un motiv (3-500 caractere), salvat în audit log și în security event; utilizatorul afectat nu îl vede.
-- La login, blocarea este verificată după parolă și nu dezvăluie când se termină.
-- Închiderea sesiunilor unui user de către un operator este `POST /admin/users/{id}/revoke-sessions`, pentru că acțiunea are acum un body.
-- Paginile de evenimente și audit au filtrele în adresă; intervalul implicit este de 7 zile.
-- Căutarea din jurnale primește un email sau o adresă IP exactă, într-un singur câmp; IPv4 și valorile cu `:` merg la filtrul de IP.
-- Jurnalele organizației nu se reîncarcă singure la revenirea în fereastră, pentru că fiecare încărcare este auditată; reîncărcarea este explicită.
-- Detaliile unei înregistrări se deschid într-un panou lateral, cu acțiuni care restrâng lista la contul, ținta sau adresa IP din înregistrare.
-- În perspectiva organizației, evenimentele sunt descrise neutru, nu la persoana a doua.
-- Paginile organizației se încarcă la cerere, separat de restul aplicației.
-- Listele de evenimente sunt ordonate după `created_at`, apoi după `id`; cursorul rămâne `before_id`, iar serverul compară perechea `(created_at, id)`.
-- Barele de derulare folosesc culorile temei, independent de suportul browserului pentru `color-scheme`.
-- Repository-ul devine public, cu licența MIT.
-- PostgreSQL din `docker-compose.yml` ascultă doar pe `127.0.0.1`, ca Prometheus și Grafana.
-- Workflow-urile CI au doar permisiunea `contents: read`.
-- Commit-urile noi folosesc adresa noreply de la GitHub; istoricul existent nu este rescris.
+- The audit and security event identity fields record the actor; the message records the target ID and the old and new roles.
+- A real role change and both event records share one commit, with a rollback when the commit fails. The existing event helpers commit on their own and are not used for this transaction.
+- An allowed request for the role the user already has returns 200 without change events. The owner restrictions still apply before this shortcut.
+- Phase 3 reuses the existing event categories and needs no schema migration.
+- Local verification on 2026-10-06 confirmed 29 passing PostgreSQL tests, passing Ruff checks and no Bandit security findings. Bandit emitted warnings about an existing `nosec` comment.
+- Transaction-failure testing and Phase 3 CI validation remain pending. *Superseded: the transaction-failure test came with phase 4.*
+
+## Hardening
+
+- `migrations/env.py` imports the model modules explicitly, with `# noqa: F401`, so `--autogenerate` sees the complete schema.
+- `python -m alembic check` is used to confirm the models and the DB schema match.
+- Users with `is_active = False` get `403 Inactive user` at login and on every authenticated endpoint.
+- A login by an inactive user is recorded as `LOGIN_FAILED`, with `WARN` severity.
+- For an unknown email, login checks the password against a dummy hash, so the response time does not reveal whether the account exists.
+- Duplicate registrations are also caught at the unique index; `UniqueViolation` becomes `400`, not `500`.
+- The development tools are in the `dev` extra; development and CI install with `pip install -e ".[dev]"`.
+- Dependencies have minimum versions; `ruff` is pinned exactly, to avoid unexpected changes in CI.
+- CI and Docker Compose use the same PostgreSQL version, `postgres:17`.
+
+## Admin user management - phase 4: status
+
+- Phase 4 introduces `PATCH /admin/users/{user_id}/status` with the body `{"is_active": bool}`, consistent with the role change endpoint.
+- Activation and deactivation are hierarchical: `admin` manages `user` and `security_analyst` accounts, and `owner` also manages `admin` accounts.
+- Nobody can change their own status, and an `owner`'s status cannot be changed.
+- `is_active` is validated with `StrictBool`, with no implicit conversion from strings or numbers.
+- Administrative changes to users have dedicated event types: `USER_ROLE_CHANGED`, `USER_ACTIVATED`, `USER_DEACTIVATED`.
+- The phase 3 role change now uses `USER_ROLE_CHANGED` instead of `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`.
+- New enum values are added by hand-written migrations; `--autogenerate` does not detect changes to an enum's values.
+- The downgrade for enum values recreates the PostgreSQL type and remaps the rows to the earlier generic types.
+- The user change and its events are saved in a single commit, through `_commit_user_change()`.
+
+## Input validation
+
+- Usernames have 3-50 characters, only `A-Z`, `a-z`, `0-9`, `_`, `.`, `-`, and are stored in lowercase.
+- Emails are stored and looked up in lowercase.
+- Registration passwords have 12-128 characters, with no composition rules.
+- Login only limits the password to at most 128 characters, for compatibility with existing accounts.
+- The input rules are reusable `Annotated` types in `app/schemas/user.py`.
+- Existing emails and usernames are lowercased by a migration; conflicts stop the migration and are resolved by hand.
+
+## Brute-force detection
+
+- 5 failed logins within 15 minutes for the same email block login for that email for 15 minutes; the values are configurable in `.env`.
+- The block is per email, not per email + IP, so it cannot be bypassed by changing IP; the risk of temporarily locking out a victim is accepted.
+- While the block lasts, the response is `429` with `Retry-After`, and the password is not checked.
+- Unknown emails are blocked the same way, so the block does not reveal which accounts exist.
+- The block state is derived from `security_events`, with no separate tables or columns.
+- Time comparisons for the block use the database clock.
+- The incident uses `BRUTE_FORCE_DETECTED` with `INCIDENT` severity; the audit log uses `LOGIN_LOCKED`.
+- Attempts made during the block are recorded as `LOGIN_BLOCKED`, with `WARN` severity.
+
+## Client IP address
+
+- Every audit log and security event records `ip_address`, from `request.client.host`; `X-Forwarded-For` is not read directly.
+- Behind a reverse proxy, the real IP comes from uvicorn's `--proxy-headers` and `--forwarded-allow-ips`.
+- In tests, the connections are recreated after the schema is recreated, to avoid prepared statements tied to dropped enum types.
+
+## Log pagination and filters
+
+- `/admin/audit-logs` and `/security/events` return `{"items": [...], "next_cursor": ...}`, with cursor pagination (`before_id`).
+- Events are ordered by descending `id`, the same key as the cursor. *Superseded: see [Organization events and audit pages](#organization-events-and-audit-pages).*
+- The shared filters are `user_id`, `email`, `ip_address`, `since`, `until`; audit logs add `event_type`, and security events add `event_type` and `severity`.
+- The time range is half-open: `since <= created_at < until`.
+- Dates without a time zone are rejected with `422`.
+- Unknown query parameters are rejected with `422`, so a misspelled filter is never silently ignored.
+- Reading the logs is audited with `AUDIT_LOGS_VIEWED` and `SECURITY_EVENTS_VIEWED`, in the audit log only, not as security events.
+- The shared filtering and pagination logic is in `fetch_event_page()`.
+
+## Observability
+
+- Metrics are exposed in Prometheus format at `/metrics`, using `prometheus-client`.
+- Metric labels use the route template, `unmatched` for unknown paths and `OTHER` for unknown methods, to bound the number of series.
+- `sentinelcore_security_events_total` is incremented after each security event is committed.
+- `/metrics` requires a Bearer token only when `METRICS_TOKEN` is set; the token is compared in constant time.
+- Every request has a request id, reused from `X-Request-ID` only when it is safe, generated otherwise.
+- Logs are structured, in `json` or `text` format, configurable with `LOG_FORMAT`.
+- The uvicorn access log is disabled; the middleware writes one log line per request.
+- `/health` is liveness, and `/health/ready` is readiness and checks the database.
+- Prometheus and Grafana run in Docker Compose with host networking, listening only on `127.0.0.1`.
+- The Prometheus and Grafana configuration is versioned in `infra/`, and the dashboard is provisioned automatically.
+- The Prometheus and Grafana Docker images are pinned to exact versions.
+
+## JWT and sessions
+
+- The JWT `sub` is the user's id, as a string; the email no longer identifies the user in the token.
+- The token contains and verifies `iss`, `aud`, `jti`, `iat` and `exp`; every claim is required.
+- `SECRET_KEY` must be at least 32 bytes, and `ALGORITHM` accepts only HS256, HS384 or HS512.
+- Every login creates a session in `user_sessions`; the token's `jti` is the session id.
+- Logout revokes the current session; `logout-all` revokes all of the user's sessions.
+- Users can list and revoke their own sessions; other users' sessions answer `404`.
+- Deactivating an account revokes all its sessions in the same commit; reactivation does not restore them.
+- `/auth/token` offers an OAuth2 form login for Swagger UI and uses the same login logic as `/auth/login`.
+- Session and token times come from the application clock, because PyJWT rejects an `iat` in the future.
+- Logout and session revocation are audit events only (`SESSION_REVOKED`, `ALL_SESSIONS_REVOKED`).
+
+## Session cleanup and admin revocation
+
+- Expired or revoked sessions are kept for `SESSION_RETENTION_DAYS` days (30 by default), then deleted; active sessions are never deleted.
+- The cleanup runs periodically in the API process (`SESSION_CLEANUP_INTERVAL_MINUTES`, `0` disables it) and can be run by hand with `python -m app.cli cleanup-sessions`.
+- A failed cleanup is logged and retried at the next interval.
+- Admins can revoke all of a user's sessions through `DELETE /admin/users/{user_id}/sessions`, with the same hierarchical rules as status changes. *Superseded: see [Account containment](#account-containment).*
+- The hierarchical account management rules are centralized in `_ensure_can_manage_account()`.
+- Revocation by an admin creates an `ALL_SESSIONS_REVOKED` audit log and a `USER_SESSIONS_REVOKED` security event.
+- Migrations already applied to the development database are never edited; new changes get a new migration.
+- Backend types are checked in full with Pyright, not only in the files open in Pylance.
+
+## Browser authentication
+
+- The frontend authenticates with the httpOnly `sentinelcore_session` cookie, set by `POST /auth/session`; the token is not in the body and is not reachable from JavaScript.
+- The authentication cookies have `Secure`, `SameSite=Strict` and `Path=/`; `Secure` can be disabled with `AUTH_COOKIE_SECURE`, only for plain-HTTP test hosts.
+- POST/PUT/PATCH/DELETE requests authenticated by cookie require the `X-CSRF-Token` header, equal to an HMAC of the session id (signed double-submit).
+- Requests with `Authorization: Bearer` need no CSRF token; the header takes precedence over the cookie.
+- `/auth/session` accepts only JSON, which blocks login CSRF through HTML forms.
+- Logout also clears the authentication cookies.
+- In development, the frontend uses the Vite proxy for `/api`, so the frontend and the API share an origin, with no CORS.
+
+## Frontend foundation
+
+- The frontend follows the "operations console" visual direction: dark theme by default with a complete light variant, a dense interface, IBM Plex Sans and IBM Plex Mono.
+- The app's palette is "Electric": electric blue on navy, generated in OKLCH, with WCAG AA contrast and chart colors checked for color blindness.
+- Severity colors are separate from the brand color and always come with text and a shape.
+- The app has two scopes: "My account" for every user and "Organization" for `admin`, `owner` and `security_analyst`.
+- Components are built with Tailwind CSS and shadcn/ui; the theme colors are CSS variables.
+- Routing uses React Router, and server data uses TanStack Query.
+- The interface is in Romanian (by default) and English, through i18next; the English translations are typed after the Romanian ones.
+- Fonts are served by the app through `@fontsource`, with no requests to Google Fonts.
+- The `next` parameter after login accepts only internal paths, to prevent open redirects.
+- Any `401` received during use sends the user to login; logout clears the whole data cache.
+- Frontend CI runs `npm audit`, lint, the type check, the tests and the build.
+
+## My account
+
+- Every user sees their own security history through `GET /users/me/activity`; the endpoint accepts no identity filters.
+- The personal history includes failed or blocked login attempts that carry only the account's email, but only those after the account was created.
+- The personal history has no `message` field; the frontend describes events by type, in the interface language.
+- Reading one's own history is not audited.
+- `DELETE /users/me/sessions` signs out the other devices and keeps the current session; it has its own audit log, `OTHER_SESSIONS_REVOKED`.
+- Alembic reads `DATABASE_URL` from the application settings; `alembic.ini` holds no connection.
+- In the interface, "alerts" are the events with `warn` or `incident` severity.
+- Actions that close sessions ask for confirmation in the page, not through dialogs.
+- A session's device is inferred from `User-Agent` and shown only as a hint.
+- Page filters are kept in the address, so they can be shared as a link.
+
+## Organization API
+
+- Security events and audit logs have `target_user_id`: `user_id` is the actor, `target_user_id` is the account that was acted on.
+- The affected user sees the actions taken on their account in their own history (`as_target: true`), without the IP address and without the operator's identity.
+- `GET /admin/users` uses cursor pagination, like the event lists; `offset` pagination was removed.
+- The user search (`q`) is a substring of the email or username, and `%` and `_` are treated as text.
+- `security_analyst` can read users and their history, but cannot change them.
+- Reading users is an audit event only (`USERS_VIEWED`), not a security event.
+- Operators see an account's history through `GET /admin/users/{id}/activity`, the same events its owner sees, with every field; reading it is audited.
+- `GET /security/summary` provides aggregate counts for the organization overview and is not audited.
+- The "Organization" scope ships in four small PRs: backend, Events + Audit, Users, Overview.
+
+## Account containment
+
+- `security_analyst` can contain accounts: close all their sessions and temporarily lock their login; deactivation stays with `admin` and `owner`.
+- Containment applies to any account except the owner and one's own; any operator can contain an admin, because the actions are reversible.
+- A temporary lock lasts between 1 hour and 7 days, closes the sessions, expires on its own and creates an `incident` severity event.
+- Only `admin` and `owner` can lift a lock before it expires.
+- Closing sessions and locking require a reason (3-500 characters), stored in the audit log and the security event; the affected user does not see it.
+- At login, the lock is checked after the password and does not reveal when it ends.
+- An operator closes a user's sessions with `POST /admin/users/{id}/revoke-sessions`, because the action now has a body.
+
+## Organization events and audit pages
+
+- The events and audit pages keep their filters in the address; the default range is 7 days.
+- The log search takes an exact email or IP address, in a single field; IPv4 and values containing `:` go to the IP filter.
+- The organization logs do not reload on their own when the window regains focus, because every load is audited; reloading is explicit.
+- A record's details open in a side panel, with actions that narrow the list to the record's account, target or IP address.
+- In the organization scope, events are described neutrally, not in the second person.
+- The organization pages load on demand, separately from the rest of the app.
+- Event lists are ordered by `created_at`, then by `id`; the cursor stays `before_id`, and the server compares the `(created_at, id)` pair.
+- Scrollbars use the theme colors, regardless of the browser's support for `color-scheme`.
+
+## Public repository
+
+- The repository becomes public, under the MIT license.
+- PostgreSQL in `docker-compose.yml` listens only on `127.0.0.1`, like Prometheus and Grafana.
+- The CI workflows have only the `contents: read` permission.
+- New commits use the GitHub noreply address; the existing history is not rewritten.
+- The documentation is in English from here on; the earlier Romanian documentation was translated.

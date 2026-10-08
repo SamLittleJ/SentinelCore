@@ -1,16 +1,16 @@
 # 01 - Backend Foundation
 
-## Scop
-Acest document descrie fundatia initiala a backend-ului SentinelCore si primele decizii tehnice luate pentru a porni proiectul corect.
+## Purpose
+This document describes the initial foundation of the SentinelCore backend and the first technical decisions made to start the project on the right footing.
 
 ---
 
-## Ce a fost realizat
+## What was done
 
-### 1. Structura initiala a backend-ului
-A fost creat directorul `backend/`, separat de frontend, pentru a pastra clar delimitata partea de API si logica server-side.
+### 1. Initial backend structure
+The `backend/` directory was created, separate from the frontend, to keep the API and the server-side logic clearly delimited.
 
-Structura actuala relevanta:
+Current relevant structure:
 
 ```text
 backend/
@@ -28,152 +28,152 @@ backend/
 
 ---
 
-### 2. Virtual environment dedicat backend-ului
-A fost folosit un mediu virtual Python separat in `backend/.venv`.
+### 2. A dedicated virtual environment for the backend
+A separate Python virtual environment is used, in `backend/.venv`.
 
-Motiv:
-- izolarea dependentelor backend-ului
-- evitarea conflictelor cu Python-ul global din sistem
-- control mai bun aspura pachetelor instalate
+Reasons:
+- isolating the backend's dependencies
+- avoiding conflicts with the system's global Python
+- better control over the installed packages
 
 ---
 
-### 3. Configurarea proiectului Python prin **pyproject.toml**
-Backend-ul a fost initializat ca proiect Python modern folosind **pyproject.toml**.
+### 3. Configuring the Python project with **pyproject.toml**
+The backend was initialized as a modern Python project using **pyproject.toml**.
 
-In acest fisier au fost definite:
-- build system-ul
-- numele proiectului
-- versiunea
-- versiunea minima Python
-- dependentele minime initiale
+This file defines:
+- the build system
+- the project name
+- the version
+- the minimum Python version
+- the initial minimal dependencies
 
-Dependente instalate in aceasta etapa:
+Dependencies installed at this stage:
 - fastapi
 - uvicorn[standard]
 
 ---
 
-### 4. Instalarea backend-ului in mod editable
-A fost rulat:
+### 4. Installing the backend in editable mode
+Commands run:
 - `pip install -e .`
-- `python -m pip install -e`
+- `python -m pip install -e .`
 
-Scop:
-- instalarea proiectului local in mediul virtual
-- posibilitatea de a lucra iterativ fara reinstalari complete la fiecare modificare
-
----
-
-### 5. Prima aplicatie FastAPI functionala
-A fost creat fisierul `app/main.py` si aplicatia FastAPI minima.
-
-Initial, endpoint-ul `/health` a fost definit direct in `main.py`, apoi a fost mutat intr-un router separat pentru a mentine o structura mai curata.
+Purpose:
+- installing the local project into the virtual environment
+- being able to work iteratively, without a full reinstall after every change
 
 ---
 
-### 6. Separarea rutelor
-A fost introdusa o structura minima pentru routere:
-- `app/main.py` - punct de intrat al aplicatiei
-- `app/api/routes/health.py` - router dedicat pentru health check
+### 5. The first working FastAPI application
+`app/main.py` was created, with a minimal FastAPI application.
 
-Aceasta separare pregateste proiectul pentru extinderea viitoare fara aglomerarea fisierului principal.
+At first, the `/health` endpoint was defined directly in `main.py`; it was then moved to a separate router to keep the structure clean.
 
 ---
 
-### 7. Health endpoint functional
-A fost implementat endpoint-ul:
+### 6. Separating the routes
+A minimal router structure was introduced:
+- `app/main.py` - the application's entry point
+- `app/api/routes/health.py` - a dedicated router for the health check
+
+This separation prepares the project to grow without crowding the main file.
+
+---
+
+### 7. A working health endpoint
+The endpoint implemented:
 - GET /health
-Raspunsul returnat:
+The response returned:
 - {"status": "ok"}
 
-Acest endpoint confirma ca:
-- aplicatia porneste
-- serverul raspunde corect
-- structura minima a backend-ului este functionala
+This endpoint confirms that:
+- the application starts
+- the server responds correctly
+- the minimal backend structure works
 
 ---
 
-### 8. Pornirea locala a backend-ului
-Backend-ul a fost pornit local cu comanda:
+### 8. Starting the backend locally
+The backend was started locally with:
 - python -m uvicorn app.main:app --reload
-Aceasta este comanda standard de lucru local folosita in proiect in acest moment.
+This is the project's standard local command at this point.
 
 ---
 
-## Probleme intalinte si rezolvari
+## Problems encountered and solutions
 
-### Problema 1: **pyproject.toml** invalid
-La prima incercare de instalare a proiectului a aparut o eroare de tip TOML parse error.
-Cauza:
-- sintaxa invalida in `pyproject.toml` din cauza unei ghilimele lipsa
-Rezolvare:
-- fisierul a fost corectat si validat
-- instalarea editable a functionat dupa corectare
-
----
-
-### Problema 2: **uvicorn** rulat din context gresit
-La prima rulare a serverului aparea eroarea `ModuleNotFoundError: No module named 'fastapi'`, desi FastAPI era instalat in virtual environment.
-Cauza:
-- comanda `uvicorn...` folosea executabilul gresit / contextul gresit din sistem
-Rezolvare:
-- rularea a fost facuta cu: `python -m uvicorn app.main:app --reload`
-- astfel s-a folosit interpreterul Python din `.venv`
+### Problem 1: invalid **pyproject.toml**
+The first attempt to install the project failed with a TOML parse error.
+Cause:
+- invalid syntax in `pyproject.toml`, because of a missing quote
+Solution:
+- the file was corrected and validated
+- the editable install worked after the fix
 
 ---
 
-## Ce a fost inteles in aceasta etapa
-In aceasta etapa au fost clarificate urmatoarele concepte:
-- rolul fisierului `pyproject.toml`
-- diferenta dintre Python global si Python din virtual environment
-- importanta rularii tool-urilor Python prin `python -m...`
-- separarea dintre punctul de intrare al aplicatiei si routerele dedicate
-- rolul unui endpoint de health check in validarea fundatiei backend-ului
+### Problem 2: **uvicorn** run from the wrong context
+The first server run failed with `ModuleNotFoundError: No module named 'fastapi'`, even though FastAPI was installed in the virtual environment.
+Cause:
+- the `uvicorn...` command used the wrong executable / the wrong system context
+Solution:
+- the server was run with `python -m uvicorn app.main:app --reload`
+- this way, the Python interpreter from `.venv` is used
 
 ---
 
-## Stare la finalul etapei
-La finalul acestei etape, backend-ul SentinelCore are:
-- proiect Python configurat
-- dependente minime instalate
-- mediu virtual functional
-- aplicatie FastAPI functionala
-- router separat pentru `/health`
-- pornire locala validata
+## What was learned at this stage
+This stage clarified the following concepts:
+- the role of `pyproject.toml`
+- the difference between the global Python and the virtual environment's Python
+- the importance of running Python tools through `python -m...`
+- the separation between the application's entry point and dedicated routers
+- the role of a health check endpoint in validating the backend foundation
 
 ---
 
-## Pasul urmator
-Pasul urmator dupa aceasta fundatie este configurarea conexiunii la baza de date si definirea primului model real al aplicatiei.
+## State at the end of the stage
+At the end of this stage, the SentinelCore backend has:
+- a configured Python project
+- the minimal dependencies installed
+- a working virtual environment
+- a working FastAPI application
+- a separate router for `/health`
+- a validated local startup
 
-### 9. PostgreSQL local prin Docker Compose
-A fost consigurat un serviciu PostgreSQL local folosind Docker Compose.
+---
 
-Scop:
-- mediu reproductibil
-- rulare locala controlata
-- fundatie pentru dezvoltarea backend-ului si testarea modelelor
+## Next step
+The next step after this foundation is configuring the database connection and defining the application's first real model.
 
-Baza de date locala a fost pornita si verificata cu succes.
+### 9. Local PostgreSQL with Docker Compose
+A local PostgreSQL service was configured with Docker Compose.
 
-### 10. Test de conexiune reala la baza de date
-Conexiunea reala la PostgreSQL a fost validata prin executarea unei interogari simple:
+Purpose:
+- a reproducible environment
+- a controlled local setup
+- a foundation for developing the backend and testing the models
+
+The local database was started and checked successfully.
+
+### 10. Testing a real database connection
+The real connection to PostgreSQL was validated by running a simple query:
 
 ```sql
 SELECT 1
 ```
 
-Rezultatul a confirmat:
-- server PostgreSQL functional
-- URL de conexiune valid
-- driver **psycopg** functional
-- conectarea corecta prin SQLAlchemy
+The result confirmed:
+- a working PostgreSQL server
+- a valid connection URL
+- a working **psycopg** driver
+- a correct connection through SQLAlchemy
 
-### 11. Primul model ORM: **User**
-A fost introdus primul model real al aplicatiei: **User**
+### 11. The first ORM model: **User**
+The application's first real model was introduced: **User**
 
-Campuri definite:
+Fields defined:
 - id
 - username
 - email
@@ -181,116 +181,116 @@ Campuri definite:
 - is_active
 - created_at
 - updated_at
-Constrangeri importante:
-- username unic
-- email unic
-- campuri obligatorii pentru datele esentiale
-Acest model reprezinta prima entitate centrala a sistemului SentinelCore
+Important constraints:
+- unique username
+- unique email
+- required fields for the essential data
+This model is the first central entity of the SentinelCore system.
 
-### 12. Crearea primei tabele in baza de date
-Tabela **users** a fost creata in PostgreSQL folosind:
+### 12. Creating the first database table
+The **users** table was created in PostgreSQL with:
 ```python
 Base.metadata.create_all(bind=engine)
 ```
-Crearea a fost verificate direct in PostgreSQL cu:
+The result was checked directly in PostgreSQL with:
 - \dt
 - \d users
-Rezultatul a confirmat existenta tabelei si a coloanelor definite in model.
+It confirmed that the table and the columns defined in the model exist.
 
-### 13. Problema intalnita: importuri inconsistente
-La prima incercare, tabela **users** nu a fost creata, desi modelul exista.
-Cauza:
-- proiectul folosea importuri inconsistente:
-  - unele pornind din **app...**
-  - altele pornind direct din **core...* sau **models...**
-Aceasta a dus la incarcarea separata a modulelor si la folosirea unor instante diferite de **Base**, ceea ce a facut ca **create_all()** sa nu vada modelul **User**.
-Rezolvare:
-- standardizarea importurilor pe varianta absoluta pornind din **app**
-- exemplu:
+### 13. Problem encountered: inconsistent imports
+On the first attempt, the **users** table was not created, even though the model existed.
+Cause:
+- the project used inconsistent imports:
+  - some starting from **app...**
+  - others starting directly from **core...** or **models...**
+This loaded the modules separately and produced different instances of **Base**, so **create_all()** did not see the **User** model.
+Solution:
+- imports were standardized on the absolute form, starting from **app**
+- for example:
   - from app.core.database import Base
   - from app.models.user import User
-Aceasta decizie trebuie pastrata consecvent in tot backend-ul
+This decision must be kept consistently across the whole backend.
 
-### 14. Stare actuala a backend-ului
-In acest moment backend-ul are:
-- aplicatie FastAPI functionala
-- health check functional
-- configurare prin .env
-- conexiune la PostgreSQL functionala
-- strat ORM initial
-- model User
-- tabea users creata si validata
+### 14. Current state of the backend
+At this point the backend has:
+- a working FastAPI application
+- a working health check
+- configuration through .env
+- a working PostgreSQL connection
+- an initial ORM layer
+- the User model
+- the users table, created and validated
 
-## Extinderea fundatiei backend: schemas, services si primul flux real de autentificare
+## Extending the backend foundation: schemas, services and the first real authentication flow
 
-### 15. Introducerea schemelor Pydantic pentru user
-A fost creat directorul `app/schemas/` si fisierul `app/schemas/user.py`.
+### 15. Pydantic schemas for the user
+The `app/schemas/` directory and `app/schemas/user.py` were created.
 
-Au fost definite doua scheme initiale:
-- `UserCreate` - pentru input-ul necesar la crearea unui utilizator
-- `UserRead` - pentru output-ul trimis catre client
+Two initial schemas were defined:
+- `UserCreate` - the input needed to create a user
+- `UserRead` - the output sent to the client
 
-Scopul acestei separari:
-- diferentierea clara intre modelul ORM si contractul API
-- control asupra datelor acceptate in request
-- control asupra datelor returnate in response
-- excluderea explicita a campului `hashed_password` din raspunsurile API
+Purpose of this separation:
+- a clear difference between the ORM model and the API contract
+- control over the data accepted in requests
+- control over the data returned in responses
+- explicitly excluding the `hashed_password` field from API responses
 
-### 16. Introducerea dependentei pentru sesiunea DB
-A fost creat fisierul `app/api/deps.py`
-A fost introdusa functia `hash_password()`, bazata pe `pwdlib`.
+### 16. A dependency for the DB session, and password hashing
+`app/api/deps.py` was created, with the `get_db()` dependency that provides the database session to endpoints.
+`app/core/security.py` got the `hash_password()` function, based on `pwdlib`.
 
-Scop:
-- parolele nu sunt stocate niciodata in forma raw
-- hashing-ul este centralizat intr-un loc dedicat
-- logica de securitate nu este imprastiata prin endpoint-uri
+Purpose:
+- passwords are never stored in raw form
+- hashing is centralized in one dedicated place
+- the security logic is not scattered across endpoints
 
-### 17. Introducerea stratului de servicii pentru user
-A fost creat directorul `app/services` si fisierul `app/services/user_service.py`.
+### 17. A service layer for the user
+The `app/services` directory and `app/services/user_service.py` were created.
 
-Au fost definite functiile:
+Functions defined:
 - `get_user_by_email()`
 - `get_user_by_username()`
 - `create_user()`
 
-Scopul stratului `services`:
-- mutarea logicii de business in afara endpoint-urilor
-- separarea clara dintre ruta, acces DB si reguli de business
-- pregatirea arhitecturii pentru extinderea ulterioara
+Purpose of the `services` layer:
+- moving business logic out of the endpoints
+- a clear separation between the route, DB access and business rules
+- preparing the architecture for later growth
 
-### 18. Implementarea primului endpoint real: register
-A fost creat fisierul `app/api/routes/auth.py`.
+### 18. The first real endpoint: register
+`app/api/routes/auth.py` was created.
 
-A fost introdus endpoint-ul:
+The endpoint introduced:
 
 ```http
 POST /auth/register
 ```
-Acesta:
-- primeste input de tip `UserCreate`
-- foloseste `get_db()` pentru sesiunea de baza de date
-- verifica existenta unui utilizator cu acelasi email
-- verifica existenta unui utilizator cu acelasi username
-- creeaza utilizatorul daca datele sunt valide si unice
-- returneaza datele utilizatorului prin schema `UserRead`
+It:
+- takes `UserCreate` input
+- uses `get_db()` for the database session
+- checks whether a user with the same email exists
+- checks whether a user with the same username exists
+- creates the user if the data is valid and unique
+- returns the user's data through the `UserRead` schema
 
-### 19. Validarea fluxului de register
-Fluxul de inregistrare a fost testat prin Swagger UI (`/docs`)
-Rezultate confirmate:
-- creare user cu succes -> `201 Created`
-- incercare de creare user duplicat - > `400 Bad Request`
-- endpoint-ul `/health` ramane functional in paralel
-Aceasta confirma primul flux complet end-to-end al backend-ului:
-- request HTTP
-- validare input
-- acces DB
-- logica de business
-- hashing parola
-- persistenta in PostgreSQL
-- response model controlat
+### 19. Validating the register flow
+The registration flow was tested through Swagger UI (`/docs`).
+Confirmed results:
+- user created successfully -> `201 Created`
+- attempt to create a duplicate user -> `400 Bad Request`
+- the `/health` endpoint keeps working alongside
+This confirms the backend's first complete end-to-end flow:
+- HTTP request
+- input validation
+- DB access
+- business logic
+- password hashing
+- persistence in PostgreSQL
+- a controlled response model
 
-### 20. Structura actuala relevanta a backend-ului
-```
+### 20. Current relevant backend structure
+```text
 backend/app/
 ├── api/
 │   ├── deps.py
@@ -310,287 +310,287 @@ backend/app/
 └── main.py
 ```
 
-### 21. Stare actuala a backend-ului
-In acest moment backend-ul are:
-- aplicatie FastAPI functionala
-- endpoint `/health`
-- enpoint `POST /auth/register`
-- configurare prin `.env`
-- conexiune PostgreSQL functionala
-- model ORM `User`
-- tabela `users` creata si validata
-- hashing de parola
-- strat `schemas`
-- strat `services`
-- prim flux real de creare utilizator validat
+### 21. Current state of the backend
+At this point the backend has:
+- a working FastAPI application
+- the `/health` endpoint
+- the `POST /auth/register` endpoint
+- configuration through `.env`
+- a working PostgreSQL connection
+- the `User` ORM model
+- the `users` table, created and validated
+- password hashing
+- a `schemas` layer
+- a `services` layer
+- a first real, validated user creation flow
 
-## Extinderea fundatiei backend: login si JWT
+## Extending the backend foundation: login and JWT
 
-### 22. Extinderea securitatii pentru verificarea parolei
-Fisierul `app/core/security.py` a fost extins cu functia `verify_password()`
+### 22. Extending security with password verification
+`app/core/security.py` was extended with the `verify_password()` function.
 
-Scop:
-- compararea unei parole introduse de utilizator cu valoarea hash-uita stocata in baza de date
-- separarea logicii de verificare a parolei de endpoint-uri si servicii
-- pastrarea responsabilitatilor de securitate intr-un singur modul dedicat
-Aceasta functie completeaza `hash_password()` si permite implementarea fluxului de autentificare
+Purpose:
+- comparing a password entered by the user with the hashed value stored in the database
+- keeping password verification separate from endpoints and services
+- keeping the security responsibilities in one dedicated module
+This function complements `hash_password()` and makes the authentication flow possible.
 
-### 23. Introducerea schemei de login
-Fisierul `app/schemas/user.py` a fost extins cu schema `UserLogin`
+### 23. The login schema
+`app/schemas/user.py` was extended with the `UserLogin` schema.
 
-Aceasta defineste datele necesare pentru autentificare:
+It defines the data needed to authenticate:
 - `email`
 - `password`
 
-Scop:
-- separarea clara intre contractul de register si contractul de login
-- validarea input-ului de autentificare prin Pydantic
+Purpose:
+- a clear separation between the register contract and the login contract
+- validating the authentication input with Pydantic
 
-### 24. Introducerea schemei de token
-Fisierul `app/schemas/user.py` a fost extins si cu schema `Token`.
-Aceasta defineste raspunsul endpoint-ului de login:
+### 24. The token schema
+`app/schemas/user.py` was also extended with the `Token` schema.
+It defines the login endpoint's response:
 - `access_token`
 - `token_type`
 
-Scop:
-- standardizarea raspunsului de autentificare
-- pregatirea folosirii token-ului JWT in endpoint-uri protejate ulterior
+Purpose:
+- standardizing the authentication response
+- preparing to use the JWT on protected endpoints later
 
-### 25. Extinderea configuratiei aplicatiei pentru JWT
-Fisierele `.env.example` si `.env` au fost extinse cu setari pentru JWT:
+### 25. Extending the application settings for JWT
+`.env.example` and `.env` were extended with JWT settings:
 - `SECRET_KEY`
 - `ALGORITHM`
 - `ACCESS_TOKEN_EXPIRE_TIME`
-Fisierul `app/core/config.py` a fost actualizat pentru a citi aceste valori
+`app/core/config.py` was updated to read these values.
 
-Scop:
-- configurarea centralizata a mecanismului de emitere token
-- evitarea hardcodarii valorilor de securitate in cod
+Purpose:
+- configuring token issuance in one central place
+- avoiding hardcoded security values in the code
 
-### 26. Generarea token-ului JWT
-Fisierul `app/core/security.py` a fost extins cu functia `create_access_token()`
+### 26. Generating the JWT
+`app/core/security.py` was extended with the `create_access_token()` function.
 
-Aceasta:
-- construieste payload-ul token-ului
-- include claim-ul de `sub`
-- include claim-ul de `exp`
-- semneaza token-ul folosind configuratia din `Settings`
+It:
+- builds the token payload
+- includes the `sub` claim
+- includes the `exp` claim
+- signs the token using the configuration from `Settings`
 
-Scop:
-- emiterea unui token JWT valid dupa autentificare reusita
-- pregatirea bazei pentru endpoint-uri protejate
+Purpose:
+- issuing a valid JWT after a successful authentication
+- preparing the base for protected endpoints
 
-### 27. Introducerea autentificarii in stratul de servicii
-Fisierul `app/services/user_service.py` a fost extins cu functia `authenticate_user()`
+### 27. Authentication in the service layer
+`app/services/user_service.py` was extended with the `authenticate_user()` function.
 
-Aceasta:
-- cauta utilizatorul dupa email
-- verifica parola folosind `verify_password()`
-- returneaza utilizatorul daca autentificarea este valida
-- returneaza `None` daca autentificarea esueaza
+It:
+- looks up the user by email
+- checks the password with `verify_password()`
+- returns the user when authentication succeeds
+- returns `None` when authentication fails
 
-Scop:
-- separarea logicii de autentificare de endpoint
-- reutilizarea logicii intr-un mod clar si testabil
+Purpose:
+- keeping the authentication logic out of the endpoint
+- reusing the logic in a clear, testable way
 
-### 28. Implementarea endpoint-ului de login
-Fisierul `app/api/routes/auth.py` a fost extins cu endpoint-ul:
+### 28. The login endpoint
+`app/api/routes/auth.py` was extended with the endpoint:
 ```http
 POST /auth/login
 ```
-Acesta:
-- primeste imput de tip `UserLogin`
-- foloseste sesiunea DB prin `get_db()`
-- valideaza credentialele prin `authenticate_user()`
-- emite un JWT prin `create_access_token()`
-- returneaza raspunsul de tip `Token`
+It:
+- takes `UserLogin` input
+- uses the DB session through `get_db()`
+- validates the credentials with `authenticate_user()`
+- issues a JWT with `create_access_token()`
+- returns a `Token` response
 
-### 29. Validarea fluxului de login
-Fluxul de autentificare a fost testat prin Swagger UI (`/docs`)
+### 29. Validating the login flow
+The authentication flow was tested through Swagger UI (`/docs`).
 
-Rezultate confirmate:
-- login valid -> `200 OK`
-- login cu parola gresita -> `401 Unauthorized`
-Raspunsul pentru login valid include:
+Confirmed results:
+- valid login -> `200 OK`
+- login with a wrong password -> `401 Unauthorized`
+The response for a valid login includes:
 - `access_token`
 - `token_type = "bearer"`
-Aceasta confirma functionarea completa a fluxului de autentificare:
-- validare input
-- verificare user in DB
-- verificare parola hash-uita
-- generare JWT
-- raspuns standardizat pentru client
+This confirms the authentication flow works end to end:
+- input validation
+- checking the user in the DB
+- checking the hashed password
+- generating the JWT
+- a standardized response for the client
 
-### 30. Stare actuala a backend-ului
-In acest moment backend-ul are:
-- aplicatie FastAPI functionala
-- endpoint `/health`
-- endpoint `POST /auth/register`
-- endpoint `POST /auth/login`
-- configurare prin `.env`
-- conexiune PostgreSQL functionala
-- model ORM `User`
-- tabela `users` creata si validata
-- hashing si verificare de parola
-- generare JWT
-- strat `schemas`
-- strat `services`
-- flux complet de register
-- flux complet de login
+### 30. Current state of the backend
+At this point the backend has:
+- a working FastAPI application
+- the `/health` endpoint
+- the `POST /auth/register` endpoint
+- the `POST /auth/login` endpoint
+- configuration through `.env`
+- a working PostgreSQL connection
+- the `User` ORM model
+- the `users` table, created and validated
+- password hashing and verification
+- JWT generation
+- a `schemas` layer
+- a `services` layer
+- a complete register flow
+- a complete login flow
 
-### Observație practică
-În această etapă, token-ul JWT folosește email-ul utilizatorului ca `subject` (`sub`). Această alegere este suficientă pentru MVP, urmând ca identificatorul principal din token să poată fi revizuit ulterior dacă va fi nevoie de o strategie mai strictă.
+### Practical note
+At this stage, the JWT uses the user's email as its `subject` (`sub`). This is enough for the MVP; the token's main identifier can be revisited later if a stricter strategy is needed.
 
-## Extinderea fundatiei backend: current user si RBAC(Role-base Access Control)
+## Extending the backend foundation: current user and RBAC (Role-Based Access Control)
 
-### 31. Decodarea token-ului JWT
-Fisierul `app/core/security.py` a fost extins cu functia `decode_access_token()`.
+### 31. Decoding the JWT
+`app/core/security.py` was extended with the `decode_access_token()` function.
 
-Aceasta:
-- decodeaza token-ul JWT
-- valideaza semnatura token-ului
-- valideaza expirarea token-ului
-- returneaza payload-ul daca token-ul este valid
+It:
+- decodes the JWT
+- validates the token's signature
+- validates the token's expiry
+- returns the payload when the token is valid
 
-Scop:
-- consumarea reala a token-ului emis la login
-- pregatirea endpoint-urilor protejate
-- separarea logicii JWT de restul aplicatiei
+Purpose:
+- actually consuming the token issued at login
+- preparing the protected endpoints
+- keeping the JWT logic separate from the rest of the application
 
-### 32. Introducerea dependentei pentru utilizatorul curent
-Fisierul `app/api/deps.py` a fost extins cu:
+### 32. A dependency for the current user
+`app/api/deps.py` was extended with:
 - `oauth2_scheme`
 - `get_current_user()`
 
-Rolul acestora:
-- extragerea token-ului Bearer din request
-- validarea token-ului
-- extragerea identitatii utilizatorului din claim-ul `sub`
-- cautarea utilizatorului real in baza de date
-- returnarea utlizatorului curent daca autentificarea este valida
+Their role:
+- extracting the Bearer token from the request
+- validating the token
+- extracting the user's identity from the `sub` claim
+- looking up the real user in the database
+- returning the current user when authentication is valid
 
-In aceasta etapa, claim-ul `sub` contine email-ul utilizatorului.
+At this stage, the `sub` claim holds the user's email.
 
-### 33. Introducerea primului endpoint protejat.
-A fost creat fisierul `app/api/routes/users.py`
+### 33. The first protected endpoint
+`app/api/routes/users.py` was created.
 
-A fost introdus endpoint-ul:
+The endpoint introduced:
 ```http
 GET /users/me
 ```
-Acesta:
-- necesita token JWT valid
-- foloseste `get_current_user()`
-- returneaza utilizatorul autentificat prin schema `UserRead`
-Scop:
-- validarea consumului real al token-ului
-- confirmarea faptului ca autentificarea functioneaza nu doar la emitere, ci si la utilizare
+It:
+- requires a valid JWT
+- uses `get_current_user()`
+- returns the authenticated user through the `UserRead` schema
+Purpose:
+- validating that the token is actually consumed
+- confirming that authentication works not only when the token is issued, but also when it is used
 
-### 34. Introducerea fundatiei RBAC
-Modelul `User` a fost extins cu un camp `role`.
-Rolurile au fost definite prin enum-ul `UserRole`, cu valorile:
+### 34. The RBAC foundation
+The `User` model was extended with a `role` field.
+Roles are defined by the `UserRole` enum, with the values:
 - `user`
 - `admin`
 - `security_analyst`
 - `owner`
-Scop:
-- introducerea controlului de acces bazat pe rol
-- separarea clara a tipurilor de utilizatori inca din MVP
-- pregatirea sistemului pentru endpoint-uri diferentiate pe roluri
+Purpose:
+- introducing role-based access control
+- clearly separating user types from the MVP on
+- preparing the system for endpoints that differ by role
 
-### 35. Reset local al bazei de date pentru schimbarea schemei
-Pentru a introduce coloana `role` in tabela `users`, baza de date locala a fost resetata.
-A fost folosit un reset local prin Docker Compose, deoarece proiectul nu foloseste inca migratii gestionate prin Alembic pentru schimbarile de schema.
-Aceasta abordare este acceptabila in aceasta etapa deoarece datele locale nu au inca valoare operationala.
+### 35. Resetting the local database for the schema change
+To add the `role` column to the `users` table, the local database was reset.
+A local reset through Docker Compose was used, because the project does not yet manage schema changes with Alembic migrations.
+This approach is acceptable at this stage, since the local data has no operational value yet.
 
-### 36. Rol implicit pentru utilizatori noi
-La crearea unui utilizator nou prin fluxul de register, rolul este setat implicit la:
-```
+### 36. A default role for new users
+When a new user is created through the register flow, the role defaults to:
+```text
 user
 ```
-Aceasta alegere defineste comportamentul standard pentru utilizatorii obisnuiti si evita atribuirea accidentala a unor privilegii ridicate.
+This defines the standard behavior for regular users and avoids accidentally granting elevated privileges.
 
-### 37. Expunerea rolului in schema de output
-Schema `UserRead` a fost extinsa cu campul `role`.
+### 37. Exposing the role in the output schema
+The `UserRead` schema was extended with the `role` field.
 
-Scop:
-- vizibilitate asupra rolului utilizatorului in raspunsurile API
-- validarea corecta a comportamentului RBAC
-- pregatirea interfetei pentru afisarea rolului in frontend mai tarziu
+Purpose:
+- visibility of the user's role in API responses
+- validating the RBAC behavior properly
+- preparing the interface to show the role in the frontend later
 
-### 38. Introducerea autorizarii pe rol
-Fisierul `app/api/deps.py` a fost extins cu functia `require_role()`
+### 38. Role-based authorization
+`app/api/deps.py` was extended with the `require_role()` function.
 
-Aceasta:
-- primeste unul sau mai multe roluri permise
-- verifica rolul utilizatorului autentificat
-- returneaza `403 Forbidden` daca utilizatorul nu are acces
-- permite continuarea request-ului daca rolul este acceptat
+It:
+- takes one or more allowed roles
+- checks the authenticated user's role
+- returns `403 Forbidden` when the user has no access
+- lets the request continue when the role is accepted
 
-Scop:
-- separarea autentificarii de autorizare
-- definirea unui mecanism reutilizabil pentru protejarea endpoint-urilor
+Purpose:
+- separating authentication from authorization
+- defining a reusable mechanism for protecting endpoints
 
-### 39. Implementarea unui endpoint admin-only
-Fisierul `app/api/routes/users.py` a fost extins cu endpoint-ul:
+### 39. An admin-only endpoint
+`app/api/routes/users.py` was extended with the endpoint:
 ```http
 GET /users/admin-only
 ```
-Acesta:
-- necesita utilizator autentificat
-- permite acces doar pentru rolurile autorizate(`admin`, respectiv `owner` in implementarea curenta)
-- returneaza raspuns valid doar daca utilizatorul are permisiunea neceasra
+It:
+- requires an authenticated user
+- allows access only for the authorized roles (`admin` and `owner` in the current implementation)
+- returns a valid response only when the user has the required permission
 
-### 40. Validarea comportamentului RBAC
-Comportamentul RBAC a fost testat prin request-uri autentificate.
-Rezultate confirmate:
-- utilizatorul cu rol `user` -> `403 Forbidden`
-- utilizatoru cu rol `admin` -> `200 OK`
+### 40. Validating the RBAC behavior
+The RBAC behavior was tested with authenticated requests.
+Confirmed results:
+- a user with the `user` role -> `403 Forbidden`
+- a user with the `admin` role -> `200 OK`
 
-Aceasta confirma:
-- functionarea corecta a dependentei `get_current_user()`
-- functionarea corecta a dependentei `require_role()`
-- diferentierea clara dintre autentificare si autorizare
+This confirms:
+- the `get_current_user()` dependency works correctly
+- the `require_role()` dependency works correctly
+- authentication and authorization are clearly separated
 
-### 41. Stare actuala a backend-ului
-In acest moment backend-ul are:
-- aplicatie FastAPI functionala
-- endpoint `/health`
-- endpoint `POST /auth/register`
-- endpoint `POST /auth/login`
-- endpoint `GET /users/me`
-- endpoint `GET /users/admin-only`
-- configurare prin `.env`
-- conexiune PostgreSQL functionala
-- model ORM `User`
-- tabela `users` creata si validata
-- hashing si verificare de parola
-- generare si decodare JWT
-- strat `schemas`
-- strat `services`
-- flux complet de register
-- flux complet de login
-- identificarea utilizatorului curent din token
-- fundatie RBAC functionala
+### 41. Current state of the backend
+At this point the backend has:
+- a working FastAPI application
+- the `/health` endpoint
+- the `POST /auth/register` endpoint
+- the `POST /auth/login` endpoint
+- the `GET /users/me` endpoint
+- the `GET /users/admin-only` endpoint
+- configuration through `.env`
+- a working PostgreSQL connection
+- the `User` ORM model
+- the `users` table, created and validated
+- password hashing and verification
+- JWT generation and decoding
+- a `schemas` layer
+- a `services` layer
+- a complete register flow
+- a complete login flow
+- identifying the current user from the token
+- a working RBAC foundation
 
-### Observație practică privind testarea endpoint-urilor protejate
-În implementarea actuală, endpoint-ul de login folosește input JSON, nu formular OAuth2 standard. Din acest motiv, mecanismul `Authorize` din Swagger UI nu este aliniat complet cu fluxul de login și testarea endpoint-urilor protejate a fost făcută prin request-uri manuale (`curl`).
+### Practical note on testing protected endpoints
+In the current implementation, the login endpoint takes JSON input, not a standard OAuth2 form. Because of that, the `Authorize` mechanism in Swagger UI does not fully match the login flow, and the protected endpoints were tested with manual requests (`curl`).
 
-Aceasta este o limitare de integrare a documentației interactive, nu o problemă a backend-ului.
+This is an integration limit of the interactive documentation, not a backend problem.
 
-## Extinderea fundatiei backend: Audit Logging
+## Extending the backend foundation: Audit Logging
 
-### 42. Introducerea modelului `AuditLog`
-A fost creat modelul ORM `AuditLog` in fisierul:
+### 42. The `AuditLog` model
+The `AuditLog` ORM model was created in:
 
 ```text
 app/models/audit_log.py
 ```
-Acest model reprezinta baza mecanismului de audit al aplicatiei SentinelCore.
+This model is the base of SentinelCore's audit mechanism.
 
-Scopul auditului este inregistrarea actiunilor importante din sistem, in special cele legate de autentificare, acces si evenimente relevante pentru securitate.
+The purpose of auditing is to record the important actions in the system, especially those related to authentication, access and security-relevant events.
 
-Modelul `AuditLog` contine urmatoarele campuri:
+The `AuditLog` model has these fields:
 - `id`
 - `event_type`
 - `user_id`
@@ -598,261 +598,261 @@ Modelul `AuditLog` contine urmatoarele campuri:
 - `message`
 - `created_at`
 
-### 43. Introducerea tipurilor de evenimente de audit
+### 43. Audit event types
 
-A fost definit enum-ul `AuditEventType`.
+The `AuditEventType` enum was defined.
 
-Evenimentele initiale definite sunt:
+The initial events are:
 
 - `USER_REGISTERED`
 - `LOGIN_SUCCESS`
 - `LOGIN_FAILED`
 - `ADMIN_ENDPOINT_ACCESSED`
 
-Scop:
+Purpose:
 
-- evitarea valorilor scrise manual in mai multe locuri
-- reducerea riscului de typo-uri
-- difinirea controlata a tipurilor de evenimente de audit
+- avoiding values typed by hand in several places
+- reducing the risk of typos
+- a controlled definition of the audit event types
 
-Observatie:
+Note:
 
-In etapa actuala, valorile enum-ului sunt salvate in baza de date cu numele membrilor enum, de exemplu `USER_REGISTERED`, nu cu forma lowercase `user_registered`. Acest comportament este acceptabil pentru MVP.
+At this stage, the enum values are stored in the database as the enum member names, for example `USER_REGISTERED`, not in the lowercase form `user_registered`. This behavior is acceptable for the MVP.
 
-### 44. Crearea tabelei `audit_logs`
+### 44. Creating the `audit_logs` table
 
-Tabela `audit_logs` a fost creata in PostgreSQL folosind mecanismul temporar:
+The `audit_logs` table was created in PostgreSQL with the temporary mechanism:
 
-```
+```python
 Base.metadata.create_all(bind=engine)
 ```
 
-Pentru ca SQLAlchemy sa detecteze modelul, `AuditLog` a fost importat in `app/main.py`.
+For SQLAlchemy to detect the model, `AuditLog` was imported in `app/main.py`.
 
-Tabela a fost verificata in PostgreSQL cu:
+The table was checked in PostgreSQL with:
 
-```
+```text
 \dt
 \d audit_logs
 ```
 
-Rezultatul a confirmat existenta tabelei `audit_logs` si a relatiei foregin key catre tabela `users`.
+The result confirmed the `audit_logs` table and its foreign key to the `users` table.
 
-### 45. Structura tabelei `audit_logs`
+### 45. Structure of the `audit_logs` table
 
-Tabela `audit_logs` contine:
+The `audit_logs` table contains:
 
-- `id` - identificator unic al evenimentului
-- `event_type` - tipul evenimentului de audit
-- `user_id` - referinta optionala catre utilizator
-- `email` - email asociat evenimentului, util mai ales la login esuat
-- `message` - descriere umana a evenimentului
-- `created_at` - momentul producerii evenimentului
+- `id` - the event's unique identifier
+- `event_type` - the type of audit event
+- `user_id` - an optional reference to the user
+- `email` - the email tied to the event, useful especially for failed logins
+- `message` - a human-readable description of the event
+- `created_at` - when the event happened
 
-Campul `user_id` este optional deoarece anumite evenimente, precum login esua cu email inexistent sau parola gresita, pot exista fara un utilizator autentificat valid.
+The `user_id` field is optional because some events, such as a failed login with an unknown email or a wrong password, can exist without a valid authenticated user.
 
-### 46. Introducerea serviciului de audit
+### 46. The audit service
 
-A fost creat fisierul:
+The file created:
 
-```
+```text
 app/services/audit_service.py
 ```
 
-Aceasta contine functia:
+It contains the function:
 
-```
+```text
 create_audit_log()
 ```
 
-Scopul serviciului este centralizarea logicii de creare a evenimentelor de audit.
+The service centralizes the logic for creating audit events.
 
-Aceasta abordare evita duplicarea codului de tip:
+This avoids duplicating code like:
 
-- creare obiect `AuditLog`
+- creating an `AuditLog` object
 - `db.add(...)`
 - `db.commit()`
 - `db.refresh(...)`
 
-in mai multe endpoint-uri.
+across several endpoints.
 
-### 47. Integrarea auditului in fluxul de register
+### 47. Auditing the register flow
 
-Endpoint-ul:
-```
+The endpoint:
+```http
 POST /auth/register
 ```
-a fost extins astfel incat, dupa crearea cu succesa unui utilizator, sa creeze un eveniment de audit de tip: ```USER_REGISTERED```
+was extended so that, after a user is created successfully, it creates an audit event of type `USER_REGISTERED`.
 
-Acest eveniment confirma ca inregistrarea utilizatorului este urmarita in sistem.
+This event confirms that user registration is tracked in the system.
 
-### 48. Integrarea auditului in fluxul de login reusit
+### 48. Auditing successful logins
 
-Endpoint-ul:
-```
+The endpoint:
+```http
 POST /auth/login
 ```
-creeaza un eveniment de audit de tip: ```LOGIN_SUCCESS``` atunci cand autentificarea este valida.
+creates an audit event of type `LOGIN_SUCCESS` when authentication is valid.
 
-Acest eveniment confirma ca autentificarile reusite sunt urmarite in sistem.
+This event confirms that successful logins are tracked in the system.
 
-### 49. Integrarea auditului in fluxul de login esuat
+### 49. Auditing failed logins
 
-Endpoint-ul:
-```
+The endpoint:
+```http
 POST /auth/login
 ```
-creeaza un eveniment de audit de tip: ```LOGIN_FAILED``` atunci cand autentificarea esueaza.
+creates an audit event of type `LOGIN_FAILED` when authentication fails.
 
-Acest caz este important deoarece tentativele de loing esuate pot deveni ulterior baza pentru detectii de securitate, cum ar fi brute-force sau activitate suspecte.
+This case matters because failed login attempts can later become the base for security detections, such as brute force or suspicious activity.
 
-In acest caz, audit log-ul poate contine email-ul incercat chiar daca nu exista un utilizator autentificat valid.
+Here, the audit log can contain the attempted email even when there is no valid authenticated user.
 
-### 50. Integrarea auditului in endpoint-ul admin-only
+### 50. Auditing the admin-only endpoint
 
-Endpoint-ul:
-```
+The endpoint:
+```http
 GET /users/admin-only
 ```
-creeaza un eveniment de audit de tip: ```ADMIN_ENDPOINT_ACCESSED``` atunci cand un utilizator cu rol permis acceseaza endpoint-ul.
+creates an audit event of type `ADMIN_ENDPOINT_ACCESSED` when a user with an allowed role accesses it.
 
-In etapa actuala, este auditat accesul permis. Accesul refuzat prin `403 Forbidden` nu este inca auditat.
+At this stage, allowed access is audited. Access refused with `403 Forbidden` is not audited yet.
 
-### 51. Validarea auditului in baza de date
+### 51. Validating the audit in the database
 
-Auditul a fost validat in PostgreSQL prin query-ul:
-```
+The audit was validated in PostgreSQL with the query:
+```sql
 SELECT id, event_type, user_id, email, message, created_at
 FROM audit_logs
 ORDER BY id;
 ```
 
-Au fost confirmate urmatoarele evenimente:
+These events were confirmed:
 - `USER_REGISTERED`
 - `LOGIN_SUCCESS`
 - `LOGIN_FAILED`
 - `ADMIN_ENDPOINT_ACCESSED`
 
-Aceasta confirma ca auditul functioneaza pentru fluxuri reale ale aplicatiei.
+This confirms that auditing works for real application flows.
 
-### 52. Stare actuala dupa Audit Logging
+### 52. Current state after Audit Logging
 
-In acest moment backend-ul are:
-- aplicatie FastAPI functionala
-- endpoint `/health`
-- endpoint `POST /auth/register`
-- endpoint `POST /auth/login`
-- endpoint `GET /users/me`
-- endpoint `GET /users/admin-only`
-- configurare prin `.env`
-- PostgreSQL local prin Docker Compose
-- model ORM `User`
-- model ORM `AuditLog`
-- tabela `users`
-- tabela `audit_logs`
-- hashing si verificare de parola
-- generare si decodare JWT
-- identificarea utilizatorului curent din token
-- fundatie RBAC functionala
-- audit logging functional pentru register, login si acces admin
+At this point the backend has:
+- a working FastAPI application
+- the `/health` endpoint
+- the `POST /auth/register` endpoint
+- the `POST /auth/login` endpoint
+- the `GET /users/me` endpoint
+- the `GET /users/admin-only` endpoint
+- configuration through `.env`
+- local PostgreSQL through Docker Compose
+- the `User` ORM model
+- the `AuditLog` ORM model
+- the `users` table
+- the `audit_logs` table
+- password hashing and verification
+- JWT generation and decoding
+- identifying the current user from the token
+- a working RBAC foundation
+- working audit logging for register, login and admin access
 
-## Extinderea fundatiei backend: Audit Logs API
+## Extending the backend foundation: Audit Logs API
 
-### 53. Introducerea schemei `AuditLogRead`
+### 53. The `AuditLogRead` schema
 
-A fost creat fisierul:
+The file created:
 
 ```text
 app/schemas/audit_log.py
 ```
 
-Acesta defineste schema `AuditLogRead`, folosita pentru raspunsurile API care expun evenimentele de audit.
+It defines the `AuditLogRead` schema, used for the API responses that expose audit events.
 
-Scop:
+Purpose:
 
-- separarea modelului ORM `AuditLog` de contractul API
-- controlarea campurilor returnate catre clinet
-- pregatirea audit logs pentru afisare in dashboard-uri viitoare
+- separating the `AuditLog` ORM model from the API contract
+- controlling the fields returned to the client
+- preparing the audit logs for display in future dashboards
 
-### 54. Listarea audit logs prin service
+### 54. Listing audit logs in the service
 
-Fisierul `app/services/audit_service.py` a fost extins cu functia:
+`app/services/audit_service.py` was extended with the function:
 
-```
+```text
 list_audit_logs()
 ```
 
-Aceasta:
+It:
 
-- citeste evenimentele de audit din baza de date
-- le ordoneaza descrescator dupa `created_at`
-- aplica o limita pentru a evita returnarea intregii tabele
+- reads the audit events from the database
+- orders them by descending `created_at`
+- applies a limit, to avoid returning the whole table
 
-### 55. Introducerea endpoint-ului pentru audit logs
+### 55. The audit logs endpoint
 
-A fost creat fisierul:
+The file created:
 
-```
+```text
 app/api/routes/audit.py
 ```
 
-A fost introdus endpoint-ul:
+The endpoint introduced:
 
-```
+```http
 GET /admin/audit-logs
 ```
-Acesta permite consultarea evenimentelor de audit prin API.
+It lets clients read the audit events through the API.
 
-Endpoint-ul accepta paramentrul: ```limit``` pentru controlarea numarului de rezultate returnate.
+The endpoint accepts the `limit` parameter, to control how many results are returned.
 
-### 56. Protejarea endpoint-ului de audit prin RBAC
+### 56. Protecting the audit endpoint with RBAC
 
-Endpoint-ul `GET /admin/audit-logs` este protejat prin `require_role(...)`.
+`GET /admin/audit-logs` is protected by `require_role(...)`.
 
-Rolurile permise sunt:
+The allowed roles are:
 
 - `admin`
 - `owner`
 - `security_analyst`
 
-Un utilizator standard cu rol `user` nu poate accesa acest endpoint.
+A standard user with the `user` role cannot access this endpoint.
 
-### 57. Validarea endpoint-ului de audit
+### 57. Validating the audit endpoint
 
-Endpoint-ul a fost testat prin `curl`.
+The endpoint was tested with `curl`.
 
-Rezultate confirmate:
+Confirmed results:
 
-- utlizator cu rol `admin` -> `200 OK`
-- utilizator cu rol `user` -> `403 Forbidden`
+- a user with the `admin` role -> `200 OK`
+- a user with the `user` role -> `403 Forbidden`
 
-Aceasta confirma:
+This confirms:
 
-- listarea audit logs prin API
-- protectia endpoint-ului prin RBAC
-- separarea corecta intre utilizator obisnuit si roluri privilegiate
+- listing audit logs through the API
+- the endpoint's RBAC protection
+- the correct separation between a regular user and the privileged roles
 
-### 58. Stare actuala dupa Audit Logs API
+### 58. Current state after the Audit Logs API
 
-In acest moment backend-ul are:
+At this point the backend has:
 
-- audit logs salvate in PostgreSQL
-- audit logs consultabile prin API
-- endpoint `GET /admin/audit-logs`
-- protectie RBAC pentru acces la audit logs
-- validare functionala pentru admin si user normal
+- audit logs stored in PostgreSQL
+- audit logs readable through the API
+- the `GET /admin/audit-logs` endpoint
+- RBAC protection for access to audit logs
+- functional validation for an admin and a regular user
 
-## Extinderea fundatiei backend: Security Events
+## Extending the backend foundation: Security Events
 
-### 59. Introducerea modelului `SecurityEvent`
+### 59. The `SecurityEvent` model
 
-A fost creat modelul ORM `SecurityEvent` in fisierul: `app/models/security_event.py`.
+The `SecurityEvent` ORM model was created in `app/models/security_event.py`.
 
-Acest model reprezinta primul strat de evenimente de securitate al platformei SentinelCore.
+This model is the first security event layer of the SentinelCore platform.
 
-Spre deosebire de `AuditLog`, care inregistreaza factual actiuni din sistem, `SecurityEvent` reprezinta evenimentele relevante pentru zona de securitate si SIEM-light.
+Unlike `AuditLog`, which records the system's actions as facts, `SecurityEvent` holds the events relevant to security and SIEM-light.
 
-Modelul `SecurityEvent` contine urmatoarele campuri:
+The `SecurityEvent` model has these fields:
 
 - `id`
 - `event_type`
@@ -863,358 +863,358 @@ Modelul `SecurityEvent` contine urmatoarele campuri:
 - `message`
 - `created_at`
 
-### 60. Diferenta dintre Audit Logs si Security Events
+### 60. The difference between Audit Logs and Security Events
 
-In SentinelCore, cele doua concepte sunt separate:
+In SentinelCore, the two concepts are separate:
 
 **Audit Logs**
-Audit logs raspund la intrebarea:
+Audit logs answer the question:
 
-```
-Ce s-a intamplat in sistem?
+```text
+What happened in the system?
 ```
 
-Exemple:
-- utilizator creat
-- login reusit
-- login esuat
-- endpoint admin accesat
+Examples:
+- a user was created
+- a successful login
+- a failed login
+- an admin endpoint was accessed
 
 **Security Events**
-Security events raspund la intrebarea:
+Security events answer the question:
 
+```text
+Which events matter for security?
 ```
-Ce evenimente sunt relevante pentru securitate?
-```
 
-Exemple:
-- login esuat cu severitate `warn`
-- login reusit cu severitate `info`
-- acces admin cu severitate `info`
+Examples:
+- a failed login with `warn` severity
+- a successful login with `info` severity
+- admin access with `info` severity
 
-Aceasta separare este importanta deoarece auditul este jurnalul brut, iar security events reprezinta stratul de interpretare pentru zona SIEM-light.
+This separation matters because the audit is the raw journal, while security events are the interpretation layer for SIEM-light.
 
-### 61. Introducerea tipurilor de security events
+### 61. Security event types
 
-A fost definit enum-ul `SecurityEventType`.
+The `SecurityEventType` enum was defined.
 
-Evenimentele initale definite sunt:
+The initial events are:
 - `USER_REGISTERED`
 - `LOGIN_SUCCESS`
 - `LOGIN_FAILED`
 - `ADMIN_ACCESS`
 
-Acestea acopera primele fluxuri reale deja existente in backend:
+They cover the first real flows that already exist in the backend:
 - register
-- login reusit
-- login esuat
-- acces admin
+- successful login
+- failed login
+- admin access
 
-### 62. Introducerea severitatilor de securitate
+### 62. Security severities
 
-A fost definit enum-ul `SecuritySeverity`
+The `SecuritySeverity` enum was defined.
 
-Severitatile initiale sunt:
+The initial severities are:
 - `INFO`
 - `WARN`
 - `INCIDENT`
 
-In etapa actuala au fost folosite:
-- `INFO` pentru evenimente normale, dar relevante
-- `WARN` pentru login esuat
+At this stage they are used as:
+- `INFO` for normal but relevant events
+- `WARN` for a failed login
 
-Severitatea `INCIDENT` este pregatita pentru evenimente viitoare mai grave, cum ar fi detectii de tip brute-force sau comportament suspect.
+The `INCIDENT` severity is ready for more serious future events, such as brute-force detections or suspicious behavior.
 
-### 63. Crearea tabelei `security_events`
+### 63. Creating the `security_events` table
 
-Tabela `security_events` a fost create in PostgreSQL prin mecanismul temporar:
+The `security_events` table was created in PostgreSQL with the temporary mechanism:
 
-```
+```python
 Base.metadata.create_all(bind=engine)
 ```
 
-Pentru ca SQLAlchemy sa detecteze modelul, `SecurityEvent` a fost importat in `app.main.py`.
+For SQLAlchemy to detect the model, `SecurityEvent` was imported in `app/main.py`.
 
-Tabela a fost verificata in PostgreSQL cu:
+The table was checked in PostgreSQL with:
 
-```
+```text
 \dt
 \d security_events
 ```
 
-### 64. Introducerea serviciului pentru security events
+### 64. The security events service
 
-A fost creat fisierul:
+The file created:
 
-```
+```text
 app/services/security_event_service.py
 ```
 
-Acesta contine functiile:
+It contains the functions:
 
-```
+```text
 create_security_event()
 list_security_events()
 ```
 
-Scopul serviciului este centralizarea logicii de creare si citire a evenimentelor de securitate.
+The service centralizes the logic for creating and reading security events.
 
-Functia `create_security_event()` permite salvarea unui eveniment cu:
-- tip eveniment
-- severitate
-- user asociat optional
-- email asociat optional
-- sursa
-- mesaj descriptiv
+`create_security_event()` saves an event with:
+- an event type
+- a severity
+- an optional associated user
+- an optional associated email
+- a source
+- a descriptive message
 
-Functia `list_security_events()` permite citirea evenimentelor de securitate in ordine descrescatoare dupa momentul producerii.
+`list_security_events()` reads the security events in descending order of when they happened.
 
-### 65. Introducerea schemei `SecurityEventRead`
+### 65. The `SecurityEventRead` schema
 
-A fost creat fisierul: ```app/schemas/security_event.py```.
+The file created: `app/schemas/security_event.py`.
 
-Acesta defineste schema `SecurityEventRead`.
+It defines the `SecurityEventRead` schema.
 
-Scop:
-- separarea modelului ORM de respons-ul API
-- controlarea campurilor returnate catre client
-- pregatirea datelor pentru dashboard-uri viitoare de securitate
+Purpose:
+- separating the ORM model from the API response
+- controlling the fields returned to the client
+- preparing the data for future security dashboards
 
-### 66. Introducerea endpoint-ului pentru security events
+### 66. The security events endpoint
 
-A fost creat fisierul: ```app/api/routes/security.py```.
+The file created: `app/api/routes/security.py`.
 
-A fost introdus endpoint-ul: ```GET /security/events```.
+The endpoint introduced: `GET /security/events`.
 
-Acesta permite consultarea evenimentelor de securitate prin API.
+It lets clients read the security events through the API.
 
-Endpoint-ul accepta parametrul: ```limit``` pentru limitarea numarului de evenimente returnate.
+The endpoint accepts the `limit` parameter, to bound the number of events returned.
 
-### 67. Protejarea endpoint-ului de security events prin RBAC
+### 67. Protecting the security events endpoint with RBAC
 
-Endpoint-ul `GET /security/events` este protejat prin `require_role(...)`.
+`GET /security/events` is protected by `require_role(...)`.
 
-Rolurile permise sunt:
+The allowed roles are:
 - `admin`
 - `owner`
 - `security_analyst`
 
-Un utilizator standard cu rol `user` nu are acces la acest endpoint.
+A standard user with the `user` role has no access to this endpoint.
 
-### 68. Integrarea security events in fluxurile existente
+### 68. Adding security events to the existing flows
 
-Security events au fost integrate in urmatoarele fluxuri:
+Security events were added to these flows:
 
 **Register**
-La crearea unui utilizator nou se creeaza evenimentul: ```USER_REGISTERED``` cu severitate: ```INFO```.
+Creating a new user creates the `USER_REGISTERED` event, with `INFO` severity.
 
-**Login reusit**
-La autentificare reusita se creeaza evenimentul ```LOGIN_SUCCESS``` cu severitate: ```INFO```.
+**Successful login**
+A successful authentication creates the `LOGIN_SUCCESS` event, with `INFO` severity.
 
-**Login esuat**
-La autentificare esuata se creeaza evenimentul ```LOGIN_FAILED``` cu severitate: ```WARN```.
-Acest eveniment este important deoarece poate deveni ulterior baza pentru detectii de tip brute-force.
+**Failed login**
+A failed authentication creates the `LOGIN_FAILED` event, with `WARN` severity.
+This event matters because it can later become the base for brute-force detections.
 
-**Acces admin**
-La accesarea endpoint-ului admin-only se creeaza evenimentul: ```ADMIN_ACCESS``` cu severitate: ```INFO```.
+**Admin access**
+Accessing the admin-only endpoint creates the `ADMIN_ACCESS` event, with `INFO` severity.
 
-### 69. Validarea endpoint-ului `GET /security/events`
+### 69. Validating `GET /security/events`
 
-Endpoint-ul a fost testat prin `curl`.
+The endpoint was tested with `curl`.
 
-Rezultate confirmate:
-- utilizator cu rol permis -> `200 OK`
-- raspunsul contine security events reale
-- evenimentele sunt returnate in format JSON
-- severitatile apar corect ca `info` si `warn`
+Confirmed results:
+- a user with an allowed role -> `200 OK`
+- the response contains real security events
+- the events are returned as JSON
+- the severities appear correctly as `info` and `warn`
 
-Evenimente confirmate in raspuns:
+Events confirmed in the response:
 - `user_registered`
 - `login_success`
 - `login_failed`
 - `admin_access`
 
-### 70. Stare actuala dupa Security Events Foundation
+### 70. Current state after the Security Events Foundation
 
-In acest moment backend-ul are:
+At this point the backend has:
 
-- aplicație FastAPI funcțională
-- endpoint `/health`
-- endpoint `POST /auth/register`
-- endpoint `POST /auth/login`
-- endpoint `GET /users/me`
-- endpoint `GET /users/admin-only`
-- endpoint `GET /admin/audit-logs`
-- endpoint `GET /security/events`
-- configurare prin `.env`
-- PostgreSQL local prin Docker Compose
-- model ORM `User`
-- model ORM `AuditLog`
-- model ORM `SecurityEvent`
-- tabelă `users`
-- tabelă `audit_logs`
-- tabelă `security_events`
-- hashing și verificare de parolă
-- generare și decodare JWT
-- identificarea utilizatorului curent din token
-- fundație RBAC funcțională
-- audit logging funcțional
-- security events funcționale
-- prim strat SIEM-light funcțional
+- a working FastAPI application
+- the `/health` endpoint
+- the `POST /auth/register` endpoint
+- the `POST /auth/login` endpoint
+- the `GET /users/me` endpoint
+- the `GET /users/admin-only` endpoint
+- the `GET /admin/audit-logs` endpoint
+- the `GET /security/events` endpoint
+- configuration through `.env`
+- local PostgreSQL through Docker Compose
+- the `User` ORM model
+- the `AuditLog` ORM model
+- the `SecurityEvent` ORM model
+- the `users` table
+- the `audit_logs` table
+- the `security_events` table
+- password hashing and verification
+- JWT generation and decoding
+- identifying the current user from the token
+- a working RBAC foundation
+- working audit logging
+- working security events
+- a first working SIEM-light layer
 
-## Extinderea fundatiei backend: Alembic Migrations
+## Extending the backend foundation: Alembic Migrations
 
-### 71. Trecerea de la `create_all()` la migratii
+### 71. Moving from `create_all()` to migrations
 
-Pana in aceasta etapa, schema bazei de date a fost creata temporar prin: ```Base.metadata.create_all(bind=engine)```.
+Until this stage, the database schema was created temporarily with `Base.metadata.create_all(bind=engine)`.
 
-Acest mecanism a fost util pentru validarea initiala a modelelor si pentru intelegerea legaturii dintre SQLAlchemy si PostgreSQL.
+This mechanism was useful to validate the models at first and to understand the link between SQLAlchemy and PostgreSQL.
 
-Dupa introducerea modelelor principale (`User`, `AuditLog`, `SecurityEvent`), acest mecanism a fost eliminat din `app/main.py`.
+Once the main models (`User`, `AuditLog`, `SecurityEvent`) existed, the mechanism was removed from `app/main.py`.
 
-De acum inainte, schema bazei de date este gestionata prin Alembic.
+From now on, the database schema is managed by Alembic.
 
-### 72. Motivul introducerii Alembic
+### 72. Why Alembic
 
-Alembic a fost introdus pentru:
-- versionarea schemei bazei de date
-- evitarea resetarilor locale repetate
-- gestionarea modificarilor viitoare de modele prin migratii
-- apropierea proiectului de un workflow real de dezvoltare backend
-- separarea responsabilitatii dintre aplicatie si schema DB
+Alembic was introduced for:
+- versioning the database schema
+- avoiding repeated local resets
+- managing future model changes through migrations
+- bringing the project closer to a real backend development workflow
+- separating the application's responsibility from the DB schema's
 
-Aplicatia FastAPI nu mai trebuie sa creeze tabele la pornire.
+The FastAPI application no longer has to create tables at startup.
 
-### 73. Initializarea Alembic
+### 73. Initializing Alembic
 
-Alembic a fost initalizat in backend.
+Alembic was initialized in the backend.
 
-Au fost create: 
+Created:
 - `alembic.ini`
-- directorul `migrations/`
-- directorul `migrations/versions/`
-- fisierul `migrations/env.py`
-- template-ul pentru migratii
+- the `migrations/` directory
+- the `migrations/versions/` directory
+- `migrations/env.py`
+- the migration template
 
-### 74. Configurarea conexiunii Alembic la baza de date
+### 74. Configuring Alembic's database connection
 
-In `alembic.ini`, conexiunea catre PostgreSQL local a fost configurata prin:
+In `alembic.ini`, the connection to the local PostgreSQL was configured as:
 
-```
+```ini
 sqlalchemy.url = postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore
 ```
 
-Aceasta configurare permite Alembic sa se conecteze la baza de date locala pentru generarea si aplicarea migratiilor.
+This lets Alembic connect to the local database to generate and apply migrations.
 
-> Actualizare (etapa „Contul meu”): URL-ul nu mai este scris in `alembic.ini`. `migrations/env.py` il ia din `settings.database_url`, adica din `DATABASE_URL` (mediu sau `.env`), aceeasi setare folosita de aplicatie. Inainte, `DATABASE_URL=... alembic upgrade head` era ignorat si migratia rula mereu pe baza `sentinelcore`.
+> Update ("My account" stage): the URL is no longer written in `alembic.ini`. `migrations/env.py` takes it from `settings.database_url`, that is from `DATABASE_URL` (environment or `.env`), the same setting the application uses. Before, `DATABASE_URL=... alembic upgrade head` was ignored and the migration always ran against the `sentinelcore` database.
 
-### 75. Conectarea Alembic la modelele SQLAlchemy
+### 75. Connecting Alembic to the SQLAlchemy models
 
-In `migrations/env.py`, Alembic a fost conectat la metadata SQLAlchemy.
+In `migrations/env.py`, Alembic was connected to the SQLAlchemy metadata.
 
-A fost importat `Base`: ```from app.core.database import Base``` si au fost importate modulele cu modelele principale:
+`Base` was imported with `from app.core.database import Base`, along with the modules holding the main models:
 
 ```python
 from app.models import audit_log, security_event, user  # noqa: F401
 ```
 
-Importul este necesar chiar daca modulele nu sunt folosite direct: doar importate, modelele se inregistreaza in `Base.metadata`. Fara el, `--autogenerate` vede o schema goala si ar propune stergerea tuturor tabelelor. Comentariul `# noqa: F401` impiedica Ruff sa elimine importul ca nefolosit.
+The import is needed even though the modules are not used directly: just by being imported, the models register themselves in `Base.metadata`. Without it, `--autogenerate` sees an empty schema and would propose dropping every table. The `# noqa: F401` comment stops Ruff from removing the import as unused.
 
-Apoi `target_metadata` a fost setat la: ```target_metadata = Base.metadata```.
+Then `target_metadata` was set to `target_metadata = Base.metadata`.
 
-Aceasta configurare permite comenzii ` --autogenerate` sa compare modelele SQLAlchemy cu schmea reala din baza de date.
+This lets `--autogenerate` compare the SQLAlchemy models with the real schema in the database.
 
-### 76. Reset local al bazei de date pentru migratia initiala
+### 76. Resetting the local database for the initial migration
 
-Pentru ca mediul este inca local si datele nu au valoare operationala, baza de date a fost resetata inainte de migratia initiala.
+Since the environment is still local and the data has no operational value, the database was reset before the initial migration.
 
-Comenzile folosite:
-```
+Commands used:
+```bash
 docker compose down -v
 docker compose up -d
 ```
 
-Aceasta resetare a permis pornirea de la o baza PostgreSQL goala, astfel incat schmea initiala sa fie creata exclusiv prin Alembic.
+This reset made it possible to start from an empty PostgreSQL database, so the initial schema is created solely by Alembic.
 
-### 77. Generarea migratiei initiale
+### 77. Generating the initial migration
 
-Migratia initala a fost generata cu:
+The initial migration was generated with:
 
-```
+```bash
 python -m alembic revision --autogenerate -m "initial schema"
 ```
 
-Alembic a detectat modelele si a generat un fisier de migratie in: ```migrations/versions```.
+Alembic detected the models and generated a migration file in `migrations/versions`.
 
-Migratia initiala contine schema pentru:
+The initial migration contains the schema for:
 - `users`
 - `audit_logs`
 - `security_events`
-- tipurile enum asociate
-- indexurile definite pe modele
-- foreign key-urile dintre tabele
+- the related enum types
+- the indexes defined on the models
+- the foreign keys between the tables
 
-### 78. Aplicarea migratiei initiale
+### 78. Applying the initial migration
 
-Migratia initiala a fost aplicata cu: ```python -m alembic upgrade head```.
+The initial migration was applied with `python -m alembic upgrade head`.
 
-Dupa aplicare, Alembic a creat si tabela: ```alembic_version```.
+After it ran, Alembic also created the `alembic_version` table.
 
-Aceasta stocheaza versiunea curenta a schemei bazei de date.
+It stores the current version of the database schema.
 
-### 79. Verificarea rezultatului in PostgreSQL
+### 79. Checking the result in PostgreSQL
 
-Schema bazei de date a fost verificata in PostgreSQL cu: ```SELECT * FROM alembic_version;```.
+The database schema was checked in PostgreSQL with `SELECT * FROM alembic_version;`.
 
-Rezultatul a confirmat ca baza de date este la versiunea migratiei initiale.
+The result confirmed that the database is at the version of the initial migration.
 
-### 80. Workflow standard pentru modificari viitoare de schema
+### 80. The standard workflow for future schema changes
 
-De acum inainte, orice modificare a modelelor SQLAlchemy trebuie gestionata prin Alembic.
+From now on, every change to the SQLAlchemy models goes through Alembic.
 
-Workflow-ul standard este:
+The standard workflow is:
 
-```
-python -m alembic reivison --autogenerate -m "descriere modificare"
+```bash
+python -m alembic revision --autogenerate -m "describe the change"
 python -m alembic upgrade head
 ```
 
-Migratiile generate trebuie verificate manual inainte de aplicare.
+Generated migrations must be reviewed by hand before they are applied.
 
-`--autogenerate` ajuta, dar nu inlocuieste verificarea logica a dezvoltatorului.
+`--autogenerate` helps, but it does not replace the developer's own reasoning.
 
-### 81. Stare actuala dupa Alembic
+### 81. Current state after Alembic
 
-În acest moment backend-ul are:
+At this point the backend has:
 
-- aplicație FastAPI funcțională
-- PostgreSQL local prin Docker Compose
-- schema bazei de date gestionată prin Alembic
-- `create_all()` eliminat din `main.py`
-- migrație inițială generată și aplicată
-- tabela `alembic_version` creată
-- tabelele `users`, `audit_logs` și `security_events` create prin migrație
-- workflow matur pentru modificări viitoare ale schemei DB
+- a working FastAPI application
+- local PostgreSQL through Docker Compose
+- the database schema managed by Alembic
+- `create_all()` removed from `main.py`
+- the initial migration generated and applied
+- the `alembic_version` table created
+- the `users`, `audit_logs` and `security_events` tables created by migration
+- a mature workflow for future DB schema changes
 
-## Extinderea fundatiei backend: Tests Foundation
+## Extending the backend foundation: Tests Foundation
 
-### 82. Introducerea testelor automate
+### 82. Automated tests
 
-A fost introdusa prima fundatie de teste automate pentru backend-ul SentinelCore.
+The first automated test foundation for the SentinelCore backend was introduced.
 
-Scopul acestei etape este trecerea de la testare manuala prin `curl` / Swagger la validarea automata a fluxurilor principale.
+The goal of this stage is to move from manual testing with `curl` / Swagger to automated validation of the main flows.
 
-Au fost adaugate dependentele:
+Dependencies added:
 - `pytest`
 - `httpx`
 
-Acestea permit rularea testelor automate si folosirea `TestClient` pentru testarea aplicatiei FastAPI.
+They make it possible to run automated tests and to use `TestClient` to test the FastAPI application.
 
-### 83. Configurarea `pyproject.toml` pentru teste
+### 83. Configuring `pyproject.toml` for tests
 
-Fisierul `pyproject.toml` a fost actualizat pentru testare.
+`pyproject.toml` was updated for testing.
 
-A fost adaugata configuratia:
+The configuration added:
 
 ```toml
 [tool.pytest.ini_options]
@@ -1222,178 +1222,180 @@ testpaths = ["tests"]
 pythonpath = ["."]
 ```
 
-Scop:
-- testele sunt cautate in directorul `tests`
-- importurile absolute de forma `from app...` funtioneaza corect in timpul testarii
+Purpose:
+- tests are looked up in the `tests` directory
+- absolute imports such as `from app...` work during tests
 
-De asemenea, a fost configurata descoperirea explicita a pachetului Python:
+Explicit discovery of the Python package was configured too:
 ```toml
 [tool.setuptools.packages.find]
 include = ["app*"]
 exclude = ["migrations*", "tests*"]
 ```
 
-Aceasta configurare a fost necesara deoarece dupa introducerea Alembic, `setuptools` detecta atat `app`, cat si `migrations` ca pachete top-level.
+This was needed because, after Alembic was added, `setuptools` detected both `app` and `migrations` as top-level packages.
 
-### 84. Introducerea bazei de date separate pentru teste
+### 84. A separate database for tests
 
-A fost create o baza de date separata pentru teste: ```sentinelcore_test```.
+A separate database was created for tests: `sentinelcore_test`.
 
-Scop:
-- testele nu modifica baza de date de development
-- datele de test sunt izolate
-- testele pot crea si sterge date fara risc pentru mediul local principal
+Purpose:
+- the tests do not change the development database
+- the test data is isolated
+- the tests can create and delete data with no risk to the main local environment
 
-A fost adaugata variabila:
+The variable added:
 ```env
 TEST_DATABASE_URL=postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test
 ```
-in configuratia locala si in `.env.example`.
+in the local configuration and in `.env.example`.
 
-### 85. Introducerea fisierului `tests/conftest.py`
+### 85. `tests/conftest.py`
 
-A fost creat fisierul: ```tests/conftest.py`.
+The file created: `tests/conftest.py`.
 
-Acesta defineste fixture-uri reutilizabile pentru teste
+It defines reusable fixtures for the tests.
 
-Elementele principale:
+Main elements:
 - `test_engine`
 - `TestingSessionLocal`
-- fixture `db_session`
-- fixture `client`
+- the `db_session` fixture
+- the `client` fixture
 
-Scop:
-- conectarea testelor la baza de date `sentinelcore_test`
-- crearea tabelelor inainte de test
-- stergerea tabelelor dupa test
-- suprascrierea dependentei `get_db`
-- rularea requesturilor prin `TestClient`
+Purpose:
+- connecting the tests to the `sentinelcore_test` database
+- creating the tables before a test
+- dropping the tables after a test
+- overriding the `get_db` dependency
+- running requests through `TestClient`
 
-### 86. Override pentru `get_db`
+### 86. Overriding `get_db`
 
-In teste, dependenta reala: ``` get_db()``` este suprascrisa cu o sesiune de test.
+In tests, the real `get_db()` dependency is overridden with a test session.
 
-Scop:
-- endpoint-urile folosesc baza de date de test
-- logica aplicatiei este testata aproape real
-- testele nu ating baza de date principala
+Purpose:
+- the endpoints use the test database
+- the application logic is tested almost as in reality
+- the tests never touch the main database
 
-Aceasta abordare permite testarea endpoint-urilor FastAPI fara a porni un server HTTP separat.
+This makes it possible to test FastAPI endpoints without starting a separate HTTP server.
 
-### 87. Test pentru endpoint-ul `/health`
+### 87. A test for the `/health` endpoint
 
-A fost creat testul: ```/tests/test_health```.
+The test created: `tests/test_health.py`.
 
-Acesta verifica endpoint-ul:
+It checks the endpoint:
 ```http
 GET /health
 ```
 
-Rezultatul asteptat:
-```JSON
+Expected result:
+```json
 {"status": "ok"}
 ```
-Acest test confirma ca aplicatia FastAPI se importa corect si ca routerul de health este functional.
+This test confirms that the FastAPI application imports correctly and that the health router works.
 
-### 88. Teste pentru register
+### 88. Tests for register
 
-A fost creat fisierul: ```tests/test_auth.py```.
+The file created: `tests/test_auth.py`.
 
-Au fost validate urmatoarele scenarii:
+These scenarios were validated:
 
-**Register valid**
-Endpoint testat:
+**Valid register**
+Endpoint tested:
 ```http
 POST /auth/register
 ```
 
-Rezultatul asteptat:
+Expected result:
 - status `201 Created`
-- user creat cu `username` si `email`
-- `hashed_password` nu este returnat in response
+- a user created with `username` and `email`
+- `hashed_password` is not returned in the response
 
-**Register cu email duplicat**
+**Register with a duplicate email**
 
-Rezultat asteptat:
+Expected result:
 - status `400 Bad Request`
-- mesaj: `Email already registered`
+- message: `Email already registered`
 
-### 89. Teste pentru login
+### 89. Tests for login
 
-Au fost validate urmatorele scenarii
+These scenarios were validated:
 
-**Login valid**
+**Valid login**
 
-Endpoint testat:
+Endpoint tested:
 ```http
 POST /auth/login
 ```
 
-Rezultat asteptat:
-- status `200 ok`
-- response contine `access_token`
-- `token_type` este `bearer`
+Expected result:
+- status `200 OK`
+- the response contains `access_token`
+- `token_type` is `bearer`
 
-**Login cu parola gresita**
+**Login with a wrong password**
 
-Rezultat asteptat:
+Expected result:
 - status `401 Unauthorized`
-- mesaj: `Invalid email or password`
+- message: `Invalid email or password`
 
-### 90. Validarea testelor
+### 90. Running the tests
 
-Testele au fost rulate cu:
+The tests were run with:
 ```bash
 python -m pytest
 ```
 
-Rezultatul confirmat:
-``` 5 passed```
+Confirmed result:
+```text
+5 passed
+```
 
-Aceasta confirma ca prima etapa de teste automate functioneaza corect.
+This confirms that the first round of automated tests works.
 
-### 91. Stare actuala dupa Tests Foundation Phase 1
+### 91. Current state after Tests Foundation Phase 1
 
-In acest moment backend-ul are:
-- test automat pentru `/health`
-- teste automate pentru register
-- teste automate pentru login
-- baza de date separata pentru teste
-- fixture pentru sesiune DB de test
-- override pentru `get_db`
-- `TestClient` functional
-- rulare automata prin `pytest`
+At this point the backend has:
+- an automated test for `/health`
+- automated tests for register
+- automated tests for login
+- a separate database for tests
+- a fixture for the test DB session
+- an override for `get_db`
+- a working `TestClient`
+- automated runs through `pytest`
 
-Aceasta marcheaza trecerea de la testare manuala la o prima plasa de siguranta automata pentru backend.
+This marks the move from manual testing to a first automated safety net for the backend.
 
-## Extinderea testelor backend: Tests Foundation Phase 2
+## Extending the backend tests: Tests Foundation Phase 2
 
-### 92. Scopul fazei 2 de testare
+### 92. The goal of testing phase 2
 
-Dupa validarea endpoint-urilor de baza (`/health`, register si login), testele au fost extinse catre rutele protejate ale aplicatiei.
+Once the basic endpoints (`/health`, register and login) were validated, the tests were extended to the application's protected routes.
 
-Scopul acestei faze este validarea automata a:
-- autentificarii prin JWT
-- accesului la endpoint-uri protejate
-- comportamentului fara token
-- controlului de acces pe roluri
-- accesului admin la audit logs
-- accesului admin la security logs
+This phase validates automatically:
+- JWT authentication
+- access to protected endpoints
+- the behavior without a token
+- role-based access control
+- admin access to audit logs
+- admin access to security events
 
-Aceasta etapa confirma ca mecanismele IAM si RBAC functioneaza nu doar manual, ci si automat prin teste.
+This stage confirms that the IAM and RBAC mechanisms work not only by hand, but also in automated tests.
 
-### 93. Fisier nou pentru rute protejate
+### 93. A new file for protected routes
 
-A fost creat fisierul:
+The file created:
 ```text
 tests/test_protected_routes.py
 ```
 
-Acesta contine teste pentru endpoint-urile care necesita autentificare sau roluri speciale.
+It contains tests for the endpoints that require authentication or special roles.
 
-### 94. Helper functions pentru teste
+### 94. Helper functions for tests
 
-In `test_protected_routes.py` au fost introduse functii helper pentru reducerea duplicarii codului:
+`test_protected_routes.py` introduced helper functions to reduce duplicated code:
 
 ```python
 register_user()
@@ -1402,104 +1404,104 @@ auth_headers()
 promote_user_to_admin()
 ```
 
-Scopul acestor functii este:
-- crearea rapida a unui user de test
-- autentificarea userului si obtinerea tokenului JWT
-- construirea headerului `Authorization`
-- promovarea unui user la rolul `Admin` direct in baza de date de test
+These functions:
+- quickly create a test user
+- authenticate the user and obtain the JWT
+- build the `Authorization` header
+- promote a user to the `admin` role directly in the test database
 
-### 95. Testarea endpoint-ului `/users/me`
+### 95. Testing `/users/me`
 
-A fost testat endpoint-ul:
+The endpoint tested:
 
 ```http
 GET /users/me
 ```
 
-Scenarii validate:
+Scenarios validated:
 
-**Cu token valid**
-Rezultatul asteptat:
+**With a valid token**
+Expected result:
 - status `200 OK`
-- response-ul contine datele userului autentificat
-- `hashed_password` nu este returnat in response
+- the response contains the authenticated user's data
+- `hashed_password` is not returned in the response
 
-**Fara token**
-Rezultatul asteptat:
+**Without a token**
+Expected result:
 - status `401 Unauthorized`
 
-Acest test confirma ca endpoint-ul este protejat corect si nu permite acces anonim.
+This test confirms the endpoint is protected and allows no anonymous access.
 
-### 96. Testarea endpoint-ului `/users/admin-only`
+### 96. Testing `/users/admin-only`
 
-A fost testat endpoint-ul:
+The endpoint tested:
 ```http
 GET /users/admin-only
 ```
 
-Scenarii valide:
+Scenarios validated:
 
-**User normal**
-Rezultat asteptat:
+**Regular user**
+Expected result:
 - status `403 Forbidden`
 
-Acest test confirma ca un user autentificat, dar fara rol potrivit, nu poate accesa ruta de admin.
+This test confirms that an authenticated user without a suitable role cannot access the admin route.
 
-**User admin**
-Rezultat asteptat:
+**Admin user**
+Expected result:
 - status `200 OK`
-- response-ul confirma userul admin
-- rolul returnat este `admin`
+- the response confirms the admin user
+- the role returned is `admin`
 
-Acest test valideaza fundatia RBAC
+This test validates the RBAC foundation.
 
-### 97. Promovarea userului la admin in test
+### 97. Promoting the user to admin in tests
 
-Pentru ca aplicatia nu are inca un endpoint dedicat pentru schimbarea rolului unui user, promovarea la admin este facuta direct in baza de date de test:
+Since the application has no dedicated endpoint for changing a user's role yet, the promotion to admin is done directly in the test database:
 
 ```python
 user.role = UserRole.ADMIN
 db_session.commit()
 ```
 
-Aceasta abordare este acceptabila in teste deoarece reprezinta doar setup de test, nu logica de productie.
+This is acceptable in tests, because it is only test setup, not production logic.
 
-In aplicatia reala, schimbarea rolurilor va trebui facuta ulterior prin endpoint-uri administrative controlate si auditate.
+In the real application, role changes will later go through controlled, audited administrative endpoints.
 
-### 98. Testarea endpoint-ului de audit logs
+### 98. Testing the audit logs endpoint
 
-A fost testat endpoint-ul
+The endpoint tested:
 
 ```http
 GET /admin/audit-logs?limit=20
 ```
 
-Scenariu validat:
-- user admin autentificat
+Scenario validated:
+- an authenticated admin user
 - status `200 OK`
-- response-ul este o lista
+- the response is a list
 
-Acest test confirma ca audit logs pot fi accesate prin API de catre rolurile autorizate.
+This test confirms that the authorized roles can read the audit logs through the API.
 
-### 99. Testarea endpoint-ului de security events
+### 99. Testing the security events endpoint
 
-A fost testat endpoint-ul:
+The endpoint tested:
 
 ```http
 GET /security/events?limit=20
 ```
 
-Scenariu validat:
-- user admin autentificat
+Scenario validated:
+- an authenticated admin user
 - status `200 OK`
-- response-ul este o lista
+- the response is a list
 
-Acest test confirma ca security events pot fi consultate prin API de catre rolurile autorizate.
+This test confirms that the authorized roles can read the security events through the API.
 
-### 100. Teste validate in Phase 2
+### 100. Tests validated in Phase 2
 
-In aceasta faza au fost validate urmatoarele scenarii:
-```
+This phase validated these scenarios:
+```text
 /users/me with token            -> 200
 /users/me without token         -> 401
 /users/admin-only regular user  -> 403
@@ -1508,8 +1510,8 @@ In aceasta faza au fost validate urmatoarele scenarii:
 /security/events admin          -> 200
 ```
 
-Impreuna cu testele din Phase 1, backend-ul are acum teste automate pentru:
-```
+Together with the Phase 1 tests, the backend now has automated tests for:
+```text
 /health                         -> 200
 /auth/register                  -> 201
 /auth/register duplicate email  -> 400
@@ -1523,84 +1525,84 @@ Impreuna cu testele din Phase 1, backend-ul are acum teste automate pentru:
 /security/events admin          -> 200
 ```
 
-### 101. Rezultatul testelor
+### 101. Test results
 
-Testele au fost rulate cu:
+The tests were run with:
 ```bash
 python -m pytest -v
 ```
 
-Rezultatul confirmat:
+Confirmed result:
 
-```
+```text
 11 passed
 ```
 
-Aceasta confirma ca fundatia de autentificare, autorizare si acces la endpoint-uri protejate este validata automat.
+This confirms that the authentication, authorization and protected endpoint foundation is validated automatically.
 
-### 102. Stare actuala dupa Tests Foundation Phase 2
+### 102. Current state after Tests Foundation Phase 2
 
-In acest moment backend-ul are:
-- teste automate pentru health check
-- teste automate pentru register
-- teste automate pentru login
-- teste automate pentru endpoint-uri protejate
-- teste automate pentru JWT access
-- teste automate pentru acces fara token
-- teste automate pentru RBAC user/admin
-- teste automate pentru audit logs endpoint
-- teste automate pentru security events endpoint
-- baza de date separata pentru teste
-- override pentru `get_db`
-- setup de test prin `conftest.py`
-- 11 teste automate validate
+At this point the backend has:
+- automated tests for the health check
+- automated tests for register
+- automated tests for login
+- automated tests for protected endpoints
+- automated tests for JWT access
+- automated tests for access without a token
+- automated tests for user/admin RBAC
+- automated tests for the audit logs endpoint
+- automated tests for the security events endpoint
+- a separate database for tests
+- an override for `get_db`
+- test setup in `conftest.py`
+- 11 passing automated tests
 
-Aceasta etapa marcheaza trecerea backend-ului SentinelCore de la testare manuala la verificare automata pentru fluxurile IAM/RBAC principale.
+This stage marks the SentinelCore backend's move from manual testing to automated checks for the main IAM/RBAC flows.
 
 ## Backend CI Pipeline - Phase 1
 
-### 103. Introducerea CI pentru backend
+### 103. CI for the backend
 
-A fost introdus primul workflow de Continuous Integration pentru backend-ul SentinelCore.
+The first Continuous Integration workflow for the SentinelCore backend was introduced.
 
-Scopul acestei etape este ca testele backend sa ruleze automat in GitHub Actions la modificari relevante ale codului.
+The goal of this stage is for the backend tests to run automatically in GitHub Actions whenever relevant code changes.
 
-Pana in aceasta etapa, testele erau rulate local cu:
+Until this stage, the tests ran locally with:
 
 ```bash
 python -m pytest -v
 ```
 
-Dupa introducerea CI, testele sunt rulate si automat in GitHub, ceea ce ofera o verificare reproductibila a backend-ului.
+With CI, the tests also run automatically on GitHub, which gives the backend a reproducible check.
 
-### 104. Fisierul workflow
+### 104. The workflow file
 
-A fost creat fisierul:
+The file created:
 
-```
+```text
 .github/workflows/backend-ci.yml
 ```
 
-Acesta defineste pipeline-ul pentru testarea backend-ului.
+It defines the pipeline that tests the backend.
 
-Workflow-ul se numeste:
+The workflow is named:
 
-```yml
+```yaml
 name: Backend CI
 ```
 
-### 105. Trigger-ele workflow-ului
+### 105. Workflow triggers
 
-Workflow-ul ruleaza automat la:
+The workflow runs automatically on:
 
-- `push` pe branch-ul `main`
-- `pull_request` catre branch-ul `main`
+- `push` to the `main` branch
+- `pull_request` to the `main` branch
 
-Triggerul este limitat prin `paths`, astfel incat pipeline-ul sa ruleze doar cand sunt modificate fisiere relevante pentru backend sau workflow-ul CI.
+The trigger is limited by `paths`, so the pipeline runs only when files relevant to the backend or to the CI workflow change.
 
-Configuratia folosita:
+The configuration used:
 
-```yml
+```yaml
 on:
   workflow_dispatch:
 
@@ -1616,366 +1618,368 @@ on:
       - main
 ```
 
-Initial, filtrul `paths` exista si pe `pull_request`. Ulterior a fost eliminat, astfel incat orice Pull Request catre `main` ruleaza CI-ul.
+At first, the `paths` filter also applied to `pull_request`. It was removed later, so every pull request to `main` runs CI.
 
-A fost postrat si `workflow_dispatch`, pentru a permite rularea manuala a workflow-ului din interfata GitHub Actions.
+`workflow_dispatch` was kept, so the workflow can be run by hand from the GitHub Actions interface.
 
-### 106. PostgreSQL ca serviciu in GitHub Actions
+### 106. PostgreSQL as a service in GitHub Actions
 
-Pentru ca testele backend folosesc baza de date, workflow-ul porneste automat un serviciu PostgreSQL.
+Since the backend tests use the database, the workflow starts a PostgreSQL service automatically.
 
-Serviciul foloseste imaginea:
+The service uses the image:
 
-```yml
+```yaml
 postgres:16
 ```
 
-Ulterior, imaginea a fost aliniata la `postgres:17`, aceeasi versiune folosita local in Docker Compose.
+The image was later aligned to `postgres:17`, the same version used locally in Docker Compose.
 
-Configuratia principala:
+The main configuration:
 
-```yml
-POSTGRES_USER: sentinelcore 
-POSTGRES_PASSWORD: sentinelcore 
+```yaml
+POSTGRES_USER: sentinelcore
+POSTGRES_PASSWORD: sentinelcore
 POSTGRES_DB: sentinelcore_test
 ```
 
-Baza de date folosita in CI este:
+The database used in CI is:
 
-```
+```text
 sentinelcore_test
 ```
 
-Aceasta pastreaza aceeasi strategie folosita local: testele nu ruleaza pe baza de date de development.
+This keeps the same strategy as locally: the tests never run against the development database.
 
-### 107. Health check pentru PostgreSQL
+### 107. A health check for PostgreSQL
 
-In workflow a fost configurat un health check pentru PostgreSQL:
+The workflow configures a health check for PostgreSQL:
 
-```yml
---health-cmd="pg_isready -U sentinelcore -d sentinelcore_test" 
---health-interval=10s 
---health-timeout=5s 
+```yaml
+--health-cmd="pg_isready -U sentinelcore -d sentinelcore_test"
+--health-interval=10s
+--health-timeout=5s
 --health-retries=5
 ```
 
-Scopul acestuia este ca job-ul sa astepte pana cand PostgreSQL este pregatit inainte de rularea testelor.
+It makes the job wait until PostgreSQL is ready before running the tests.
 
-### 108. Variabile de mediu pentru CI
+### 108. Environment variables for CI
 
-Workflow-ul defineste variabilele necesare pentru rularea aplicatiei si testelor:
+The workflow defines the variables needed to run the application and the tests:
 
-```yml
-TEST_DATABASE_URL: postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test 
-DATABASE_URL: postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test 
-SECRET_KEY: ci-test-secret-key-for-sentinelcore-minimum-32-bytes 
-ALGORITHM: HS256 
+```yaml
+TEST_DATABASE_URL: postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test
+DATABASE_URL: postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/sentinelcore_test
+SECRET_KEY: ci-test-secret-key-for-sentinelcore-minimum-32-bytes
+ALGORITHM: HS256
 ACCESS_TOKEN_EXPIRE_MINUTES: 30
 ```
 
-`TEST_DATABASE_URL` este folosit pentru testele automate.
-`DATABASE_URL` este setat pentru ca aplicatia sa poata fi importata corect in mediul CI.
-`SECRET_KEY` a fost setat la o valoare suficient de lunga pentru a evita warning-urile legate de lungimea minima recomandata pentru HMAC SHA256.
+`TEST_DATABASE_URL` is used by the automated tests.
+`DATABASE_URL` is set so the application imports correctly in CI.
+`SECRET_KEY` is set to a value long enough to avoid the warnings about the minimum recommended length for HMAC SHA256.
 
-### 109. Pasii workflow-ului
+### 109. Workflow steps
 
-Workflow-ul executa urmatorii pasii:
+The workflow runs these steps:
 
-1. checkout repository
-2. setup Python
-3. instalare dependente backend
-4. rulare teste backend
+1. checkout the repository
+2. set up Python
+3. install the backend dependencies
+4. run the backend tests
 
-Pasii principali:
+The main steps:
 
-```yml
-- name: Checkout repository 
-  uses: actions/checkout@v5 
+```yaml
+- name: Checkout repository
+  uses: actions/checkout@v5
 
-- name: Set up Python 
-  uses: actions/setup-python@v6 
-  with: python-version: "3.12" 
-  
-- name: Install backend dependencies 
-  working-directory: backend 
-  run: | 
-    python -m pip install --upgrade pip 
-    python -m pip install -e . 
-    
-- name: Run backend tests 
-  working-directory: backend 
+- name: Set up Python
+  uses: actions/setup-python@v6
+  with:
+    python-version: "3.12"
+
+- name: Install backend dependencies
+  working-directory: backend
+  run: |
+    python -m pip install --upgrade pip
+    python -m pip install -e .
+
+- name: Run backend tests
+  working-directory: backend
   run: |
     python -m pytest -v
 ```
 
-### 110. Problema intalnita: lipsa `pydantic[email]`
+### 110. Problem encountered: missing `pydantic[email]`
 
-La prima rulare in CI, workflow-ul a esuat deoarece mediul GitHub Actions nu avea instalat suportul necesar pentru validarea campurilor de tip email in Pydantic.
+On the first CI run, the workflow failed because the GitHub Actions environment did not have the support Pydantic needs to validate email fields.
 
-Problema a aratat ca mediul local avea dependente disponibile, dar proiectul nu declara complet cerintele in `pyproject.toml`.
+The problem showed that the local environment had the dependencies available, but the project did not fully declare its requirements in `pyproject.toml`.
 
-Aceasta dependenta a fost adaugata in `backend/pyproject.toml`.
+The dependency was added to `backend/pyproject.toml`.
 
-Lectia acestei etape:
-- CI-ul trebuie sa poata reproduce mediul proiectului doar din fisierele versionate
-- Dependentele folosite de aplicatie trebuie declarate explicit
-- Nu ne bazam pe ce este instalat accidental in mediul local
+Lessons from this stage:
+- CI must be able to reproduce the project's environment from the versioned files alone
+- the dependencies the application uses must be declared explicitly
+- never rely on what happens to be installed in the local environment
 
-### 111. Warning JWT rezolvat
+### 111. JWT warning fixed
 
-In timpul rularii testelor, PyJWT a afisat un warning legat de lungimea prea mica a cheii HMAC folosite pentru `HS256`.
+While the tests ran, PyJWT printed a warning about the HMAC key used for `HS256` being too short.
 
-Problema era produsă de:
+The problem came from:
 
-```yml
+```yaml
 SECRET_KEY: test-secret-key-for-ci
 ```
 
-Rezolvare:
+Solution:
 
-```yml
+```yaml
 SECRET_KEY: ci-test-secret-key-for-sentinelcore-minimum-32-bytes
 ```
 
-După această modificare, warning-urile legate de JWT au fost eliminate.
+After this change, the JWT warnings were gone.
 
-### 112. Rezultatul final al workflow-ului
+### 112. The workflow's final result
 
-Dupa corectii, workflow-ul ruleaza corect in GitHub Actions.
+After the fixes, the workflow runs correctly in GitHub Actions.
 
-Rezultat confirmat:
+Confirmed result:
 
-```
+```text
 11 passed
 ```
 
-Testele validate in CI:
+Tests validated in CI:
 
-```
-/health -> 200 
-/auth/register -> 201 
-/auth/register duplicate email -> 400 
-/auth/login -> 200 + token 
-/auth/login wrong password -> 401 
-/users/me with token -> 200 
-/users/me without token -> 401 
-/users/admin-only regular user -> 403 
-/users/admin-only admin -> 200 
-/admin/audit-logs admin -> 200 
+```text
+/health -> 200
+/auth/register -> 201
+/auth/register duplicate email -> 400
+/auth/login -> 200 + token
+/auth/login wrong password -> 401
+/users/me with token -> 200
+/users/me without token -> 401
+/users/admin-only regular user -> 403
+/users/admin-only admin -> 200
+/admin/audit-logs admin -> 200
 /security/events admin -> 200
 ```
 
-### 113. Stare actuala dupa Backend CI Phase 1
+### 113. Current state after Backend CI Phase 1
 
-In acest moment SentinelCore are:
-- workflow GitHub Actions pentru backend
-- PostgreSQL pornit ca serviciu in CI
-- baza de date de test `sentinelcore_test`
-- instalare automata a dependentelor backend
-- rulare automata a testelor cu `pytest`
-- 11 teste validate in CI
-- trigger limitat prin `paths`
-- posibilitate de rulare manuala prin `workflow_dispatch`
-- actiuni GitHub actualizate la versiuni compatibile cu Node 24
-- warning JWT rezolvat prin `SECRET_KEY` mai puternic
-- pipeline verde in GitHub Actions
+At this point SentinelCore has:
+- a GitHub Actions workflow for the backend
+- PostgreSQL started as a service in CI
+- the `sentinelcore_test` test database
+- automatic installation of the backend dependencies
+- automatic test runs with `pytest`
+- 11 tests passing in CI
+- a trigger limited by `paths`
+- manual runs through `workflow_dispatch`
+- GitHub actions updated to versions compatible with Node 24
+- the JWT warning fixed with a stronger `SECRET_KEY`
+- a green pipeline in GitHub Actions
 
-Aceasta etapa marcheaza trecerea backend-ului de la testare locala la validare automata in pipeline CI.
+This stage marks the backend's move from local testing to automated validation in a CI pipeline.
 
 ## Backend Code Quality CI - Ruff Phase 1
 
-### 114. Introducerea Ruff pentru calitatea codului
+### 114. Ruff for code quality
 
-A fost introdus `Ruff` pentru verificarea calitatii codului Python si pentru verificarea formatarii.
+`Ruff` was introduced to check the quality and the formatting of the Python code.
 
-Scopul acestei etape este ca backend-ul SentinelCore sa nu fie verificat doar functional prin teste, ci si stilistic si structural.
+The goal of this stage is for the SentinelCore backend to be checked not only functionally, through tests, but also for style and structure.
 
-Pana in aceasta etapa, CI-ul valida:
+Until this stage, CI validated:
 
+```text
+pytest -> the backend tests
 ```
-pytest -> testele backend
-```
 
-Dupa introducerea Ruff, CI-ul valideaza si:
+With Ruff, CI also validates:
 
 ```bash
 ruff check .
 ruff format --check .
 ```
 
-Aceasta marcheaza trecerea de la simpla rulare a testelor la un prim standard automat de calitate a codului.
+This marks the move from just running tests to a first automated code quality standard.
 
-### 115. Configurarea Ruff in `pyproject.toml`
+### 115. Configuring Ruff in `pyproject.toml`
 
-In `backend/pyproject.toml` a fost adaugata dependenta:
+The dependency added to `backend/pyproject.toml`:
 
 ```toml
 "ruff",
 ```
 
-A fost adaugata si configuratia Ruff:
+The Ruff configuration was added too:
 
-```
-[tool.ruff] 
-line-length = 88 
-target-version = "py312" 
+```toml
+[tool.ruff]
+line-length = 88
+target-version = "py312"
 
-[tool.ruff.lint] 
+[tool.ruff.lint]
 select = [
   "E",
   "F",
   "I",
   "B",
   "UP",
-  ] 
-ignore = [] 
+]
+ignore = []
 
-[tool.ruff.format] 
-quote-style = "double" 
-indent-style = "space" 
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 line-ending = "auto"
 ```
 
-Regulile selectate au urmatorul rol:
-- E -> reguli de stil Python
-- F -> erori de tip Pyflakes, iumporturi sau variabile nefolosite
-- I -> ordine importuri
-- B -> posibile bug-uri comune detectate de flake8-bugbear
-- UP -> modernizare cod Python pentru versiuni mai noi
+The selected rules:
+- E -> Python style rules
+- F -> Pyflakes errors: unused imports or variables
+- I -> import order
+- B -> common likely bugs, detected by flake8-bugbear
+- UP -> modernizing Python code for newer versions
 
-### 116. Verificari Ruff rulate local
+### 116. Ruff checks run locally
 
-Inainte de integrarea in CI, Ruff a fost rulat local:
+Before it was added to CI, Ruff was run locally:
 
 ```bash
 python -m ruff check .
 python -m ruff format --check .
 ```
 
-Initial, Ruff a gasit mai multe probleme, desi testele treceau.
+At first, Ruff found several problems, even though the tests passed.
 
-Acest lucru a confirmat diferenta dintre:
+This confirmed the difference between:
 
-- teste functionale -> aplicatia merge
-- linting -> codul respecta standardul de calitate
+- functional tests -> the application works
+- linting -> the code meets the quality standard
 
-Testele treceau, dar Ruff a indentificat probleme de stil, modernizare si bune practici.
+The tests passed, but Ruff found style, modernization and best practice problems.
 
-### 117. Probleme identificate de Ruff
+### 117. Problems found by Ruff
 
-Ruff a identificat urmatoarele categorii principale de probleme:
-- B008 -> apeluri Depends(...) in argumente default
-- B904 -> ridicare de exceptii in except fara `from`
-- UP042 -> enum-uri definite ca str + enum.Enum in loc de StrEnum
+Ruff found these main categories of problems:
+- B008 -> `Depends(...)` calls in default arguments
+- B904 -> exceptions raised in `except` without `from`
+- UP042 -> enums defined as `str` + `enum.Enum` instead of `StrEnum`
 
-Aceste probleme nu stricau functionalitatea aplicatiei, dar indicau zone unde codul putea fi modernizat si clarificat.
+These problems did not break the application, but they pointed to places where the code could be modernized and clarified.
 
-### 118. Modernizarea dependecy injection cu `Annotated`
+### 118. Modernizing dependency injection with `Annotated`
 
-Pentru a rezolva regulile `B008`, endpoint-urile FastAPI au fost modernizate folosind `typing.Annotated`.
+To fix the `B008` findings, the FastAPI endpoints were modernized with `typing.Annotated`.
 
-In locul stilului clasic:
+Instead of the classic style:
 
 ```python
-def read_current_user(current_user: User = Depends(get_current_user)) -> return current_user
+def read_current_user(current_user: User = Depends(get_current_user)) -> UserRead:
+    return current_user
 ```
 
-a fost folosit stilul modern:
+the modern style is used:
 
 ```python
 def read_current_user(
-  current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserRead:
-  return current_user
+    return current_user
 ```
 
-Aceasta schimbare a fost aplicata in:
+The change was applied in:
 - app/api/deps.py
 - app/api/routes/auth.py
 - app/api/routes/users.py
 - app/api/routes/audit.py
 - app/api/routes/security.py
 
-Avantaje:
-- cod mai compatibil cu stilul modern FastAPI
-- eliminarea warning-urilor Ruff `B008`
-- separarea mai clara intre tipul datelor si mecanismul de dependency injection
-- cod mai usor de verificat static
+Advantages:
+- code closer to the modern FastAPI style
+- no more Ruff `B008` warnings
+- a clearer separation between the data type and the dependency injection mechanism
+- code that is easier to check statically
 
-### 119. Rezolvarea regulii `B904`
+### 119. Fixing the `B904` rule
 
-In `app/api/deps.py`, Ruff a semnalat ca o exceptie ridicata in interiorul unui bloc `except` trebuie sa pastreze cauza initiala.
+In `app/api/deps.py`, Ruff flagged that an exception raised inside an `except` block should keep the original cause.
 
-In loc de:
+Instead of:
 
 ```python
 except InvalidTokenError:
-  raise credentials_exception
+    raise credentials_exception
 ```
 
-s-a folosit:
+the code uses:
 
 ```python
 except InvalidTokenError as exc:
-  raise credentials_exception from exc
+    raise credentials_exception from exc
 ```
 
-Aceasta modificare face mai clar lantul cazual al erorilor si ajuta debugging-ul.
+This makes the causal chain of errors clearer and helps debugging.
 
-### 120. Modificarea enum-urilor cu `StrEnum`
+### 120. Moving enums to `StrEnum`
 
-Pentru regula `UP042`, enum-urile definite prin combinatia:
+For the `UP042` rule, the enums defined with the combination:
 
 ```python
-class UserRole(str, enumEnum):
-  ...
+class UserRole(str, enum.Enum):
+    ...
 ```
 
-au fost modernizate folosind:
+were modernized with:
 
 ```python
 from enum import StrEnum
 ```
 
-si:
+and:
 
 ```python
 class UserRole(StrEnum):
-  ...
+    ...
 ```
 
-Aceasta schimbare a fost aplicata pentru:
+The change was applied to:
 - UserRole
 - AuditEventType
 - SecurityEventType
 - SecuritySeverity
 
-Fisiere afectate:
+Files affected:
 - app/models/user.py
 - app/models/audit_log.py
 - app/models/security_event.py
 
-Aceasta modernizare este potrivita deoarece backend-ul foloseste Python 3.12.
+This modernization fits because the backend uses Python 3.12.
 
 ### 121. Ruff format
 
-Ruff format a fost folosit pentru verificarea formatarii codului:
+Ruff format was used to check the code's formatting:
 
 ```bash
 python -m ruff format --check .
 ```
 
-Rezultatul local a confirmat ca fisierele sunt formatate corect:
+The local result confirmed the files are formatted correctly:
 
-```bash
+```text
 32 files already formatted
 ```
 
-Aceasta inseamna ca standardul de formatare este consistent in backend.
+This means the formatting standard is consistent across the backend.
 
-### 122. Validarea finala locala
+### 122. Final local validation
 
-Dupa corectarea problemelor, au fost rulate local:
+After the problems were fixed, these were run locally:
 
 ```bash
 python -m ruff check .
@@ -1983,75 +1987,75 @@ python -m ruff format --check .
 python -m pytest -v
 ```
 
-Rezultatul final:
+Final result:
 - ruff check -> All checks passed
 - ruff format --check -> passed
 - pytest -> 11 passed
 
-Aceasta confirma ca backend-ul respecta atat testele functionale, cat si regulile de calitate a codului.
+This confirms that the backend passes both the functional tests and the code quality rules.
 
-### 123. Integrarea Ruff in GitHub Actions
+### 123. Adding Ruff to GitHub Actions
 
-Dupa validarea locala, Ruff a fost integrat in workflow-ul GitHub Actions
+After the local validation, Ruff was added to the GitHub Actions workflow.
 
-In `.github/workflows/backend-ci.yml`, dupa instalarea dependentelor si inainte de rularea testelor, au fost adaugati pasii:
+In `.github/workflows/backend-ci.yml`, after the dependencies are installed and before the tests run, these steps were added:
 
-```yml
-- name: Run Ruff lint 
-  working-directory: backend 
-  run: | 
-    python -m ruff check . 
-    
-- name: Run Ruff format check 
-  working-directory: backend 
-  run: | 
+```yaml
+- name: Run Ruff lint
+  working-directory: backend
+  run: |
+    python -m ruff check .
+
+- name: Run Ruff format check
+  working-directory: backend
+  run: |
     python -m ruff format --check .
 ```
 
-Ordinea actuala a pipeline-ului backend este:
+The current order of the backend pipeline is:
 - install dependencies
 - ruff check
 - ruff format --check
 - pytest
 
-Aceasta ordine este intentionata: codul trebuie sa respecte standardul de calitate inainte ca testele sa fie rulate.
+The order is deliberate: the code must meet the quality standard before the tests run.
 
-### 124. Rezultatul in CI
+### 124. The result in CI
 
-Workflow-ul GitHub Actions a fost rulat dupa integrarea Ruff.
+The GitHub Actions workflow was run after Ruff was added.
 
-Rezultat confirmat:
+Confirmed result:
 
 - Ruff lint -> passed
 - Ruff format check -> passed
 - pytest -> 11 passed
 
-Pipeline-ul backend este verde.
+The backend pipeline is green.
 
-### 125. Stare actuala dupa Ruff Phase 1
+### 125. Current state after Ruff Phase 1
 
-In acest moment backend-ul SentinelCore are:
-- teste automate locale
-- teste automate in GitHub Actions
-- PostgreSQL ca serviciu in CI
-- 11 teste validate in CI
-- Ruff instalat si configurat
-- linting automat prin `ruff check`
-- verificare automata a formatarii prin `ruff format --check`
-- cod modernizat cu `Annotated`
-- enum-uri modernizate cu `StrEnum`
-- regula `B904` rezolvata corect
-- pipeline CI verde pentru teste si calitatea codului
+At this point the SentinelCore backend has:
+- automated local tests
+- automated tests in GitHub Actions
+- PostgreSQL as a service in CI
+- 11 tests passing in CI
+- Ruff installed and configured
+- automated linting with `ruff check`
+- automated formatting checks with `ruff format --check`
+- code modernized with `Annotated`
+- enums modernized with `StrEnum`
+- the `B904` rule fixed properly
+- a green CI pipeline for tests and code quality
 
-Aceasta etapa marcheaza introducerea primului strat real de code quality automation in SentinelCore.
+This stage introduces the first real layer of code quality automation in SentinelCore.
 
 ## Backend Security Checks - Phase 1
 
-### 126. Introducerea verificarilor de securitate in backend
+### 126. Security checks for the backend
 
-A fost introdus primul strat de verificari automate de securitate pentru backend-ul SentinelCore.
+The first layer of automated security checks for the SentinelCore backend was introduced.
 
-Pana in aceasta etapa, pipeline-ul valida:
+Until this stage, the pipeline validated:
 
 ```bash
 ruff check .
@@ -2059,32 +2063,32 @@ ruff format --check .
 pytest
 ```
 
-Dupa aceasta etapa, pipeline-ul valideaza si:
+After this stage, the pipeline also validates:
 
 ```bash
 bandit
 gitleaks
 ```
 
-Scopul acestei faze este ca proiectul sa nu fie verificat doar functional si stilistic, ci si din perspectiva securitatii de baza.
+The goal of this phase is to check the project not only for function and style, but also for basic security.
 
-### 127. Introducerea Bandit
+### 127. Bandit
 
-A fost introdus `Bandit` pentru scanarea codului Python.
+`Bandit` was introduced to scan the Python code.
 
-Bandit este folosit pentru detectarea unor probleme comune de securitate in codul sursa Python.
+Bandit detects common security problems in Python source code.
 
-In `backend/pyproject.toml` a fost adaugata dependenta:
+The dependency added to `backend/pyproject.toml`:
 
 ```toml
 "bandit[toml]",
 ```
 
-S-a folosit varianta `[toml]` pentru ca Bandit sa poata fi configurat prin `pyproject.toml`.
+The `[toml]` variant was used so Bandit can be configured through `pyproject.toml`.
 
-### 128. Configurarea Bandit
+### 128. Configuring Bandit
 
-In `backend/pyproject.toml` a fost adaugata configuratia:
+The configuration added to `backend/pyproject.toml`:
 
 ```toml
 [tool.bandit]
@@ -2092,223 +2096,223 @@ exclude_dirs = ["tests", ".venv", "migrations"]
 skips = []
 ```
 
-Au fost excluse:
-- tests -> testele pot contine parole sau valori hardcodate de test
-- .venv -> mediul virtual nu trebuie scanat
-- migrations -> migratiile Alembic nu reprezinta logica aplicatiei
+Excluded:
+- tests -> tests may contain hardcoded test passwords or values
+- .venv -> the virtual environment must not be scanned
+- migrations -> Alembic migrations are not application logic
 
-Pentru inceput, scanarea Bandit se concentreaza pe codul aplicatiei din: `app/`
+To begin with, the Bandit scan focuses on the application code in `app/`.
 
-### 129. Rularea locala Bandit
+### 129. Running Bandit locally
 
-Bandit a fost rulat local din directorul `backend` cu:
+Bandit was run locally from the `backend` directory with:
 
 ```bash
 python -m bandit -r app -c pyproject.toml
 ```
 
-Initial, Bandit a raportat un issue de severitate mica:
+At first, Bandit reported one low severity issue:
 
-```
+```text
 B106: hardcoded_password_funcarg
 Possible hardcoded password: 'bearer'
 ```
 
-Locatia raportata era in endpoint-ul de login, la raspunsul:
+The reported location was in the login endpoint, at the response:
 
 ```python
 return Token(access_token=access_token, token_type="bearer")
 ```
 
-### 130. Tratarea false positive-ului Bandit B106
+### 130. Handling the Bandit B106 false positive
 
-Raportarea `B106` a fost analizata si clasificata ca false positive.
+The `B106` report was analyzed and classified as a false positive.
 
-Valoarea: `bearer` nu este o parola, token real sau secret. Este valoarea standard OAuth2 pentru tipul token-ului returnat clientului.
+The value `bearer` is not a password, a real token or a secret. It is the standard OAuth2 value for the type of token returned to the client.
 
-Rezolvarea a fost facuta punctual, prin adaugarea comentariului:
+The fix was targeted, by adding the comment:
 
 ```python
 return Token(
-  access_token = access_token,
-  # OAuth2 token type, not a password or secret.
-  token_type="bearer",  # nosec B106
+    access_token=access_token,
+    # OAuth2 token type, not a password or secret.
+    token_type="bearer",  # nosec B106
 )
 ```
 
-Decizia importanta:
-- regula `B106` nu a fost dezactivata global
-- exceptia a fost aplicata doar pe linia analizata
-- regula ramane activa pentru a detecta eventuale parole reale hardcodate in viitor
+The important decision:
+- the `B106` rule was not disabled globally
+- the exception applies only to the line that was analyzed
+- the rule stays active, to catch any real hardcoded passwords in the future
 
-Aceasta este abordatea corecta deoarece evita suprimarea unei reguli utile la nivelul intregului proiect.
+This is the right approach, because it avoids suppressing a useful rule across the whole project.
 
-### 131. Validarea Bandit dupa corectie
+### 131. Validating Bandit after the fix
 
-Dupa tratarea false positive-ului, au fost rulate din nou:
+After the false positive was handled, these were run again:
 - python -m ruff check .
 - python -m ruff format --check .
 - python -m bandit -r app -c pyproject.toml
 - python -m pytest -v
 
-Rezultatul local:
+Local result:
 - ruff check -> All checks passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 11 passed
 
-Aceasta confirma ca backend-ul trece atat verificarile functionale, cat si verificarile de calitate si securitate Python.
+This confirms that the backend passes the functional checks as well as the Python quality and security checks.
 
-### 132. Introducerea Gitleaks
+### 132. Gitleaks
 
-A fost introdus `Gitleaks` pentru scanarea secretelor in repository.
+`Gitleaks` was introduced to scan the repository for secrets.
 
-Gitleaks este folosit pentru detectarea de:
-- parole
-- token-uri
+Gitleaks detects:
+- passwords
+- tokens
 - API keys
-- private key
-- secrete hardcodate
-- credentiale expuse accidental
+- private keys
+- hardcoded secrets
+- accidentally exposed credentials
 
-Aceasta verificare este importanta mai ales deoarece SentinelCore urmeaza sa poata fi facut public dupa ce repo-ul este considerat sigur.
+This check matters especially because SentinelCore is meant to become public once the repository is considered safe.
 
-### 133. Problema locala intalnita cu Docker pe Fedora
+### 133. Local problem encountered with Docker on Fedora
 
-La prima rulare locala cu Docker, Gitleaks nu a scanat repository-ul real.
+On the first local run with Docker, Gitleaks did not scan the real repository.
 
-Rezultatul gresit arata:
+The wrong output showed:
 - 0 commits scanned
 - scanned ~0 bytes
 - fatal: not a git repository
 
-Aceasta iesire nu a fost acceptata ca valida, deoarece `no leaks found` nu are valoare daca au fost scanate `0` commit-uri.
+This output was not accepted as valid, because `no leaks found` means nothing when `0` commits were scanned.
 
-Problema a fost investigata prin rularea unui container Alpine:
+The problem was investigated by running an Alpine container:
 
 ```bash
 docker run --rm -v "$(pwd):/repo" -w /repo alpine:latest ls -la
 ```
 
-Rezultatul a indicat:
+The result showed:
 
-```
+```text
 Permission denied
 ```
 
-Cauza a fost legata de permisiunile Docker/SELinux pe Fedora.
+The cause was the Docker/SELinux permissions on Fedora.
 
-### 134. Rezolvarea problemei SELinuz cu `:Z`.
+### 134. Fixing the SELinux problem with `:Z`
 
-Pe Fedora, problema de mount Docker a fost rezolvata prin folosirea optiunii `:Z`:
+On Fedora, the Docker mount problem was fixed with the `:Z` option:
 
 ```bash
 docker run --rm -v "$(pwd):/repo:Z" -w /repo alpine:latest ls -la
 ```
 
-Dupa aceasta modificare, containerul a putut vedea corect repository-ul:
+After this change, the container could see the repository correctly:
 - .git
 - .github
 - backend
 - frontend
 - docs
 
-Comanda locala corecta pentru Gitleaks pe Fedora devine:
+The correct local Gitleaks command on Fedora becomes:
 
 ```bash
 docker run --rm -v "$(pwd):/repo:Z" -w /repo zricethezav/gitleaks:latest
 ```
 
-### 135. Validarea locala Gitleaks
+### 135. Validating Gitleaks locally
 
-Dupa rezolvarea problemei de mount, Gitleaks a scanat corect repository-ul.
+Once the mount problem was fixed, Gitleaks scanned the repository correctly.
 
-Rezultat confirmat:
+Confirmed result:
 
-```
+```text
 23 commits scanned
 scanned ~280700 bytes
 no leaks found
 ```
 
-Aceasta confirma ca Gitleaks a scanat istoricul Git disponibil si nu doar un director gol.
+This confirms that Gitleaks scanned the available Git history, not just an empty directory.
 
-### 136. Integrarea Bandit in GitHub Actions
+### 136. Adding Bandit to GitHub Actions
 
-Dupa validarea locala, Bandit a fost integrat in workflow-ul backend.
+After the local validation, Bandit was added to the backend workflow.
 
-In `.github/workflows/backend-ci.yml`, Bandit ruleaza dupa Ruff si inainte de pytest:
+In `.github/workflows/backend-ci.yml`, Bandit runs after Ruff and before pytest:
 
-```yml
-  - name: Run Bandit security scan 
-    working-directory: backend 
-    run: | 
-      python -m bandit -r app -c pyproject.toml
+```yaml
+- name: Run Bandit security scan
+  working-directory: backend
+  run: |
+    python -m bandit -r app -c pyproject.toml
 ```
 
-Ordinea actuala jobului backend devine:
+The backend job's order becomes:
 - install dependencies
 - ruff check
 - ruff format --check
-- badit
+- bandit
 - pytest
 
-Aceasta ordine este intentionata:
-- mai intai se valideaza calitatea codului
-- apoi se ruleaza scanarea de securitate Python
-- apoi se ruleaza testele functionale
+The order is deliberate:
+- first, the code quality is validated
+- then the Python security scan runs
+- then the functional tests run
 
-### 137. Integrarea Gitleaks in GitHub Actions
+### 137. Adding Gitleaks to GitHub Actions
 
-Gitleaks a fost integrat in workflow ca job separat.
+Gitleaks was added to the workflow as a separate job.
 
-Initial a fost testata varianta cu:
+The first version tested used:
 
-```yml
+```yaml
 uses: gitleaks/gitleaks-action@v2
 ```
 
-Aceasta functiona, dar producea un warning de infrastructura legat de Node.js 20.
+It worked, but produced an infrastructure warning about Node.js 20.
 
-Pentru a elimina warning-ul, Gitleaks a fost schimbat sa ruleze prin Docker in CI:
+To remove the warning, Gitleaks was changed to run through Docker in CI:
 
-```yml
+```yaml
 gitleaks:
-  name: Run Gitleaks secret scan 
-  runs-on: ubuntu-latest 
-  
-  steps: 
-    - name: Checkout repository 
-      uses: actions/checkout@v5 
-      with: 
-        fetch-depth: 0 
-    
-    - name: Run Gitleaks with Docker 
-      run: | 
+  name: Run Gitleaks secret scan
+  runs-on: ubuntu-latest
+
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Run Gitleaks with Docker
+      run: |
         docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose
 ```
 
-In CI nu este necesara optinuea `:Z`, deoarece aceasta a fost specifica mediului local Fedora/SELinux.
+CI does not need the `:Z` option, which was specific to the local Fedora/SELinux environment.
 
-### 138. Scanarea istoricului Git
+### 138. Scanning the Git history
 
-Pentru jobul Gitleaks, checkout-ul foloseste: `fetch-depth: 0`.
+For the Gitleaks job, the checkout uses `fetch-depth: 0`.
 
-Aceasta setare descarca istoricul complet al repository-ului in runner.
+This setting downloads the repository's full history into the runner.
 
-Motiv:
-- Gitleaks trebuie sa poata scana si istoricul Git, nu doar ultimul snapshot
-- Daca un secret a fost comis in trecut, el poate fi detectat chiar daca fisierul curent a fost curatat.
+Reason:
+- Gitleaks must be able to scan the Git history too, not just the latest snapshot
+- a secret committed in the past can be detected even if the current file was cleaned up
 
-Aceasta abordare este importanta pentru pregatirea repository-ului in vederea publicarii ulterioare.
+This matters for preparing the repository to be published later.
 
-### 139. Rezultatul final in CI
+### 139. The final result in CI
 
-Dupa integrarea Bandit si Gitleaks, workflow-ul GitHub Actions a fost rulat cu success.
+After Bandit and Gitleaks were added, the GitHub Actions workflow ran successfully.
 
-Rezultat confirmat:
+Confirmed result:
 
-```
+```text
 Ruff lint -> passed
 Ruff format check -> passed
 Bandit security scan -> passed
@@ -2316,58 +2320,58 @@ Gitleaks secret scan -> passed
 pytest -> 11 passed
 ```
 
-Pipeline-ul este verde si fara warning-uri relevante.
+The pipeline is green, with no relevant warnings.
 
-### 140. Starea actuala dupa Security Checks Phase 1
+### 140. Current state after Security Checks Phase 1
 
-In acest moment backend-ul SentinelCore are:
-- teste automate locale
-- teste automate in GitHub Actions
-- PostgreSQL ca serviciu in CI
-- Ruff pentru linting si format check
-- Bandit pentru scanare de securitate Python
-- Gitleaks pentru scanare de secrete
-- Gitleaks rulat local prin Docker cu `:Z` pe Fedora
-- Gitleaks rulat in CI prin Docker
-- scanare Git history prin `fetch-depth:0`
-- false positive Bandit tratat punctual cu `# nosec B106`
-- 11 teste validate
-- pipeline CI verde
-- pipeline fara warning-uri relevante
+At this point the SentinelCore backend has:
+- automated local tests
+- automated tests in GitHub Actions
+- PostgreSQL as a service in CI
+- Ruff for linting and the format check
+- Bandit for Python security scanning
+- Gitleaks for secret scanning
+- Gitleaks run locally through Docker with `:Z` on Fedora
+- Gitleaks run in CI through Docker
+- Git history scanning through `fetch-depth: 0`
+- the Bandit false positive handled with a targeted `# nosec B106`
+- 11 passing tests
+- a green CI pipeline
+- a pipeline with no relevant warnings
 
-Aceasta etapa marcheaza introducerea primului strat real de DevSecOps in SentinelCore.
+This stage introduces the first real DevSecOps layer in SentinelCore.
 
 ## Admin User Management - Phase 1
 
-### 141. Introducerea administarii utilizatorilor
+### 141. User administration
 
-A fost introdusa prima etapa din zona de administrare a utilizatorilor.
+The first stage of user administration was introduced.
 
-Scopul acestei faze este ca utilizatorii cu rol administrativ sa poata consulta lista utilizatorilor existenti in sistem.
+The goal of this phase is for users with an administrative role to be able to see the list of users in the system.
 
-Endpoint introdus:
+Endpoint introduced:
 
-```
+```http
 GET /admin/users
 ```
 
-Aceasta etapa marcheaza inceputul zonei de Admin User Management din SentinelCore.
+This stage starts SentinelCore's Admin User Management area.
 
-### 142. Scopul endpoint-ului `GET /admin/users`
+### 142. The purpose of `GET /admin/users`
 
-Endpoint-ul permite listarea utilizatorilor existenti in aplicatie.
+The endpoint lists the users in the application.
 
-Accesul este permis doar pentru rolurile administrative:
+Access is allowed only for the administrative roles:
 - admin
 - owner
 
-Un utilizator normal nu poate accesa aceasta ruta.
+A regular user cannot access this route.
 
-Aceasta separare este importanta pentru fundatia IAM/RBAC, deoarece datele despre utilizatori nu trebuie expuse tuturor conturilor autentificate.
+This separation matters for the IAM/RBAC foundation, because user data must not be exposed to every authenticated account.
 
-### 143. Service pentru listarea utilizatorilor
+### 143. A service for listing users
 
-In `app/services/user_service.py` a fost adaugata functia:
+The function added to `app/services/user_service.py`:
 
 ```python
 def list_users(
@@ -2375,169 +2379,169 @@ def list_users(
     limit: int = 50,
     offset: int = 0,
 ) -> list[User]:
-    statement = select(User).order_by(User.id).offset(offset).limit(limit) 
+    statement = select(User).order_by(User.id).offset(offset).limit(limit)
     return list(db.scalars(statement).all())
 ```
 
-Aceasta functie separa logica de acces la baza de date de logica rutei API.
+This function separates the database access from the API route's logic.
 
-Scop:
-- pastrarea rutelor cat mai curate
-- reutilizarea logicii de listare in alte zone ale aplicatiei
-- pregatirea pentru paginare mai avansata in viitor
+Purpose:
+- keeping the routes as clean as possible
+- reusing the listing logic in other parts of the application
+- preparing for more advanced pagination in the future
 
-### 144. Ruta noua pentru administrarea utilizatorilor
+### 144. A new route for user administration
 
-A fost creat fisierul:
+The file created:
 
-```
+```text
 app/api/routes/admin_users.py
 ```
 
-Routerul foloseste prefixul:
+The router uses the prefix:
 
 ```python
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 ```
 
-Endpoint-ul principal introdus:
+The main endpoint introduced:
 
 ```python
 @router.get("", response_model=list[UserRead])
 def read_users(...)
 ```
 
-Acesta returneaza lista utilizatorilor folosind schema publica `UserRead`.
+It returns the list of users through the public `UserRead` schema.
 
-### 145. Protectia endpoint-ului prin RBAC
+### 145. Protecting the endpoint with RBAC
 
-Endpoint-ul este protejat cu dependency-ul:
+The endpoint is protected by the dependency:
 
 ```python
 Depends(require_role(UserRole.ADMIN, UserRole.OWNER))
 ```
 
-Aceasta inseamna ca doar utilizatorii cu rolurile de `ADMIN` sau `OWNER` pot accesa lista utilizatorilor.
+This means only users with the `ADMIN` or `OWNER` role can access the user list.
 
-Un user normal primeste: `403 Forbidden`.
+A regular user gets `403 Forbidden`.
 
-Aceasta verificare confirma ca RBAC-ul este aplicat si pe noile endpoint-uri administrative, nu doar pe endpoint-ul de test `/users/admin-only`.
+This confirms that RBAC applies to the new administrative endpoints too, not only to the `/users/admin-only` test endpoint.
 
-### 146. Folosirea `Annotated` pentru dependecy injection
+### 146. Using `Annotated` for dependency injection
 
-Endpoint-ul a fost scris folosind stilul modern FastAPI cu `typing.Annotated`.
+The endpoint was written in the modern FastAPI style, with `typing.Annotated`.
 
-Aceasta abordare pastreaza codul compatibil cu standardele introduse in etapa Ruff si evita problam `B008`.
+This keeps the code consistent with the standards introduced in the Ruff stage and avoids the `B008` problem.
 
-### 147. Parametri de paginare de baza
+### 147. Basic pagination parameters
 
-Endpoint-ul accepta parametri de baza:
+The endpoint accepts basic parameters:
 
-```
+```text
 limit
 offset
 ```
 
-Configuratie:
+Configuration:
 
-```
-limit: Annotated[int, Query(ge=1, le=200)] =50
+```python
+limit: Annotated[int, Query(ge=1, le=200)] = 50
 offset: Annotated[int, Query(ge=0)] = 0
 ```
 
-Aceasta implementare ofera o fundatie simpla pentru paginare.
+This gives a simple foundation for pagination.
 
-Limitarea la maximum `200` previne cereri prea mari catre API.
+The maximum of `200` prevents overly large requests to the API.
 
-### 148. Audit log pentru listarea utilizatorilor
+### 148. An audit log for listing users
 
-Cand un admin acceseaza lista utilizatorilor, aplicatia creeaza un audit log.
+When an admin reads the user list, the application creates an audit log.
 
-Eveniment folosit:
+Event used:
 
-```
+```text
 AuditEventType.ADMIN_ENDPOINT_ACCESSED
 ```
 
-Mesaj:
+Message:
 
-```
+```text
 Admin listed users
 ```
 
-Aceasta decizie este importanta deoarece accesul la lista de utilizatori este o actiune administrativa si trebuie urmarita.
+This decision matters because reading the user list is an administrative action and must be tracked.
 
-In SentinelCore, actiunile administrative trebuie sa fie vizibile in audit trail.
+In SentinelCore, administrative actions must be visible in the audit trail.
 
-### 149. Security event pentru listarea utilizatorilor
+### 149. A security event for listing users
 
-Pe langa audit, endpoint-ul creeaza si un security event.
+Besides the audit, the endpoint also creates a security event.
 
-Eveniment folosit: `SecurityEventType.ADMIN_ACCESS`
+Event used: `SecurityEventType.ADMIN_ACCESS`
 
-Severitate: `SecuritySeverity.INFO`
+Severity: `SecuritySeverity.INFO`
 
-Mesaj: `Admin listed users`
+Message: `Admin listed users`
 
-Aceasta clasificare marcheaza actiunea ca eveniment de securitate informativ.
+This classification marks the action as an informational security event.
 
-Nu este incident, dar este o actiune relevanta pentru vizibilitatea administrativa.
+It is not an incident, but it is an action relevant to administrative visibility.
 
-### 150. Inregistrarea routerului in aplicatie
+### 150. Registering the router in the application
 
-Routerul `admin_users` a fost inclus in `app/main.py`.
+The `admin_users` router was included in `app/main.py`.
 
-A fost adaugat importul: `from app.api.routes import admin_users` si routerul a fost inregistrat in aplicatia FastAPI: `app.include_router(admin_users.router)
+The import `from app.api.routes import admin_users` was added, and the router was registered in the FastAPI application with `app.include_router(admin_users.router)`.
 
-Astfel endpoint-ul devine disponibil in aplicatie sub ruta: `GET /admin/users`
+The endpoint is thus available in the application at `GET /admin/users`.
 
-### 151. Teste automate pentru `GET /admin/users`
+### 151. Automated tests for `GET /admin/users`
 
-Au fost adugate teste in: `tests/test_protected_routes.py`
+Tests were added to `tests/test_protected_routes.py`.
 
-Scenarii validate:
-- user normal -> 403 Forbidden
-- admin user -> 200 OK + lista utilizatori
+Scenarios validated:
+- regular user -> 403 Forbidden
+- admin user -> 200 OK + the user list
 
-Primul test confirma ca un utilizator fara rol administrativ nu poate accesa endpoint-ul.
+The first test confirms that a user without an administrative role cannot access the endpoint.
 
-Al doilea test confirma ca un admin poate accesa lista utilizatorilor si ca raspunsul nu expune `hashed_password`.
+The second test confirms that an admin can read the user list and that the response does not expose `hashed_password`.
 
-### 152. Test pentru user normal
+### 152. The regular user test
 
-Scenariu:
-1. se creeaza un user normal
-2. userul face login
-3. userul incearca sa acceseze GET /admin/users
-4. API-ul raspunde cu 403
+Scenario:
+1. a regular user is created
+2. the user logs in
+3. the user tries to access GET /admin/users
+4. the API answers 403
 
-Rezultat asteptat: `403 Forbidden`
+Expected result: `403 Forbidden`
 
-Acest test valideaza protectia RBAC.
+This test validates the RBAC protection.
 
-### 153. Test pentru user admin
+### 153. The admin user test
 
-Scenariu:
-1. se creeaza un user
-2. userul este promovat la admin in baza de date de test
-3. userul face login
-4. acceseaza GET /admin/users
-5. API-ul raspunde cu lista de utilizatori
+Scenario:
+1. a user is created
+2. the user is promoted to admin in the test database
+3. the user logs in
+4. the user accesses GET /admin/users
+5. the API answers with the user list
 
-Rezultatul asteptat: `200 OK`
+Expected result: `200 OK`
 
-Validari suplimentare:
-- response-ul este lista
-- lista contine userul creat
-- email-ul este corect
-- username-ul este corect
-- hashed_password nu este expus
+Additional checks:
+- the response is a list
+- the list contains the created user
+- the email is correct
+- the username is correct
+- hashed_password is not exposed
 
-Aceasta verificare este importanta pentru securitatea raspunsului API.
+This check matters for the security of the API response.
 
-### 154. Validarea locala
+### 154. Local validation
 
-Dupa implementare au fost rulate local:
+After the implementation, these were run locally:
 
 ```bash
 python -m ruff check .
@@ -2546,217 +2550,217 @@ python -m bandit -r app -c pyproject.toml
 python -m pytest -v
 ```
 
-Rezultat confirmat:
+Confirmed result:
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> passed
 - pytest -> passed
 
-Dupa adaugarea celor doua teste noi, numarul total de teste backend a crescut de la `11` la `13`.
+With the two new tests, the total number of backend tests grew from `11` to `13`.
 
-### 155. Validarea prin Pull Request
+### 155. Validation through a pull request
 
-Implementarea a fost facuta pe branch separat, nu direct pe `main`.
+The work was done on a separate branch, not directly on `main`.
 
-Flux folosit:
+Flow used:
 - feature branch
 - push
-- Pull Request catre main
-- CI verde
+- pull request to main
+- green CI
 - merge
-- stergere branch
+- delete the branch
 
-Aceasta etapa confirma noua disciplina de lucru a proiectului: fiecare task nou se dezvolta pe branch separat si intra in `main` doar dupa verificare prin CI.
+This stage confirms the project's new working discipline: every new task is developed on its own branch and reaches `main` only after CI has checked it.
 
-### 156. Stare actuala dupa Admin User Management Phase 1
+### 156. Current state after Admin User Management Phase 1
 
-In acest moment backend-ul SentinelCore are:
-- endpoint administrativ `GET /admin/users`
-- listare utilizatori prin service dedicat
-- acces permis doar pentru `admin` si `owner`
-- raspuns prin schema publica `UserRead`
-- protectie impotriva expunerii `hashed_password`
-- audit log pentru listarea utilizatorilor
-- security event pentru listarea utilizatorilor
-- parametri de baza `limit` si `offset`
-- teste pentru acces interzis user normal
-- teste pentru acces permis admin
-- 13 teste backend validate
-- CI verde dupa Pull Request
+At this point the SentinelCore backend has:
+- the administrative endpoint `GET /admin/users`
+- user listing through a dedicated service
+- access allowed only for `admin` and `owner`
+- responses through the public `UserRead` schema
+- protection against exposing `hashed_password`
+- an audit log for listing users
+- a security event for listing users
+- basic `limit` and `offset` parameters
+- tests for a regular user being denied
+- tests for an admin being allowed
+- 13 passing backend tests
+- a green CI after the pull request
 
-Aceasta etapa marcheaza inceputul modulului real de administrare a utilizatorilor in SentinelCore.
+This stage starts SentinelCore's real user administration module.
 
 ## Admin User Management - Phase 2
 
-### 157. Introducerea endpoint-urilor pentru detalii utilizator
+### 157. Endpoints for user details
 
-A fost introdusa a doua etapa din zona de Admin User Management.
+The second stage of Admin User Management was introduced.
 
-Dupa implementarea endpoint-ului pentru listarea utilizatorilor: `GET /admin/users` a fost adaugat endpoint-ul pentru consultarea unui utilizator individual: `GET /admin/users/{user_id}`.
+After the endpoint for listing users, `GET /admin/users`, an endpoint was added for reading a single user: `GET /admin/users/{user_id}`.
 
-Scopul acestui endpoint este ca un utilizator cu rol administrativ sa poata vedea detaliile unui user specific.
+Its purpose is to let a user with an administrative role see the details of a specific user.
 
-### 158. Scopul endpoint-ului `GET /admin/users/{user_id}`
+### 158. The purpose of `GET /admin/users/{user_id}`
 
-Endpoint-ul permite obtinerea informatiilor publice despre un utilizator, pe baza ID-ului intern.
+The endpoint returns a user's public information, by internal ID.
 
-Accesul este permis doar pentru rolurile:
+Access is allowed only for the roles:
 - admin
 - owner
 
-Un utilizator normal nu poate accesa aceasta ruta si primeste: `403 Forbidden`.
+A regular user cannot access this route and gets `403 Forbidden`.
 
-Daca utilizatorul cerut nu exista, API-ul raspunde cu: `404 Not Found` si mesajul `{"detail": "User not found"}
+If the requested user does not exist, the API answers `404 Not Found` with `{"detail": "User not found"}`.
 
-### 159. Service pentru citirea unui user dupa ID
+### 159. A service for reading a user by ID
 
-In `app/services/user_service.py` a fost adaugata functia:
+The function added to `app/services/user_service.py`:
 
 ```python
 def get_user_by_id(db: Session, user_id: int) -> User | None:
-   statement = select(User).where(User.id == user_id) 
-   return db.scalar(statement)
+    statement = select(User).where(User.id == user_id)
+    return db.scalar(statement)
 ```
 
-Aceasta functie separa logica de acces la baza de date de logica endpoint-ului API.
+This function separates the database access from the API endpoint's logic.
 
-Scop:
-- ruta API mai curata
-- logica reutilizabila
-- pregatire pentru viitoare endpoint-uri administrative
-- tratarea clara a cazului in care userul nu exista
+Purpose:
+- a cleaner API route
+- reusable logic
+- preparation for future administrative endpoints
+- clear handling of the case where the user does not exist
 
-### 160. Extinderea routerului `admin_users`
+### 160. Extending the `admin_users` router
 
-Endpoint-ul a fost adaugat fisierul:
+The endpoint was added to:
 
-```
+```text
 app/api/routes/admin_users.py
 ```
 
-Ruta introdusa:
+The route introduced:
 
 ```python
 @router.get("/{user_id}", response_model=UserRead)
 def read_user_by_id(...)
 ```
 
-Endpoint-ul returneaza un obiect de tip `UserRead`, nu modelul complet intern.
+The endpoint returns a `UserRead` object, not the full internal model.
 
-Aceasta decizie previne expunerea campurilor sensibile, cum ar fi:
+This prevents exposing sensitive fields, such as:
 - hashed_password
 
-### 161. Protectia prin RBAC
+### 161. RBAC protection
 
-Endpoint-ul este protejat cu: `Depends(require_role(UserRole.ADMIN, UserRole.OWNER))`
+The endpoint is protected with `Depends(require_role(UserRole.ADMIN, UserRole.OWNER))`.
 
-Aceasta inseamna ca doar utilizatorii cu rol administrativ pot consulta detaliile altor utilizatori.
+This means only users with an administrative role can read other users' details.
 
-Scenarii:
-- user normal -> 403 Forbidden
+Scenarios:
+- regular user -> 403 Forbidden
 - admin -> 200 OK
 - owner -> 200 OK
 
-Aceasta protectie este esentiala deoarece detaliile utilizatorilor nu trebuie sa fie accesibile public sau pentru orice user autentificat.
+This protection is essential, because user details must not be available publicly or to any authenticated user.
 
-### 162. Tratarea userului inexistent
+### 162. Handling a missing user
 
-Daca `get_user_by_id()` nu gaseste userul cerut, endpoint-ul returneaza:
+If `get_user_by_id()` does not find the requested user, the endpoint raises:
 
 ```python
 raise HTTPException(
-  status_code=status.HTTP_404_NOT_FOUND,
-  detail="User not found",
+    status_code=status.HTTP_404_NOT_FOUND,
+    detail="User not found",
 )
 ```
 
-Aceasta tratare este importanta pentru claritatea API-ului.
-Nu returnam `None`, nu returnam lista goala si nu ascundem eroarea.
+This matters for the clarity of the API.
+It does not return `None`, it does not return an empty list, and it does not hide the error.
 
-### 163. Audit log pentru vizualizarea detaliilor unui user
+### 163. An audit log for viewing a user's details
 
-Cand un admin sau owner consulta detaliile unui user, aplicatia creeaza un audit log.
+When an admin or owner reads a user's details, the application creates an audit log.
 
-Eveniment folosit: `AuditEventType.ADMIN_ENDPOINT_ACCESSED`
+Event used: `AuditEventType.ADMIN_ENDPOINT_ACCESSED`
 
-Mesaj: `Admin viewed user details for user_id={target_user.id}`
+Message: `Admin viewed user details for user_id={target_user.id}`
 
-Aceasta decizie este importanta deoarece vizualizarea datelor unui user este o actiune administrativa si trebuie urmarita.
+This decision matters because viewing a user's data is an administrative action and must be tracked.
 
-In SentinelCore, actiunile administrative trebuie sa fie vizibile in audit trail.
+In SentinelCore, administrative actions must be visible in the audit trail.
 
-### 164. Security event pentru vizualizarea detaliilor unui user
+### 164. A security event for viewing a user's details
 
-Pe langa audit log, endpoint-ul creeaza si un security event.
+Besides the audit log, the endpoint also creates a security event.
 
-Eveniment folosit: `SecurityEventType.ADMIN_ACCESS`
+Event used: `SecurityEventType.ADMIN_ACCESS`
 
-Severitate: `SecuritySeverity.INFO`
+Severity: `SecuritySeverity.INFO`
 
-Mesaj : `Admin viewed user details for user_id={target_user.id}`
+Message: `Admin viewed user details for user_id={target_user.id}`
 
-Acest eveniment nu este incident, dar reprezinta o actiune administrativa relevanta pentru vizibilitatea de securitate.
+This event is not an incident, but it is an administrative action relevant to security visibility.
 
-### 165. Teste automate pentru `GET /admin/users/{user_id}`
+### 165. Automated tests for `GET /admin/users/{user_id}`
 
-Au fost adaugate teste in: `tests/test_protected_routes.py`
+Tests were added to `tests/test_protected_routes.py`.
 
-Scenarii validate:
-- user normal -> 403 Forbidden
-- admin user -> 200 OK + detalii user
-- user inexistent -> 404 Not Found
+Scenarios validated:
+- regular user -> 403 Forbidden
+- admin user -> 200 OK + the user's details
+- missing user -> 404 Not Found
 
-Aceste teste extind acoperirea pentru zona de administrare a utilizatorilor.
+These tests extend the coverage of user administration.
 
-### 166. Test pentru user normal
+### 166. The regular user test
 
-Scenariu:
-1. se creeaza un user normal
-2. se obtine ID-ul userului din baza de date de test
-3. userul face login
-4. userul incearca sa acceseze `GET /admin/users/{user_id}`
-5. API-ul raspunde cu 403
+Scenario:
+1. a regular user is created
+2. the user's ID is read from the test database
+3. the user logs in
+4. the user tries to access `GET /admin/users/{user_id}`
+5. the API answers 403
 
-Rezultatul asteptat: `403 Forbidden`
+Expected result: `403 Forbidden`
 
-Acest test confirma ca un user normal nu poate consulta detalii administrative despre utilizatori.
+This test confirms that a regular user cannot read administrative details about users.
 
-### 167. Test pentru user admin
+### 167. The admin user test
 
-Scenariu:
-1. se creeaza un user
-2. se obtine ID-ul userului din baza de date de test
-3. userul este promovat la admin in baza de date de test
-4. userul face login
-5. adminul acceseaza `GET /admin/users/{user_id}`
-6. API-ul returneaza detaliile userului
+Scenario:
+1. a user is created
+2. the user's ID is read from the test database
+3. the user is promoted to admin in the test database
+4. the user logs in
+5. the admin accesses `GET /admin/users/{user_id}`
+6. the API returns the user's details
 
-Rezultatul asteptat: `200 OK`
+Expected result: `200 OK`
 
-Validari suplimentare:
-- id-ul este corect
-- email-ul este corect
-- username-ul este corect
-- hashed_password nbu este expus
+Additional checks:
+- the id is correct
+- the email is correct
+- the username is correct
+- hashed_password is not exposed
 
-### 168. Test pentru user inexistent
+### 168. The missing user test
 
-Scenariu:
-1. se creeaze un user
-2. userul este promovat la admin
-3. adminul face login
-4. adminul acceseaza `GET /admin/users/999999`
-5. API-ul raspunde cu 404
+Scenario:
+1. a user is created
+2. the user is promoted to admin
+3. the admin logs in
+4. the admin accesses `GET /admin/users/999999`
+5. the API answers 404
 
-Rezultat asteptat: `404 Not Found`
+Expected result: `404 Not Found`
 
-Mesaj validat: `{"detail": "User not found"}`
+Message validated: `{"detail": "User not found"}`
 
-Acest test confirma ca API-ul trateaza explicit cazul in care userul cerut nu exista.
+This test confirms that the API explicitly handles the case where the requested user does not exist.
 
-### 169. Validarea locala
+### 169. Local validation
 
-Dupa implementare au fost rulate local:
+After the implementation, these were run locally:
 
 ```bash
 python -m ruff check .
@@ -2765,48 +2769,48 @@ python -m bandit -r app -c pyproject.toml
 python -m pytest -v
 ```
 
-Rezultat confirmat:
+Confirmed result:
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> passed
 - pytest -> passed
 
-Dupa adaugarea celor trei teste noi, numarul total de teste backend a crescut de la `13` la `16`.
+With the three new tests, the total number of backend tests grew from `13` to `16`.
 
-### 170. Validarea prin Pull Request
+### 170. Validation through a pull request
 
-Implementarea a fost facuta pe branch separat, nu direct pe `main`.
+The work was done on a separate branch, not directly on `main`.
 
-Flux folosit:
+Flow used:
 - feature branch
 - push
-- Pull Request catre main
-- CI verde
+- pull request to main
+- green CI
 - merge
-- stergere branch
+- delete the branch
 
-Aceasta etapa continua disciplina introdusa anterior: fiecare task nou este lucrat pe branch separat si intra in main doar dupa validare prin CI.
+This stage continues the discipline introduced earlier: every new task is worked on its own branch and reaches main only after CI has validated it.
 
-### 171. Stare actuala dupa Admin User Management Phase 2
+### 171. Current state after Admin User Management Phase 2
 
-In acest moment backend-ul SentinelCore are:
-- endpoint administrativ `GET /admin/users`
-- endpoint administrativ `GET /admin/users/{user_id}`
-- listare utilizatori
-- citire detalii utilizator individual
-- acces permis doar pentru `admin` si `owner`
-- raspuns prin schema publica `UserRead`
-- protectie impotriva expunerii `hashed_password`
-- tratare explicita `404 User not found`
-- audit log pentru vizualizarea detaliilor unui user
-- security event pentru vizualizarea detaliilor unui user
-- teste pentru acces interzis user normal
-- teste pentru acces permis admin
-- teste pentru user inexistent
-- 16 teste backend validate
-- CI verde dupa Pull Request
+At this point the SentinelCore backend has:
+- the administrative endpoint `GET /admin/users`
+- the administrative endpoint `GET /admin/users/{user_id}`
+- user listing
+- reading one user's details
+- access allowed only for `admin` and `owner`
+- responses through the public `UserRead` schema
+- protection against exposing `hashed_password`
+- explicit handling of `404 User not found`
+- an audit log for viewing a user's details
+- a security event for viewing a user's details
+- tests for a regular user being denied
+- tests for an admin being allowed
+- tests for a missing user
+- 16 passing backend tests
+- a green CI after the pull request
 
-Aceasta etapa consolideaza modulul Admin User Management si pregateste terenul pentru actiuni administrative mai sensibile, precum schimbarea rolurilor.
+This stage consolidates the Admin User Management module and prepares the ground for more sensitive administrative actions, such as changing roles.
 
 ## Admin User Management - Phase 3 (local implementation)
 
@@ -2867,92 +2871,92 @@ shortcut.
 
 The PostgreSQL connection failed inside the sandbox; the successful test run was
 performed outside it. A transaction-failure test remains to be added. Phase 3
-CI validation remains pending.
+CI validation remains pending. (Both were completed in Phase 4, section 186.)
 
 ## Project Cleanup
 
-### 175. Scopul etapei
+### 175. Purpose of the stage
 
-Inainte de continuarea dezvoltarii, proiectul a fost verificat integral si au fost corectate problemele gasite. Lucrul a fost facut pe branch separat, `chore/project-cleanup`, creat din `main`.
+Before development continued, the whole project was reviewed and the problems found were fixed. The work was done on a separate branch, `chore/project-cleanup`, created from `main`.
 
-### 176. Alembic vedea o schema goala
+### 176. Alembic saw an empty schema
 
-`migrations/env.py` importa doar `Base`, nu si modulele cu modele. Un model se inregistreaza in `Base.metadata` doar cand modulul lui este importat, asa ca la rularea Alembic `Base.metadata.tables` era gol. Urmatorul `alembic revision --autogenerate` ar fi propus stergerea tuturor tabelelor.
+`migrations/env.py` imported only `Base`, not the model modules. A model registers itself in `Base.metadata` only when its module is imported, so when Alembic ran, `Base.metadata.tables` was empty. The next `alembic revision --autogenerate` would have proposed dropping every table.
 
-Cauza probabila: importurile au fost eliminate de Ruff ca nefolosite (`F401`).
+Likely cause: Ruff removed the imports as unused (`F401`).
 
-Rezolvare:
+Solution:
 
 ```python
 from app.models import audit_log, security_event, user  # noqa: F401
 ```
 
-Verificare: `python -m alembic check` -> `No new upgrade operations detected.`
+Check: `python -m alembic check` -> `No new upgrade operations detected.`
 
-Testele nu puteau prinde problema, deoarece creeaza schema prin `create_all()`, nu prin migratii. `alembic check` a fost adaugat in `backend/README.md` ca verificare manuala.
+The tests could not catch the problem, because they create the schema with `create_all()`, not with migrations. `alembic check` was added to `backend/README.md` as a manual check.
 
-### 177. Utilizatori inactivi
+### 177. Inactive users
 
-Campul `is_active` exista in model, dar nu era verificat nicaieri.
+The `is_active` field existed in the model, but nothing checked it.
 
-Comportament nou:
-- login cu parola corecta pentru un user inactiv -> `403 Forbidden`, `Inactive user`
-- tentativa genereaza audit log si security event `LOGIN_FAILED`, severitate `WARN`
-- un token emis inainte de dezactivare este refuzat de `get_current_user()` cu `403 Inactive user`
+New behavior:
+- login with the right password for an inactive user -> `403 Forbidden`, `Inactive user`
+- the attempt creates a `LOGIN_FAILED` audit log and security event, with `WARN` severity
+- a token issued before the deactivation is refused by `get_current_user()` with `403 Inactive user`
 
-Mesajul `Inactive user` apare doar dupa verificarea parolei, deci nu dezvaluie starea contului cuiva care nu cunoaste parola.
+The `Inactive user` message appears only after the password is checked, so it does not reveal the account's state to someone who does not know the password.
 
-Momentan nu exista un endpoint pentru dezactivare; in teste, `is_active` este setat direct in baza de date de test.
+There is no deactivation endpoint yet; in tests, `is_active` is set directly in the test database.
 
-### 178. Timp de raspuns egal la login
+### 178. Equal response time at login
 
-Pentru un email inexistent, `authenticate_user()` returna imediat, fara verificarea hash-ului. Pentru un email existent se calcula hash-ul Argon2, ceea ce dureaza vizibil mai mult. Diferenta de timp permitea aflarea emailurilor inregistrate.
+For an unknown email, `authenticate_user()` returned immediately, without checking a hash. For an existing email it computed the Argon2 hash, which takes visibly longer. The time difference made it possible to find out which emails were registered.
 
-Rezolvare: in `app/core/security.py` este generat la pornire `DUMMY_PASSWORD_HASH`, dintr-o valoare aleatoare. Pentru un email inexistent, parola este verificata contra acestui hash, deci ambele cazuri costa la fel.
+Solution: `app/core/security.py` generates `DUMMY_PASSWORD_HASH` at startup, from a random value. For an unknown email, the password is checked against this hash, so both cases cost the same.
 
-Observatie: `POST /auth/register` raspunde in continuare cu `Email already registered`, deci existenta unui email poate fi aflata prin register. Aceasta este o limitare acceptata in etapa actuala.
+Note: `POST /auth/register` still answers `Email already registered`, so whether an email exists can be found out through register. This is an accepted limitation at this stage.
 
-### 179. Inregistrari simultane
+### 179. Concurrent registrations
 
-Register verifica duplicatele inainte de insert. Doua request-uri simultane cu acelasi email puteau trece ambele de verificare, iar al doilea primea `500 Internal Server Error` de la indexul unic din PostgreSQL.
+Register checks for duplicates before the insert. Two simultaneous requests with the same email could both pass the check, and the second got `500 Internal Server Error` from PostgreSQL's unique index.
 
-Rezolvare:
-- `create_user()` face `rollback` daca `commit` esueaza
-- endpoint-ul prinde `IntegrityError` de tip `UniqueViolation` si raspunde cu `400`
-- mesajul este ales dupa indexul incalcat: `ix_users_email` -> `Email already registered`, `ix_users_username` -> `Username already taken`
+Solution:
+- `create_user()` rolls back if the `commit` fails
+- the endpoint catches the `IntegrityError` of type `UniqueViolation` and answers `400`
+- the message is chosen by the violated index: `ix_users_email` -> `Email already registered`, `ix_users_username` -> `Username already taken`
 
-Testul simuleaza cursa dezactivand verificarile prealabile prin `monkeypatch`, astfel incat doar indexurile unice pot respinge duplicatul.
+The test simulates the race by disabling the prior checks with `monkeypatch`, so that only the unique indexes can reject the duplicate.
 
-### 180. Dependente si alte corecturi
+### 180. Dependencies and other fixes
 
-- uneltele de dezvoltare (`pytest`, `httpx`, `ruff`, `bandit`) au fost mutate in `[project.optional-dependencies] dev`
-- instalarea pentru dezvoltare si CI devine `python -m pip install -e ".[dev]"`
-- dependentele au limite minime egale cu versiunile validate local
-- `ruff` este fixat exact (`ruff==0.15.17`), deoarece versiunile noi pot schimba formatarea sau adauga reguli si ar putea pica CI-ul fara modificari de cod
-- dependenta duplicata `pwdlib` / `pwdlib[argon2]` a fost redusa la `pwdlib[argon2]`
-- CI-ul foloseste `postgres:17`, aceeasi versiune ca Docker Compose
-- explicatia pentru `# nosec B106` a fost mutata pe randul anterior; Bandit interpreta textul de dupa `nosec` ca ID-uri de reguli si emitea warning-uri
-- `AuditLogRead.message` accepta `None`, la fel ca coloana din baza de date
-- adnotarile `Mapped[DateTime]` au devenit `Mapped[datetime]`
-- typo-uri corectate in `.env.example` (`postgresql+psycopg://`) si `.gitignore` (`__pycache__/`)
-- documentatia a fost aliniata cu codul (`require_role()`, rute, configuratia CI)
-- au fost scrise `README.md` si `backend/README.md`
+- the development tools (`pytest`, `httpx`, `ruff`, `bandit`) moved to `[project.optional-dependencies] dev`
+- the development and CI install becomes `python -m pip install -e ".[dev]"`
+- the dependencies have minimum versions equal to the versions validated locally
+- `ruff` is pinned exactly (`ruff==0.15.17`), because new versions can change the formatting or add rules and could fail CI without any code change
+- the duplicate `pwdlib` / `pwdlib[argon2]` dependency was reduced to `pwdlib[argon2]`
+- CI uses `postgres:17`, the same version as Docker Compose
+- the explanation for `# nosec B106` moved to the line above; Bandit read the text after `nosec` as rule IDs and emitted warnings
+- `AuditLogRead.message` accepts `None`, like the database column
+- the `Mapped[DateTime]` annotations became `Mapped[datetime]`
+- typos fixed in `.env.example` (`postgresql+psycopg://`) and `.gitignore` (`__pycache__/`)
+- the documentation was aligned with the code (`require_role()`, routes, the CI configuration)
+- `README.md` and `backend/README.md` were written
 
-### 181. Validarea locala
+### 181. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
-- bandit -> No issues identified, fara warning-uri
+- bandit -> No issues identified, no warnings
 - alembic check -> No new upgrade operations detected
 - pytest -> 21 passed
 
-Testele noi au fost verificate si invers: cu reparatiile dezactivate temporar, toate cele 5 teste noi pica.
+The new tests were also checked in reverse: with the fixes temporarily disabled, all 5 new tests fail.
 
 ## Admin User Management - Phase 4
 
-### 182. Activarea si dezactivarea conturilor
+### 182. Activating and deactivating accounts
 
-A fost introdus endpoint-ul:
+The endpoint introduced:
 
 ```http
 PATCH /admin/users/{user_id}/status
@@ -2964,54 +2968,54 @@ Body:
 {"is_active": false}
 ```
 
-Raspunsul foloseste schema `UserRead`, deci `hashed_password` nu este expus.
+The response uses the `UserRead` schema, so `hashed_password` is not exposed.
 
-Endpoint-ul foloseste verificarea `is_active` introdusa in etapa de cleanup: un cont dezactivat nu se mai poate autentifica, iar token-urile emise anterior sunt refuzate imediat, deoarece `get_current_user()` citeste userul din baza de date la fiecare request.
+The endpoint relies on the `is_active` check introduced in the cleanup stage: a deactivated account can no longer authenticate, and previously issued tokens are refused immediately, because `get_current_user()` reads the user from the database on every request.
 
-### 183. Reguli de permisiune
+### 183. Permission rules
 
-Accesul este ierarhic:
-- `admin` poate activa sau dezactiva conturi `user` si `security_analyst`
-- `owner` poate activa sau dezactiva si conturi `admin`
-- nimeni nu isi poate schimba propriul status
-- statusul unui `owner` nu poate fi schimbat
+Access is hierarchical:
+- `admin` can activate or deactivate `user` and `security_analyst` accounts
+- `owner` can also activate or deactivate `admin` accounts
+- nobody can change their own status
+- an `owner`'s status cannot be changed
 
-| Situatie | Raspuns |
+| Situation | Response |
 | --- | --- |
-| Fara token | 401 |
-| Actorul nu este `admin` sau `owner` | 403, `Insufficient permissions` |
-| User inexistent | 404, `User not found` |
-| Actorul isi schimba propriul status | 403, `Users cannot change their own status` |
-| Tinta este `owner` | 403, `Cannot change the status of an owner` |
-| `admin` schimba statusul altui `admin` | 403, `Only an owner can change the status of an admin` |
-| `is_active` nu este boolean (`"false"`, `0`, `null`) | 422 |
-| Schimbare permisa | 200 |
-| Statusul cerut este deja cel actual | 200, fara evenimente |
+| No token | 401 |
+| The actor is not `admin` or `owner` | 403, `Insufficient permissions` |
+| Missing user | 404, `User not found` |
+| The actor changes their own status | 403, `Users cannot change their own status` |
+| The target is an `owner` | 403, `Cannot change the status of an owner` |
+| An `admin` changes another `admin`'s status | 403, `Only an owner can change the status of an admin` |
+| `is_active` is not a boolean (`"false"`, `0`, `null`) | 422 |
+| Allowed change | 200 |
+| The requested status is already the current one | 200, no events |
 
-`UserStatusUpdate` foloseste `StrictBool`, astfel incat valori precum `"false"` sau `0` sunt respinse, nu convertite implicit.
+`UserStatusUpdate` uses `StrictBool`, so values such as `"false"` or `0` are rejected, not implicitly converted.
 
-### 184. Tipuri dedicate de evenimente
+### 184. Dedicated event types
 
-Pana acum, actiunile administrative refoloseau `ADMIN_ENDPOINT_ACCESSED` si `ADMIN_ACCESS`, iar schimbarile se distingeau doar prin mesaj.
+Until now, administrative actions reused `ADMIN_ENDPOINT_ACCESSED` and `ADMIN_ACCESS`, and changes could only be told apart by the message.
 
-Au fost adaugate tipuri noi, atat in `AuditEventType`, cat si in `SecurityEventType`:
+New types were added, to both `AuditEventType` and `SecurityEventType`:
 - `USER_ROLE_CHANGED`
 - `USER_ACTIVATED`
 - `USER_DEACTIVATED`
 
-Schimbarea de rol din Phase 3 foloseste acum `USER_ROLE_CHANGED`.
+The Phase 3 role change now uses `USER_ROLE_CHANGED`.
 
-Mesajele inregistrate:
+The messages recorded:
 - `Admin deactivated user_id={id}` / `Owner activated user_id={id}`
 - `Owner changed role for user_id={id} from {old} to {new}`
 
-Campurile `user_id` si `email` ale evenimentelor identifica actorul; tinta apare in mesaj. Severitatea este `INFO`.
+The events' `user_id` and `email` fields identify the actor; the target appears in the message. The severity is `INFO`.
 
-### 185. Prima migratie Alembic dupa schema initiala
+### 185. The first Alembic migration after the initial schema
 
-Valorile noi au fost adaugate in tipurile enum PostgreSQL prin migratia `02a6be0e0ec8_add_user_management_event_types.py`.
+The new values were added to the PostgreSQL enum types by the migration `02a6be0e0ec8_add_user_management_event_types.py`.
 
-Migratia a fost scrisa manual, deoarece `--autogenerate` nu detecteaza valori noi intr-un enum existent. Din acelasi motiv, `alembic check` nu poate confirma ca enum-urile din baza de date sunt la zi.
+The migration was written by hand, because `--autogenerate` does not detect new values in an existing enum. For the same reason, `alembic check` cannot confirm that the database enums are up to date.
 
 Upgrade:
 
@@ -3019,117 +3023,117 @@ Upgrade:
 ALTER TYPE audit_event_types ADD VALUE IF NOT EXISTS 'USER_ROLE_CHANGED';
 ```
 
-Valorile sunt scrise cu majuscule, deoarece SQLAlchemy salveaza numele membrilor enum.
+The values are uppercase, because SQLAlchemy stores the enum member names.
 
-PostgreSQL nu permite stergerea unei valori dintr-un enum. Downgrade-ul:
-- remapeaza randurile cu tipurile noi la `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`
-- redenumeste tipul enum existent
-- creeaza tipul cu valorile vechi
-- converteste coloana `event_type` la tipul nou
-- sterge tipul vechi
+PostgreSQL cannot remove a value from an enum. The downgrade:
+- remaps the rows with the new types to `ADMIN_ENDPOINT_ACCESSED` / `ADMIN_ACCESS`
+- renames the existing enum type
+- creates the type with the old values
+- converts the `event_type` column to the new type
+- drops the old type
 
-Migratia a fost verificata pe o baza temporara prin `upgrade -> downgrade -> upgrade`, cu randuri care foloseau valorile noi. Downgrade-ul a remapat randurile si a pastrat indexul `ix_security_events_event_type`.
+The migration was checked on a temporary database with `upgrade -> downgrade -> upgrade`, with rows that used the new values. The downgrade remapped the rows and kept the `ix_security_events_event_type` index.
 
-Aplicare locala:
+Applying it locally:
 
 ```bash
 python -m alembic upgrade head
 ```
 
-### 186. Tranzactie comuna pentru schimbari si evenimente
+### 186. One transaction for changes and events
 
-Logica de commit din `update_user_role()` a fost extrasa in `_commit_user_change()`, folosita acum si de `update_user_status()`.
+The commit logic in `update_user_role()` was extracted into `_commit_user_change()`, now also used by `update_user_status()`.
 
-Functia adauga audit log-ul si security event-ul in aceeasi sesiune cu modificarea userului si face un singur `commit`. Daca acesta esueaza, se face `rollback` si exceptia este propagata.
+The function adds the audit log and the security event to the same session as the user change and commits once. If that fails, it rolls back and propagates the exception.
 
-A fost adaugat testul de esec al tranzactiei, ramas in asteptare din Phase 3, pentru ambele operatii. Commit-ul simulat face mai intai `flush`, astfel incat modificarea si evenimentele ajung in tranzactia deschisa; doar un `rollback` real le anuleaza. Testul a fost verificat invers: fara `rollback`, pica.
+The transaction-failure test, pending since Phase 3, was added for both operations. The simulated commit first runs `flush`, so the change and the events reach the open transaction; only a real `rollback` undoes them. The test was checked in reverse: without the `rollback`, it fails.
 
-### 187. Validarea locala
+### 187. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 55 passed
 
-Testele noi acopera: lipsa token-ului, roluri fara drept de acces, matricea de schimbari permise, toate restrictiile, user inexistent, valori non-boolean, status neschimbat, esecul tranzactiei si pierderea imediata a accesului pentru un cont dezactivat.
+The new tests cover: a missing token, roles without access, the matrix of allowed changes, every restriction, a missing user, non-boolean values, an unchanged status, a transaction failure, and the immediate loss of access for a deactivated account.
 
 ## Input Validation - Phase 1
 
-### 188. Problema
+### 188. The problem
 
-Schemele de input acceptau orice string:
-- un username mai lung de 50 de caractere ajungea in PostgreSQL, depasea coloana `String(50)` si producea `500 Internal Server Error`
-- username-ul si parola goale erau acceptate cu `201 Created`
-- `Test@x.com` si `test@x.com` puteau fi conturi diferite, la fel `Admin` si `admin`
+The input schemas accepted any string:
+- a username longer than 50 characters reached PostgreSQL, overflowed the `String(50)` column and produced `500 Internal Server Error`
+- an empty username and password were accepted with `201 Created`
+- `Test@x.com` and `test@x.com` could be different accounts, and so could `Admin` and `admin`
 
-### 189. Reguli introduse
+### 189. The rules introduced
 
-Regulile sunt definite in `app/schemas/user.py`, ca tipuri reutilizabile cu `Annotated`.
+The rules are defined in `app/schemas/user.py`, as reusable `Annotated` types.
 
 **Username** (`Username`):
-- 3-50 caractere; 50 corespunde coloanei `users.username`
-- doar litere ASCII, cifre, `_`, `.` si `-`
-- transformat in litere mici, astfel incat `Admin` si `admin` nu pot coexista
+- 3-50 characters; 50 matches the `users.username` column
+- only ASCII letters, digits, `_`, `.` and `-`
+- converted to lowercase, so `Admin` and `admin` cannot coexist
 
 **Email** (`NormalizedEmail`):
-- validat de `EmailStr`
-- transformat in litere mici, la register si la login
+- validated by `EmailStr`
+- converted to lowercase, at register and at login
 
-**Parola la register** (`NewPassword`):
-- minimum 12 caractere
-- maximum 128 caractere, pentru a limita costul hashing-ului Argon2 pe request
-- fara reguli de compozitie (majuscule, simboluri), conform recomandarilor NIST si OWASP
+**Password at register** (`NewPassword`):
+- at least 12 characters
+- at most 128 characters, to bound the cost of Argon2 hashing per request
+- no composition rules (uppercase, symbols), following the NIST and OWASP recommendations
 
-**Parola la login** (`LoginPassword`):
-- doar maximum 128 caractere
-- fara minimum, pentru ca un cont creat inainte de politica noua sa se poata autentifica
+**Password at login** (`LoginPassword`):
+- only a maximum of 128 characters
+- no minimum, so an account created before the new policy can still authenticate
 
-Input-ul invalid este respins cu `422`, inainte de orice acces la baza de date.
+Invalid input is rejected with `422`, before any database access.
 
-Observatie: in Pydantic, `pattern` este verificat pe valoarea primita, inainte de `to_lower`. De aceea pattern-ul accepta si majuscule (`^[A-Za-z0-9_.-]+$`), iar valoarea salvata este oricum lowercase.
+Note: in Pydantic, `pattern` is checked against the value received, before `to_lower`. That is why the pattern also accepts uppercase (`^[A-Za-z0-9_.-]+$`); the stored value is lowercase anyway.
 
-### 190. Migratia pentru datele existente
+### 190. The migration for existing data
 
-Dupa normalizarea input-ului, un cont existent salvat ca `Test@x.com` nu ar mai fi fost gasit la login, deoarece cautarea se face dupa `test@x.com`.
+After the input was normalized, an existing account stored as `Test@x.com` would no longer be found at login, because the lookup uses `test@x.com`.
 
-Migratia `7242f1f7b69b_lowercase_user_emails_and_usernames.py` transforma `users.email` si `users.username` in litere mici.
+The migration `7242f1f7b69b_lowercase_user_emails_and_usernames.py` converts `users.email` and `users.username` to lowercase.
 
-Daca doua conturi ar deveni identice, de exemplu `Dup@x.com` si `dup@x.com`, migratia se opreste cu un mesaj care listeaza valorile in conflict. Tranzactia este anulata, datele raman neatinse, iar baza ramane la versiunea anterioara. Conflictele trebuie rezolvate manual, deoarece unirea automata a doua conturi nu este sigura.
+If two accounts would become identical, for example `Dup@x.com` and `dup@x.com`, the migration stops with a message listing the conflicting values. The transaction is rolled back, the data stays untouched, and the database stays at the previous version. Conflicts must be resolved by hand, because merging two accounts automatically is not safe.
 
-Downgrade-ul nu modifica datele: forma originala nu este salvata, iar valorile lowercase raman valide si in revizia anterioara.
+The downgrade does not change the data: the original form is not stored, and the lowercase values remain valid in the previous revision too.
 
-Username-urile existente care nu respecta noile reguli nu sunt modificate. Login-ul se face dupa email, deci aceste conturi raman utilizabile.
+Existing usernames that do not follow the new rules are not changed. Login uses the email, so those accounts remain usable.
 
-Migratia a fost verificata pe o baza temporara: date mixed-case, `downgrade -> upgrade` si cazul de conflict.
+The migration was checked on a temporary database: mixed-case data, `downgrade -> upgrade`, and the conflict case.
 
-Aplicare locala:
+Applying it locally:
 
 ```bash
 python -m alembic upgrade head
 ```
 
-### 191. Validarea locala
+### 191. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 74 passed
 
-Testele noi acopera: fiecare regula respinsa cu `422`, valorile-limita acceptate, salvarea lowercase, duplicatele care difera doar prin litere mari/mici, login case-insensitive, parola prea lunga la login si login-ul unui cont cu parola mai scurta decat politica noua.
+The new tests cover: every rule rejected with `422`, the boundary values accepted, lowercase storage, duplicates that differ only by case, case-insensitive login, a password too long at login, and the login of an account whose password is shorter than the new policy.
 
-Verificare inversa: cu schemele anterioare, 12 din cele 19 teste noi pica. Celelalte 7 confirma ca regulile nu sunt prea stricte si trec in ambele variante.
+Reverse check: with the previous schemas, 12 of the 19 new tests fail. The other 7 confirm that the rules are not too strict, and pass in both versions.
 
 ## Brute-Force Detection - Phase 1
 
-### 192. Scopul etapei
+### 192. Purpose of the stage
 
-Pana acum, login-urile esuate erau inregistrate ca `LOGIN_FAILED` cu severitate `WARN`, dar nimic nu reactiona la ele. Un atacator putea incerca parole nelimitat.
+Until now, failed logins were recorded as `LOGIN_FAILED` with `WARN` severity, but nothing reacted to them. An attacker could try passwords without limit.
 
-Aceasta etapa introduce prima detectie reala din zona SIEM-light: prea multe esecuri pentru acelasi email genereaza un incident si blocheaza temporar login-ul. Este prima utilizare a severitatii `INCIDENT`.
+This stage introduces the first real SIEM-light detection: too many failures for the same email raise an incident and temporarily block login. It is the first use of the `INCIDENT` severity.
 
-### 193. Reguli
+### 193. Rules
 
-Valorile implicite, configurabile din `.env`:
+The defaults, configurable in `.env`:
 
 ```env
 LOGIN_MAX_FAILED_ATTEMPTS=5
@@ -3137,98 +3141,98 @@ LOGIN_FAILURE_WINDOW_MINUTES=15
 LOGIN_LOCKOUT_MINUTES=15
 ```
 
-- la al 5-lea esec in 15 minute pentru acelasi email, login-ul pe acel email este blocat 15 minute
-- incercarea care atinge pragul primeste deja `429 Too Many Requests`
-- in timpul blocarii, orice incercare primeste `429`, chiar si cu parola corecta
-- raspunsul contine header-ul `Retry-After` cu secundele ramase
-- in timpul blocarii, parola nu este verificata deloc, astfel incat incercarile nu ofera nicio informatie
-- un login reusit reseteaza numaratoarea
-- dupa expirarea unei blocari, esecurile anterioare ei nu mai sunt numarate
-- emailurile inexistente sunt blocate identic, deci blocarea nu dezvaluie existenta unui cont
-- login-urile esuate ale unui cont inactiv sunt numarate la fel
+- on the 5th failure within 15 minutes for the same email, login for that email is blocked for 15 minutes
+- the attempt that reaches the threshold already gets `429 Too Many Requests`
+- during the block, every attempt gets `429`, even with the right password
+- the response carries the `Retry-After` header with the remaining seconds
+- during the block, the password is not checked at all, so the attempts reveal nothing
+- a successful login resets the count
+- once a block expires, the failures before it are no longer counted
+- unknown emails are blocked the same way, so the block does not reveal whether an account exists
+- failed logins of an inactive account are counted the same way
 
-Dezavantaj cunoscut: un atacator poate bloca temporar contul unei victime trimitand parole gresite. Blocarea este temporara, iar varianta pe email a fost aleasa constient, in locul blocarii pe email + IP, care ar fi fost ocolita de un atacator cu mai multe IP-uri.
+Known drawback: an attacker can temporarily lock a victim out by sending wrong passwords. The block is temporary, and the per-email variant was chosen deliberately over a per email + IP block, which an attacker with several IPs could bypass.
 
-### 194. Starea este derivata din security events
+### 194. The state is derived from security events
 
-Nu exista tabela sau coloana separata pentru numararea esecurilor. Serviciul `app/services/login_protection_service.py` foloseste evenimentele deja inregistrate:
-- numarul de esecuri = `LOGIN_FAILED` pentru email, dupa cel mai recent dintre: inceputul ferestrei, ultimul `LOGIN_SUCCESS`, ultimul `BRUTE_FORCE_DETECTED`
-- blocarea este activa daca ultimul `BRUTE_FORCE_DETECTED` este mai recent decat durata de blocare
+There is no separate table or column for counting failures. The `app/services/login_protection_service.py` service uses the events already recorded:
+- the number of failures = `LOGIN_FAILED` for the email, after the latest of: the start of the window, the last `LOGIN_SUCCESS`, the last `BRUTE_FORCE_DETECTED`
+- the block is active if the last `BRUTE_FORCE_DETECTED` is more recent than the block duration
 
-Timpul este citit din baza de date (`SELECT now()`), acelasi ceas care completeaza `created_at`, astfel incat comparatiile nu amesteca ceasul aplicatiei cu cel al bazei de date.
+The time is read from the database (`SELECT now()`), the same clock that fills `created_at`, so the comparisons never mix the application's clock with the database's.
 
-Pentru aceste interogari a fost adaugat indexul compus `ix_security_events_email_type_created` pe `(email, event_type, created_at)`.
+These queries got the composite index `ix_security_events_email_type_created` on `(email, event_type, created_at)`.
 
-### 195. Evenimente noi
+### 195. New events
 
-| Situatie | Audit log | Security event | Severitate |
+| Situation | Audit log | Security event | Severity |
 | --- | --- | --- | --- |
-| Pragul este atins | `LOGIN_LOCKED` | `BRUTE_FORCE_DETECTED` | `INCIDENT` |
-| Incercare in timpul blocarii | `LOGIN_BLOCKED` | `LOGIN_BLOCKED` | `WARN` |
+| The threshold is reached | `LOGIN_LOCKED` | `BRUTE_FORCE_DETECTED` | `INCIDENT` |
+| An attempt during the block | `LOGIN_BLOCKED` | `LOGIN_BLOCKED` | `WARN` |
 
-Denumirile urmeaza separarea existenta: audit log-ul descrie faptul (login blocat), iar security event-ul interpretarea (atac brute-force detectat).
+The names follow the existing separation: the audit log describes the fact (login locked), and the security event the interpretation (brute-force attack detected).
 
-Incidentul este legat de contul atacat prin `user_id` atunci cand contul exista, chiar daca incercarile nu l-au autentificat.
+The incident is tied to the targeted account through `user_id` when the account exists, even though the attempts did not authenticate it.
 
-### 196. Adresa IP in evenimente
+### 196. The IP address in events
 
-Tabelele `audit_logs` si `security_events` au acum coloana `ip_address` (`String(45)`, suficient pentru IPv6). Toate evenimentele inregistreaza IP-ul clientului: register, login, endpoint-urile administrative si schimbarile de rol/status.
+The `audit_logs` and `security_events` tables now have an `ip_address` column (`String(45)`, enough for IPv6). Every event records the client's IP: register, login, the administrative endpoints and the role/status changes.
 
-IP-ul este obtinut prin dependenta `get_client_ip()` din `app/api/deps.py`, din `request.client.host`. Valorile care nu sunt adrese IP valide sunt salvate ca `NULL` (de exemplu `testclient` in teste).
+The IP comes from the `get_client_ip()` dependency in `app/api/deps.py`, from `request.client.host`. Values that are not valid IP addresses are stored as `NULL` (for example `testclient` in tests).
 
-Header-ul `X-Forwarded-For` nu este citit direct, deoarece poate fi falsificat de client. Daca aplicatia ruleaza in spatele unui reverse proxy, uvicorn trebuie pornit cu `--proxy-headers` si `--forwarded-allow-ips`, iar `request.client` va contine IP-ul real.
+The `X-Forwarded-For` header is not read directly, because the client can forge it. If the application runs behind a reverse proxy, uvicorn must be started with `--proxy-headers` and `--forwarded-allow-ips`, and `request.client` will then contain the real IP.
 
-`AuditLogRead` si `SecurityEventRead` expun campul `ip_address`.
+`AuditLogRead` and `SecurityEventRead` expose the `ip_address` field.
 
-IP-ul pregateste o detectie viitoare: multe emailuri diferite incercate de pe acelasi IP (password spraying).
+The IP prepares a future detection: many different emails tried from the same IP (password spraying).
 
-### 197. Migratia
+### 197. The migration
 
-Migratia `449c22b3652c_add_login_protection_events_and_ip_.py`:
-- adauga valorile noi in `audit_event_types` si `security_event_types`
-- adauga coloana `ip_address` in ambele tabele
-- creeaza indexul compus
+The migration `449c22b3652c_add_login_protection_events_and_ip_.py`:
+- adds the new values to `audit_event_types` and `security_event_types`
+- adds the `ip_address` column to both tables
+- creates the composite index
 
-Downgrade-ul sterge indexul si coloanele, remapeaza randurile cu tipurile noi la `LOGIN_FAILED` si recreeaza tipurile enum fara valorile noi.
+The downgrade drops the index and the columns, remaps the rows with the new types to `LOGIN_FAILED`, and recreates the enum types without the new values.
 
-Verificare pe baza temporara: `upgrade`, `alembic check`, randuri cu valorile noi, `downgrade`, din nou `upgrade` si `alembic check`.
+Checked on a temporary database: `upgrade`, `alembic check`, rows with the new values, `downgrade`, then `upgrade` and `alembic check` again.
 
-### 198. Problema intalnita in teste: prepared statements
+### 198. Problem encountered in tests: prepared statements
 
-Dupa adaugarea noilor interogari, doua teste picau intermitent cu:
+After the new queries were added, two tests failed intermittently with:
 
-```
+```text
 cache lookup failed for type ...
 ```
 
-Cauza: psycopg pregateste pe server (prepared statement) o interogare executata de cel putin 5 ori pe aceeasi conexiune. Interogarea ramane legata de identificatorul intern (OID) al tipului enum. Fixture-ul de test recreeaza schema la fiecare test, deci tipurile enum primesc OID-uri noi, iar conexiunile refolosite din pool pastrau interogari legate de tipuri sterse.
+Cause: psycopg prepares on the server (a prepared statement) any query executed at least 5 times on the same connection. The prepared query stays tied to the enum type's internal identifier (OID). The test fixture recreates the schema for every test, so the enum types get new OIDs, and connections reused from the pool kept queries tied to dropped types.
 
-Rezolvare: in `tests/conftest.py`, dupa recrearea schemei, este apelat `test_engine.dispose()`, astfel incat fiecare test porneste pe conexiuni noi.
+Solution: in `tests/conftest.py`, after the schema is recreated, `test_engine.dispose()` is called, so every test starts on fresh connections.
 
-Problema apare doar in teste, deoarece aplicatia reala nu recreeaza tipurile enum in timp ce ruleaza.
+The problem only occurs in tests, because the real application never recreates the enum types while it runs.
 
-### 199. Validarea locala
+### 199. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 86 passed
 
-Testele noi (`tests/test_login_protection.py`) acopera: atingerea pragului si incidentul, refuzul parolei corecte in timpul blocarii fara verificarea ei, blocarea emailurilor inexistente, expirarea blocarii, fereastra de timp, resetarea dupa login reusit, ignorarea esecurilor dinaintea unei blocari expirate, izolarea pe email, pragurile din configurare, inregistrarea IP-ului (IPv4 si IPv6) si expunerea lui prin API.
+The new tests (`tests/test_login_protection.py`) cover: reaching the threshold and the incident, refusing the right password during the block without checking it, blocking unknown emails, the block expiring, the time window, the reset after a successful login, ignoring the failures before an expired block, isolation per email, the configured thresholds, recording the IP (IPv4 and IPv6) and exposing it through the API.
 
-Timpul scurs este simulat prin mutarea `created_at` al evenimentelor in trecut.
+Elapsed time is simulated by moving the events' `created_at` into the past.
 
-Verificare inversa: fara verificarea blocarii pica 3 teste, fara prag pica 6, iar fara resetarea dupa login reusit / blocare pica 2.
+Reverse check: without the block check 3 tests fail, without the threshold 6 fail, and without the reset after a successful login / a block 2 fail.
 
 ## Log Filtering - Phase 1
 
-### 200. Scopul etapei
+### 200. Purpose of the stage
 
-Endpoint-urile `GET /admin/audit-logs` si `GET /security/events` returnau doar ultimele `limit` evenimente, fara filtre si fara posibilitatea de a ajunge la evenimente mai vechi. Aceasta etapa le pregateste pentru dashboard-ul de securitate din frontend.
+`GET /admin/audit-logs` and `GET /security/events` returned only the latest `limit` events, with no filters and no way to reach older events. This stage prepares them for the frontend's security dashboard.
 
-### 201. Raspuns paginat prin cursor
+### 201. A cursor-paginated response
 
-Raspunsul nu mai este o lista, ci un obiect (envelope):
+The response is no longer a list, but an object (an envelope):
 
 ```json
 {
@@ -3237,173 +3241,175 @@ Raspunsul nu mai este o lista, ci un obiect (envelope):
 }
 ```
 
-Pagina urmatoare se obtine cu `?before_id=123`. Cand nu mai exista rezultate, `next_cursor` este `null`.
+The next page is fetched with `?before_id=123`. When there are no more results, `next_cursor` is `null`.
 
-Evenimentele sunt ordonate dupa `id` descrescator, adica cele mai noi primele. Ordinea dupa `id` (si nu dupa `created_at`) este necesara pentru ca:
-- `id` este unic, deci nu exista egalitati intre evenimente
-- cursorul este tot un `id`, deci ordinea si cursorul folosesc aceeasi cheie
-- `created_at` este momentul de inceput al tranzactiei, deci un eveniment inserat mai tarziu poate avea un timestamp mai vechi
+Events are ordered by descending `id`, newest first. Ordering by `id` (and not by `created_at`) is needed because:
+- `id` is unique, so there are no ties between events
+- the cursor is also an `id`, so the order and the cursor use the same key
+- `created_at` is the start of the transaction, so an event inserted later can have an older timestamp
 
-Avantaje fata de `offset`:
-- paginile nu se decaleaza cand apar evenimente noi in timp ce analistul rasfoieste
-- interogarea ramane rapida si pe tabele mari, deoarece nu parcurge randurile sarite
+> Update (Event Ordering - Phase 1, sections 257-258): the lists are now ordered by `(created_at, id)`, with the same `before_id` cursor, so events recorded late land at their own time.
 
-Pentru a sti daca exista o pagina urmatoare, se citeste un rand in plus fata de `limit`.
+Advantages over `offset`:
+- pages do not shift when new events arrive while the analyst is browsing
+- the query stays fast on large tables, because it does not walk the skipped rows
 
-Schimbarea formei raspunsului este o modificare de contract API. A fost facuta acum deoarece nu exista inca niciun client al acestor endpoint-uri.
+To know whether there is a next page, one row more than `limit` is read.
 
-Schema generica `Page[ItemT]` din `app/schemas/pagination.py` foloseste sintaxa de generice din Python 3.12.
+Changing the shape of the response is an API contract change. It was made now because these endpoints have no clients yet.
 
-### 202. Filtre
+The generic `Page[ItemT]` schema in `app/schemas/pagination.py` uses the Python 3.12 generics syntax.
 
-Filtre comune (`app/schemas/event_filters.py`):
+### 202. Filters
 
-| Parametru | Comportament |
+Shared filters (`app/schemas/event_filters.py`):
+
+| Parameter | Behavior |
 | --- | --- |
-| `user_id` | egalitate |
-| `email` | egalitate, fara diferenta intre litere mari si mici |
-| `ip_address` | IPv4 sau IPv6 valid; forma IPv6 este normalizata, deci `2001:DB8:0:0::1` gaseste `2001:db8::1` |
+| `user_id` | equality |
+| `email` | equality, case-insensitive |
+| `ip_address` | a valid IPv4 or IPv6; the IPv6 form is normalized, so `2001:DB8:0:0::1` finds `2001:db8::1` |
 | `since` | `created_at >= since` |
 | `until` | `created_at < until` |
-| `before_id` | cursorul de paginare |
-| `limit` | 1-200, implicit 50 |
+| `before_id` | the pagination cursor |
+| `limit` | 1-200, 50 by default |
 
-Filtre specifice:
-- audit logs: `event_type`, cu una sau mai multe valori (`?event_type=login_failed&event_type=login_locked`)
-- security events: `event_type` si `severity`, fiecare cu una sau mai multe valori
+Specific filters:
+- audit logs: `event_type`, with one or more values (`?event_type=login_failed&event_type=login_locked`)
+- security events: `event_type` and `severity`, each with one or more values
 
-Mai multe valori pentru acelasi parametru se combina cu `OR`; parametri diferiti se combina cu `AND`.
+Several values for the same parameter are combined with `OR`; different parameters are combined with `AND`.
 
-Intervalul de timp este semi-deschis (`since <= created_at < until`), astfel incat intervale consecutive nu numara de doua ori acelasi eveniment.
+The time range is half-open (`since <= created_at < until`), so consecutive ranges never count the same event twice.
 
-### 203. Validarea filtrelor
+### 203. Validating the filters
 
-Filtrele sunt definite ca modele Pydantic folosite pentru query parameters (`Annotated[AuditLogFilters, Query()]`). Raspund cu `422`:
-- `since` mai mare sau egal cu `until`
-- date fara fus orar (`AwareDatetime`), pentru a evita interpretari ambigue
-- valori invalide pentru `event_type`, `severity`, `ip_address`, `limit` sau `before_id`
-- parametri necunoscuti, prin `extra="forbid"`
+The filters are Pydantic models used for query parameters (`Annotated[AuditLogFilters, Query()]`). They answer `422` for:
+- `since` greater than or equal to `until`
+- dates without a time zone (`AwareDatetime`), to avoid ambiguous interpretations
+- invalid values for `event_type`, `severity`, `ip_address`, `limit` or `before_id`
+- unknown parameters, through `extra="forbid"`
 
-Ultima regula este importanta pentru securitate: un filtru scris gresit, de exemplu `?event_typ=login_failed`, ar fi fost altfel ignorat, iar analistul ar fi vazut rezultate nefiltrate crezand ca sunt filtrate.
+The last rule matters for security: a misspelled filter, for example `?event_typ=login_failed`, would otherwise be ignored, and the analyst would see unfiltered results while believing they were filtered.
 
-### 204. Auditarea consultarii logurilor
+### 204. Auditing log reads
 
-Consultarea logurilor este acum auditata, cu tipuri noi in `AuditEventType`:
+Reading the logs is now audited, with new types in `AuditEventType`:
 - `AUDIT_LOGS_VIEWED`
 - `SECURITY_EVENTS_VIEWED`
 
-Mesajul contine filtrele folosite, de exemplu:
+The message contains the filters used, for example:
 
-```
+```text
 Viewed audit logs with event_type=['login_failed'], limit=10
 ```
 
-Decizii:
-- evenimentul este inregistrat dupa interogare, deci raspunsul nu contine niciodata propria consultare
-- se creeaza doar audit log, nu si security event: consultarea este un fapt de audit, nu un semnal de securitate, si nu trebuie sa umple fluxul SIEM
+Decisions:
+- the event is recorded after the query, so the response never contains its own read
+- only an audit log is created, not a security event: reading is an audit fact, not a security signal, and must not flood the SIEM stream
 
-Valorile noi au fost adaugate prin migratia `1ff3830ec505_add_log_view_audit_event_types.py`. Downgrade-ul remapeaza randurile la `ADMIN_ENDPOINT_ACCESSED` si recreeaza tipul enum.
+The new values were added by the migration `1ff3830ec505_add_log_view_audit_event_types.py`. The downgrade remaps the rows to `ADMIN_ENDPOINT_ACCESSED` and recreates the enum type.
 
-### 205. Logica de interogare comuna
+### 205. Shared query logic
 
-Filtrele comune, ordonarea si paginarea sunt implementate o singura data, in `fetch_event_page()` din `app/services/event_query.py`, folosita de ambele servicii. Fiecare serviciu adauga doar filtrele specifice (`event_type`, `severity`).
+The shared filters, the ordering and the pagination are implemented once, in `fetch_event_page()` in `app/services/event_query.py`, used by both services. Each service only adds its specific filters (`event_type`, `severity`).
 
-`fetch_event_page()` este o functie generica cu `EventT: AuditLog | SecurityEvent`. Varianta initiala, cu constrangeri `(AuditLog, SecurityEvent)`, era rezolvata gresit de Pylance pentru apelul cu `AuditLog`.
+`fetch_event_page()` is a generic function with `EventT: AuditLog | SecurityEvent`. The first version, with the constraints `(AuditLog, SecurityEvent)`, was resolved wrongly by Pylance for the call with `AuditLog`.
 
-### 206. Validarea locala
+### 206. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 107 passed
-- migratia: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+- the migration: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` on a temporary database
 
-Testele noi (`tests/test_event_logs_api.py`) acopera: acces interzis pentru user normal, ordinea, parcurgerea completa prin cursor, stabilitatea paginilor la evenimente noi, ordinea dupa insertie chiar daca timestamp-urile sunt inverse, fiecare filtru si combinarea lor, intervalul semi-deschis, query-urile invalide si auditarea consultarii.
+The new tests (`tests/test_event_logs_api.py`) cover: access denied for a regular user, the order, walking every page through the cursor, page stability when new events arrive, insertion order even when the timestamps are reversed, every filter and their combination, the half-open range, invalid queries, and auditing the read.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea `extra="forbid"`, eliminarea normalizarii emailului, cursor inclusiv, interval inchis, ordonare dupa `created_at`.
+Reverse check: each of the following changes makes at least one test fail: removing `extra="forbid"`, removing the email normalization, an inclusive cursor, a closed range, ordering by `created_at`.
 
-Cele 3 teste existente care asteptau o lista au fost actualizate pentru noua forma a raspunsului.
+The 3 existing tests that expected a list were updated for the new response shape.
 
 ## Observability - Phase 1
 
-### 207. Scopul etapei
+### 207. Purpose of the stage
 
-"Observability-first" este unul dintre principiile proiectului, iar Prometheus si Grafana fac parte din MVP-ul DevOps. Pana acum, backend-ul nu expunea metrici, scria loguri nestructurate, iar `/health` raspundea `ok` chiar daca PostgreSQL era oprit.
+"Observability-first" is one of the project's principles, and Prometheus and Grafana are part of the DevOps MVP. Until now, the backend exposed no metrics, wrote unstructured logs, and `/health` answered `ok` even when PostgreSQL was down.
 
-Aceasta etapa introduce:
-- metrici Prometheus pentru HTTP si pentru security events
-- loguri structurate, cu un request id pe fiecare cerere
-- un health check care verifica baza de date
-- Prometheus si Grafana in Docker Compose, cu dashboard provizionat automat
+This stage introduces:
+- Prometheus metrics for HTTP and for security events
+- structured logs, with a request id on every request
+- a health check that checks the database
+- Prometheus and Grafana in Docker Compose, with a dashboard provisioned automatically
 
-### 208. Metrici
+### 208. Metrics
 
-Metricile sunt definite in `app/core/metrics.py` si expuse la `GET /metrics`, in formatul text Prometheus.
+The metrics are defined in `app/core/metrics.py` and exposed at `GET /metrics`, in the Prometheus text format.
 
-| Metrica | Tip | Etichete |
+| Metric | Type | Labels |
 | --- | --- | --- |
 | `sentinelcore_http_requests_total` | Counter | `method`, `route`, `status_code` |
 | `sentinelcore_http_request_duration_seconds` | Histogram | `method`, `route` |
 | `sentinelcore_security_events_total` | Counter | `event_type`, `severity` |
 
-Fiecare combinatie distincta de etichete devine o serie separata in Prometheus. De aceea etichetele provin din multimi mici si fixe:
-- `route` este sablonul rutei (`/admin/users/{user_id}`), nu calea concreta (`/admin/users/42`)
-- caile care nu corespund niciunei rute primesc `route="unmatched"`
-- metodele HTTP necunoscute primesc `method="OTHER"`
+Every distinct combination of labels becomes a separate series in Prometheus. That is why the labels come from small, fixed sets:
+- `route` is the route template (`/admin/users/{user_id}`), not the concrete path (`/admin/users/42`)
+- paths that match no route get `route="unmatched"`
+- unknown HTTP methods get `method="OTHER"`
 
-Altfel, oricine ar putea crea un numar nelimitat de serii trimitand cereri catre cai sau metode inventate.
+Otherwise, anyone could create an unbounded number of series by sending requests to made-up paths or methods.
 
-`sentinelcore_security_events_total` este incrementat dupa commit-ul fiecarui security event, in cele trei locuri care le creeaza: `create_security_event()`, `_commit_user_change()` si `lock_login()`. O singura metrica acopera login-uri reusite si esuate, blocari, incidente brute-force si schimbari administrative.
+`sentinelcore_security_events_total` is incremented after each security event is committed, in the three places that create them: `create_security_event()`, `_commit_user_change()` and `lock_login()`. A single metric covers successful and failed logins, blocks, brute-force incidents and administrative changes.
 
-Metricile sunt pastrate in memoria procesului si pornesc de la zero la fiecare restart; functiile `rate()` si `increase()` din Prometheus trateaza aceste resetari. Configuratia presupune un singur proces uvicorn; mai multi workeri ar necesita modul multiprocess din `prometheus_client`.
+The metrics live in the process's memory and start from zero on every restart; Prometheus's `rate()` and `increase()` functions handle these resets. The configuration assumes a single uvicorn process; several workers would need the multiprocess mode of `prometheus_client`.
 
-### 209. Protectia `/metrics`
+### 209. Protecting `/metrics`
 
-Daca `METRICS_TOKEN` este setat in `.env`, `/metrics` cere `Authorization: Bearer <token>` si raspunde altfel cu `401`. Daca este gol sau lipseste, endpoint-ul este deschis, ceea ce este potrivit pentru dezvoltare locala.
+If `METRICS_TOKEN` is set in `.env`, `/metrics` requires `Authorization: Bearer <token>` and answers `401` otherwise. If it is empty or missing, the endpoint is open, which suits local development.
 
-Token-ul este comparat cu `hmac.compare_digest`, in timp constant, astfel incat timpul de raspuns nu dezvaluie cat de mult din token a fost ghicit.
+The token is compared with `hmac.compare_digest`, in constant time, so the response time does not reveal how much of the token was guessed.
 
-`/metrics` nu apare in documentatia OpenAPI.
+`/metrics` does not appear in the OpenAPI documentation.
 
-### 210. Request id si loguri structurate
+### 210. Request id and structured logs
 
-Middleware-ul `observe_requests` din `app/api/middleware.py`:
-- refoloseste header-ul `X-Request-ID` primit, daca are maximum 64 de caractere din `A-Z a-z 0-9 . _ -`, altfel genereaza unul nou
-- intoarce request id-ul in header-ul `X-Request-ID` al raspunsului
-- il pastreaza intr-un `ContextVar`, astfel incat orice log scris in timpul cererii il contine
-- scrie un singur log pe cerere, cu `method`, `route`, `path`, `status_code`, `duration_ms` si `client_ip`
-- inregistreaza metricile HTTP
+The `observe_requests` middleware in `app/api/middleware.py`:
+- reuses the incoming `X-Request-ID` header if it has at most 64 characters from `A-Z a-z 0-9 . _ -`, and generates a new one otherwise
+- returns the request id in the response's `X-Request-ID` header
+- keeps it in a `ContextVar`, so every log written during the request contains it
+- writes a single log line per request, with `method`, `route`, `path`, `status_code`, `duration_ms` and `client_ip`
+- records the HTTP metrics
 
-Validarea request id-ului primit impiedica injectarea de text arbitrar, de exemplu linii noi, in loguri si header-e.
+Validating the incoming request id prevents injecting arbitrary text, such as newlines, into logs and headers.
 
-Formatul logurilor se alege din `.env`:
+The log format is chosen in `.env`:
 
 ```env
 LOG_LEVEL=INFO
 LOG_FORMAT=json
 ```
 
-- `json`: un obiect JSON pe linie, pentru colectoare de loguri
-- `text`: linii lizibile in terminal, cu aceleasi campuri
+- `json`: one JSON object per line, for log collectors
+- `text`: lines readable in a terminal, with the same fields
 
-Exemplu JSON:
+JSON example:
 
 ```json
 {"timestamp": "2026-10-06T16:00:03.871220+00:00", "level": "INFO", "logger": "sentinelcore.request", "message": "Request completed", "request_id": "demo-trace-1", "method": "GET", "route": "/health", "path": "/health", "status_code": 200, "duration_ms": 0.22, "client_ip": "127.0.0.1"}
 ```
 
-Logurile uvicorn trec prin acelasi format. Access log-ul propriu al uvicorn este dezactivat, deoarece ar dubla logul scris de middleware.
+The uvicorn logs go through the same format. Uvicorn's own access log is disabled, because it would duplicate the log written by the middleware.
 
 ### 211. Health checks
 
-- `GET /health`: liveness, adica procesul ruleaza si raspunde; nu depinde de baza de date
-- `GET /health/ready`: readiness, adica aplicatia poate servi trafic; executa `SELECT 1` si raspunde `503` cu `{"status": "unavailable", "database": "unavailable"}` daca PostgreSQL nu este disponibil
+- `GET /health`: liveness, meaning the process is running and responding; it does not depend on the database
+- `GET /health/ready`: readiness, meaning the application can serve traffic; it runs `SELECT 1` and answers `503` with `{"status": "unavailable", "database": "unavailable"}` if PostgreSQL is not available
 
-Separarea permite unui orchestrator sa nu reporneasca procesul cand doar baza de date este temporar indisponibila, dar sa nu-i trimita trafic pana cand aceasta revine.
+The split lets an orchestrator avoid restarting the process when only the database is temporarily unavailable, while not sending it traffic until the database is back.
 
-### 212. Prometheus si Grafana
+### 212. Prometheus and Grafana
 
-`docker-compose.yml` contine acum serviciile `prometheus` (`prom/prometheus:v3.15.0`) si `grafana` (`grafana/grafana:13.2.3`). Configuratia este in `infra/`:
+`docker-compose.yml` now contains the `prometheus` (`prom/prometheus:v3.15.0`) and `grafana` (`grafana/grafana:13.2.3`) services. The configuration is in `infra/`:
 
 ```text
 infra/
@@ -3417,280 +3423,282 @@ infra/
         └── sentinelcore-overview.json
 ```
 
-Ambele servicii folosesc `network_mode: host` si asculta doar pe `127.0.0.1`:
-- Prometheus colecteaza backend-ul pornit local pe `localhost:8000`, fara ca uvicorn sa fie pornit pe `0.0.0.0`
-- nimic nu este expus in reteaua locala
+Both services use `network_mode: host` and listen only on `127.0.0.1`:
+- Prometheus scrapes the backend running locally on `localhost:8000`, without uvicorn having to listen on `0.0.0.0`
+- nothing is exposed on the local network
 
-Host networking este suportat complet pe Linux.
+Host networking is fully supported on Linux.
 
-Fisierele de configurare sunt montate cu `:ro,z`. Optiunea `z` reeticheteaza fisierele pentru SELinux, necesara pe Fedora, la fel ca la Gitleaks; pe sisteme fara SELinux este ignorata.
+The configuration files are mounted with `:ro,z`. The `z` option relabels the files for SELinux, which Fedora needs, as with Gitleaks; on systems without SELinux it is ignored.
 
-Dashboard-ul `SentinelCore Overview` este provizionat automat si contine:
-- Security: incidente brute-force, incercari blocate, login-uri esuate, dezactivari de conturi, security events pe minut dupa tip si dupa severitate
-- HTTP: request-uri pe secunda dupa ruta, raspunsuri dupa status code, latenta p95 dupa ruta, procentul de erori 5xx
+The `SentinelCore Overview` dashboard is provisioned automatically and contains:
+- Security: brute-force incidents, blocked attempts, failed logins, account deactivations, security events per minute by type and by severity
+- HTTP: requests per second by route, responses by status code, p95 latency by route, the percentage of 5xx errors
 
-Pornire:
+Starting them:
 
 ```bash
 docker compose up -d prometheus grafana
 ```
 
 - Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`, user `admin`, parola `sentinelcore` (doar local)
+- Grafana: `http://localhost:3000`, user `admin`, password `sentinelcore` (local only)
 
-### 213. Validarea locala
+### 213. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 132 passed
 
-Testele noi (`tests/test_observability.py`) acopera: generarea, refolosirea si respingerea request id-urilor, logul per cerere, propagarea request id-ului in logurile scrise in timpul cererii, ambele formate de log, etichetele bazate pe sabloane, gruparea cailor si metodelor necunoscute, histograma de durata, numararea security events, protectia `/metrics` si readiness-ul cu baza de date disponibila si indisponibila.
+The new tests (`tests/test_observability.py`) cover: generating, reusing and rejecting request ids, the per-request log, propagating the request id into logs written during the request, both log formats, template-based labels, grouping unknown paths and methods, the duration histogram, counting security events, the `/metrics` protection, and readiness with the database available and unavailable.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: cale concreta in loc de sablon, request id nevalidat, request id nepropagat in loguri, token nevalidat, incident nenumarat.
+Reverse check: each of the following changes makes at least one test fail: a concrete path instead of the template, an unvalidated request id, a request id not propagated into the logs, an unvalidated token, an uncounted incident.
 
-Verificare end-to-end, pe o baza temporara migrata:
-- backend pornit cu loguri JSON, Prometheus si Grafana pornite prin Docker Compose
-- un atac brute-force simulat: 4 raspunsuri `401`, apoi `429` cu `Retry-After: 900`
-- Prometheus colecteaza backend-ul (`health: up`) si raporteaza exact evenimentele generate
-- Grafana provizioneaza datasource-ul si dashboard-ul, iar toate cele 12 panouri returneaza date
+End-to-end check, on a migrated temporary database:
+- the backend started with JSON logs, Prometheus and Grafana started through Docker Compose
+- a simulated brute-force attack: 4 `401` responses, then `429` with `Retry-After: 900`
+- Prometheus scrapes the backend (`health: up`) and reports exactly the events generated
+- Grafana provisions the datasource and the dashboard, and all 12 panels return data
 
-Verificarea a gasit o problema: panoul pentru erorile 5xx nu afisa nimic cand nu existau erori, deoarece impartirea unei serii goale nu produce rezultat. Expresia foloseste acum `or vector(0)`, astfel incat afiseaza `0`.
+The check found a problem: the 5xx errors panel showed nothing when there were no errors, because dividing an empty series produces no result. The expression now uses `or vector(0)`, so it shows `0`.
 
 ## JWT Hardening and Sessions - Phase 1
 
-### 214. Scopul etapei
+### 214. Purpose of the stage
 
-Token-ul JWT continea doar `sub` (emailul) si `exp`. Nu exista logout real: un token furat ramanea valid pana la expirare, iar butonul **Authorize** din Swagger nu functiona, deoarece login-ul accepta doar JSON.
+The JWT contained only `sub` (the email) and `exp`. There was no real logout: a stolen token stayed valid until it expired, and the **Authorize** button in Swagger did not work, because login accepted only JSON.
 
-Etapa este necesara inainte de frontend, care are nevoie de logout si de un contract stabil pentru token.
+This stage is needed before the frontend, which needs logout and a stable token contract.
 
-### 215. Continutul token-ului
+### 215. The token's contents
 
-| Claim | Valoare |
+| Claim | Value |
 | --- | --- |
-| `iss` | `JWT_ISSUER`, implicit `sentinelcore` |
-| `aud` | `JWT_AUDIENCE`, implicit `sentinelcore-api` |
-| `sub` | id-ul userului, ca string (RFC 7519 cere string) |
-| `jti` | id-ul sesiunii (UUID) |
-| `iat` | momentul emiterii |
-| `exp` | momentul expirarii |
+| `iss` | `JWT_ISSUER`, `sentinelcore` by default |
+| `aud` | `JWT_AUDIENCE`, `sentinelcore-api` by default |
+| `sub` | the user's id, as a string (RFC 7519 requires a string) |
+| `jti` | the session id (a UUID) |
+| `iat` | when it was issued |
+| `exp` | when it expires |
 
-La fiecare request sunt verificate semnatura, algoritmul, emitentul, audienta si expirarea, iar toate cele sase claim-uri sunt obligatorii.
+On every request, the signature, algorithm, issuer, audience and expiry are verified, and all six claims are required.
 
-`sub` este acum id-ul userului, nu emailul: id-ul nu se schimba niciodata, pe cand emailul ar putea fi modificat in viitor. Token-urile emise inainte de aceasta etapa sunt refuzate, deci fiecare user trebuie sa se autentifice din nou o data.
+`sub` is now the user's id, not the email: the id never changes, while the email might be editable in the future. Tokens issued before this stage are refused, so every user has to sign in once more.
 
-Raspunsul de login include `expires_in`, in secunde, ca in raspunsul standard OAuth2.
+The login response includes `expires_in`, in seconds, as in the standard OAuth2 response.
 
-### 216. Configurare mai stricta
+### 216. Stricter configuration
 
-- `SECRET_KEY` trebuie sa aiba cel putin 32 de bytes; altfel aplicatia nu porneste
-- `ALGORITHM` accepta doar `HS256`, `HS384` sau `HS512`; `none` si algoritmii asimetrici sunt respinsi la pornire
+- `SECRET_KEY` must be at least 32 bytes; otherwise the application does not start
+- `ALGORITHM` accepts only `HS256`, `HS384` or `HS512`; `none` and asymmetric algorithms are rejected at startup
 
-Prima regula previne chei slabe pentru HMAC. A doua previne configurari in care token-urile nesemnate sau semnate altfel ar putea fi acceptate.
+The first rule prevents weak HMAC keys. The second prevents configurations in which unsigned tokens, or tokens signed differently, could be accepted.
 
-### 217. Sesiuni
+### 217. Sessions
 
-Tabela noua `user_sessions`:
-- `id`: UUID aleator, deci id-urile nu pot fi ghicite
+The new `user_sessions` table:
+- `id`: a random UUID, so the ids cannot be guessed
 - `user_id`
 - `created_at`, `expires_at`
-- `revoked_at`: setat la logout sau revocare
+- `revoked_at`: set at logout or revocation
 - `ip_address`, `user_agent`
 
-Fiecare login creeaza o sesiune, iar id-ul ei devine `jti` in token. La fiecare request, `get_current_session()` verifica token-ul, apoi userul, apoi ca sesiunea exista, apartine userului din `sub`, nu este revocata si nu a expirat.
+Every login creates a session, and its id becomes the token's `jti`. On every request, `get_current_session()` checks the token, then the user, then that the session exists, belongs to the user in `sub`, is not revoked and has not expired.
 
-Userul inactiv este verificat inaintea sesiunii, astfel incat un cont dezactivat primeste in continuare `403 Inactive user`, nu un `401` generic.
+The inactive user check runs before the session check, so a deactivated account still gets `403 Inactive user`, not a generic `401`.
 
-Timpii sesiunii (`created_at`, `expires_at`) si cei din token (`iat`, `exp`) vin din ceasul aplicatiei. PyJWT respinge token-urile cu `iat` in viitor, deci un ceas al bazei de date usor inaintea aplicatiei ar fi invalidat token-uri abia emise.
+The session times (`created_at`, `expires_at`) and the token times (`iat`, `exp`) come from the application's clock. PyJWT rejects tokens with an `iat` in the future, so a database clock slightly ahead of the application would invalidate freshly issued tokens.
 
-### 218. Endpoint-uri noi
+### 218. New endpoints
 
-| Endpoint | Efect |
+| Endpoint | Effect |
 | --- | --- |
-| `POST /auth/token` | login prin formular OAuth2 (`username` = email); folosit de Swagger UI |
-| `POST /auth/logout` | revoca sesiunea token-ului curent; `204` |
-| `POST /auth/logout-all` | revoca toate sesiunile userului, inclusiv cea curenta; `204` |
-| `GET /users/me/sessions` | sesiunile active, cu `current: true` pentru cea curenta |
-| `DELETE /users/me/sessions/{session_id}` | revoca una dintre sesiunile proprii; `204` |
+| `POST /auth/token` | login through an OAuth2 form (`username` = email); used by Swagger UI |
+| `POST /auth/logout` | revokes the current token's session; `204` |
+| `POST /auth/logout-all` | revokes all of the user's sessions, including the current one; `204` |
+| `GET /users/me/sessions` | the active sessions, with `current: true` for the current one |
+| `DELETE /users/me/sessions/{session_id}` | revokes one of one's own sessions; `204` |
 
-`/auth/login` si `/auth/token` folosesc aceeasi functie interna, deci au aceeasi protectie brute-force, aceleasi evenimente si aceeasi creare de sesiune. Esecurile din ambele endpoint-uri se aduna la acelasi prag.
+`/auth/login` and `/auth/token` use the same internal function, so they share the brute-force protection, the events and the session creation. Failures on both endpoints add up toward the same threshold.
 
-Revocarea unei sesiuni care apartine altui user raspunde `404 Session not found`, la fel ca pentru o sesiune inexistenta, astfel incat id-urile sesiunilor altor useri nu pot fi confirmate.
+Revoking a session that belongs to another user answers `404 Session not found`, exactly like a missing session, so other users' session ids cannot be confirmed.
 
-`/auth/token` necesita dependenta `python-multipart`, folosita de FastAPI pentru formulare.
+`/auth/token` needs the `python-multipart` dependency, which FastAPI uses for forms.
 
-### 219. Revocare la dezactivare
+### 219. Revocation on deactivation
 
-Dezactivarea unui cont revoca toate sesiunile lui, in acelasi commit cu schimbarea de status si evenimentele aferente. Reactivarea nu le restaureaza: userul trebuie sa se autentifice din nou.
+Deactivating an account revokes all its sessions, in the same commit as the status change and its events. Reactivation does not restore them: the user has to sign in again.
 
-### 220. Evenimente si migratie
+### 220. Events and migration
 
-Tipuri noi in `AuditEventType`:
-- `SESSION_REVOKED`: logout sau revocarea unei sesiuni proprii
-- `ALL_SESSIONS_REVOKED`: logout de pe toate sesiunile
+New types in `AuditEventType`:
+- `SESSION_REVOKED`: logout, or revoking one of one's own sessions
+- `ALL_SESSIONS_REVOKED`: logout from every session
 
-Logout-ul este un fapt de audit, nu un semnal de securitate, deci nu creeaza security events.
+Logout is an audit fact, not a security signal, so it creates no security events.
 
-Migratia `232fc184b0d7_add_user_sessions.py` creeaza tabela `user_sessions` si adauga valorile noi. Downgrade-ul remapeaza randurile la `ADMIN_ENDPOINT_ACCESSED`, recreeaza tipul enum si sterge tabela.
+The migration `232fc184b0d7_add_user_sessions.py` creates the `user_sessions` table and adds the new values. The downgrade remaps the rows to `ADMIN_ENDPOINT_ACCESSED`, recreates the enum type and drops the table.
 
-Sesiunile expirate raman in tabela. O curatare periodica poate fi adaugata ulterior.
+Expired sessions stay in the table. A periodic cleanup can be added later.
 
-### 221. Validarea locala
+### 221. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pytest -> 164 passed
-- migratia: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+- the migration: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` on a temporary database
 
-Testele noi (`tests/test_sessions_and_tokens.py`) acopera:
-- continutul token-ului si legatura cu sesiunea
-- 13 variante de token invalid: cheie gresita, emitent sau audienta gresite, claim-uri lipsa, `sub` sau `jti` invalide, token expirat, alt algoritm, token nesemnat (`alg: none`), token in formatul vechi, sesiune inexistenta
-- sesiunea altui user folosita cu `sub` propriu
-- validarea `SECRET_KEY` si a algoritmului
-- lista sesiunilor, logout, logout-all, revocarea unei sesiuni proprii si refuzul revocarii sesiunilor altor useri
-- sesiunile expirate
-- revocarea la dezactivare
-- login-ul prin formular OAuth2, protectia brute-force comuna si configuratia Swagger
+The new tests (`tests/test_sessions_and_tokens.py`) cover:
+- the token's contents and its link to the session
+- 13 kinds of invalid token: wrong key, wrong issuer or audience, missing claims, invalid `sub` or `jti`, an expired token, another algorithm, an unsigned token (`alg: none`), a token in the old format, a missing session
+- another user's session used with one's own `sub`
+- validation of `SECRET_KEY` and of the algorithm
+- the session list, logout, logout-all, revoking one's own session and refusing to revoke other users' sessions
+- expired sessions
+- revocation on deactivation
+- login through the OAuth2 form, the shared brute-force protection and the Swagger configuration
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: acceptarea sesiunii altui user, acceptarea sesiunilor revocate, dezactivarea verificarii `aud` si a claim-urilor obligatorii, dezactivarea fara revocarea sesiunilor.
+Reverse check: each of the following changes makes at least one test fail: accepting another user's session, accepting revoked sessions, disabling the `aud` check and the required claims, deactivation without revoking the sessions.
 
-### 222. Curatarea periodica a sesiunilor
+### 222. Periodic session cleanup
 
-Sesiunile expirate sau revocate raman in `user_sessions`, utile pentru investigatii (cine era logat, de unde). Pentru a nu creste nelimitat, sunt sterse dupa o perioada de retentie:
+Expired or revoked sessions stay in `user_sessions`, where they help investigations (who was signed in, and from where). So that the table does not grow without bound, they are deleted after a retention period:
 
 ```env
 SESSION_RETENTION_DAYS=30
 SESSION_CLEANUP_INTERVAL_MINUTES=60
 ```
 
-`delete_stale_sessions()` sterge sesiunile expirate sau revocate de mai mult de `SESSION_RETENTION_DAYS` zile. Sesiunile active nu sunt sterse niciodata.
+`delete_stale_sessions()` deletes the sessions that expired or were revoked more than `SESSION_RETENTION_DAYS` days ago. Active sessions are never deleted.
 
-Curatarea ruleaza in doua moduri:
-- automat, in procesul API: un task pornit in `lifespan` ruleaza la fiecare `SESSION_CLEANUP_INTERVAL_MINUTES` minute si este oprit la shutdown; `0` il dezactiveaza
-- manual sau din cron: `python -m app.cli cleanup-sessions`
+The cleanup runs in two ways:
+- automatically, in the API process: a task started in `lifespan` runs every `SESSION_CLEANUP_INTERVAL_MINUTES` minutes and is stopped at shutdown; `0` disables it
+- by hand or from cron: `python -m app.cli cleanup-sessions`
 
-Task-ul periodic ruleaza curatarea intr-un thread separat (`asyncio.to_thread`), deoarece accesul la baza de date este sincron. O rulare esuata, de exemplu cand baza de date este temporar indisponibila, este logata si reincercata la urmatorul interval, fara a opri task-ul.
+The periodic task runs the cleanup in a separate thread (`asyncio.to_thread`), because database access is synchronous. A failed run, for example when the database is temporarily unavailable, is logged and retried at the next interval, without stopping the task.
 
-Fiecare rulare scrie un log `Session cleanup completed`, cu numarul de sesiuni sterse, si incrementeaza metrica `sentinelcore_sessions_deleted_total`.
+Every run writes a `Session cleanup completed` log with the number of sessions deleted, and increments the `sentinelcore_sessions_deleted_total` metric.
 
-Cu mai multi workeri uvicorn, fiecare ar rula propriul task. Stergerea este idempotenta, deci rezultatul ramane corect, dar in acel caz este preferabil `SESSION_CLEANUP_INTERVAL_MINUTES=0` si rularea din cron.
+With several uvicorn workers, each would run its own task. The deletion is idempotent, so the result stays correct, but in that case `SESSION_CLEANUP_INTERVAL_MINUTES=0` with a cron job is preferable.
 
-### 223. Revocarea sesiunilor unui user de catre admin
+### 223. An admin revoking a user's sessions
 
-Endpoint nou:
+New endpoint:
 
 ```http
 DELETE /admin/users/{user_id}/sessions
 ```
 
-Raspuns: `200` cu `{"revoked_sessions": 2}`.
+Response: `200` with `{"revoked_sessions": 2}`.
 
-Scop: deconectarea unui user de pe toate dispozitivele, de exemplu dupa o suspiciune de compromitere, fara dezactivarea contului. Userul se poate autentifica din nou imediat.
+Purpose: signing a user out of every device, for example after a suspected compromise, without deactivating the account. The user can sign in again right away.
 
-Regulile sunt aceleasi ca la schimbarea statusului:
+The rules are the same as for status changes:
 
-| Situatie | Raspuns |
+| Situation | Response |
 | --- | --- |
-| Actorul nu este `admin` sau `owner` | 403, `Insufficient permissions` |
-| User inexistent | 404, `User not found` |
-| Propriul cont | 403, `Use /auth/logout-all to revoke your own sessions` |
-| Tinta este `owner` | 403, `Cannot revoke the sessions of an owner` |
-| `admin` asupra altui `admin` | 403, `Only an owner can revoke the sessions of an admin` |
+| The actor is not `admin` or `owner` | 403, `Insufficient permissions` |
+| Missing user | 404, `User not found` |
+| One's own account | 403, `Use /auth/logout-all to revoke your own sessions` |
+| The target is an `owner` | 403, `Cannot revoke the sessions of an owner` |
+| An `admin` acting on another `admin` | 403, `Only an owner can revoke the sessions of an admin` |
 
-Regulile ierarhice sunt implementate o singura data, in `_ensure_can_manage_account()`, folosita de ambele endpoint-uri; fiecare actiune isi furnizeaza propriile mesaje.
+The hierarchical rules are implemented once, in `_ensure_can_manage_account()`, used by both endpoints; each action supplies its own messages.
 
-Revocarea si evenimentele sunt salvate intr-un singur commit, prin `_commit_user_change()`:
-- audit log `ALL_SESSIONS_REVOKED`
-- security event nou `USER_SESSIONS_REVOKED`, severitate `INFO`
-- mesaj: `Admin revoked 2 session(s) for user_id=5`
+The revocation and the events are saved in a single commit, through `_commit_user_change()`:
+- an `ALL_SESSIONS_REVOKED` audit log
+- a new `USER_SESSIONS_REVOKED` security event, with `INFO` severity
+- message: `Admin revoked 2 session(s) for user_id=5`
 
-Valoarea noua este adaugata prin migratia `c96113ce371b_add_user_sessions_revoked_security_event.py`. Migratia de sesiuni (`232fc184b0d7`) nu a fost modificata, deoarece era deja aplicata pe baza de development.
+The new value is added by the migration `c96113ce371b_add_user_sessions_revoked_security_event.py`. The sessions migration (`232fc184b0d7`) was not edited, because it had already been applied to the development database.
 
-### 224. Verificarea tipurilor cu Pyright
+> Update (Account Containment - Phase 1, sections 250 and 253): the endpoint became `POST /admin/users/{user_id}/revoke-sessions`, with a mandatory reason, open to `security_analyst` too and governed by `_ensure_can_contain_account()`.
 
-Pylance verifica doar fisierele deschise in editor, deci fisierele noi nu erau verificate. Backend-ul a fost verificat integral cu Pyright, motorul pe care este construit Pylance:
+### 224. Type checking with Pyright
+
+Pylance only checks the files open in the editor, so new files went unchecked. The whole backend was checked with Pyright, the engine Pylance is built on:
 
 ```bash
 npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations
 ```
 
-Pyright a gasit 8 erori, inclusiv in fisiere din etape anterioare:
-- `auth.py`: `constraint_name` poate fi `None` la o eroare de unicitate
-- `session_service.py`: `rowcount` nu este declarat pe tipul `Result`; numarul de randuri este obtinut acum prin `RETURNING id`, corect si explicit
-- in teste: dictionare de parametri tipate prea larg, un `db.scalar()` care poate intoarce `None`, un mesaj de audit care poate fi `None`
+Pyright found 8 errors, including in files from earlier stages:
+- `auth.py`: `constraint_name` can be `None` on a uniqueness error
+- `session_service.py`: `rowcount` is not declared on the `Result` type; the row count now comes from `RETURNING id`, correct and explicit
+- in tests: parameter dictionaries typed too broadly, a `db.scalar()` that can return `None`, an audit message that can be `None`
 
-Dupa corecturi: `0 errors, 0 warnings`.
+After the fixes: `0 errors, 0 warnings`.
 
-Pyright nu ruleaza inca in CI; poate fi adaugat ca pas separat.
+Pyright does not run in CI yet; it can be added as a separate step.
 
-### 225. Validarea locala
+### 225. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pyright -> 0 errors
 - pytest -> 184 passed
-- migratia noua: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` pe baza temporara
+- the new migration: `upgrade -> alembic check -> downgrade -> upgrade -> alembic check` on a temporary database
 
-Testele noi (`tests/test_session_cleanup_and_admin_revoke.py`) acopera: stergerea doar a sesiunilor vechi, metrica si logul curatarii, continuarea task-ului periodic dupa o eroare, pornirea si oprirea task-ului in `lifespan`, comanda CLI, si endpoint-ul de admin: acces, matricea de roluri permise, evenimentele, cazul fara sesiuni active, toate restrictiile si userul inexistent.
+The new tests (`tests/test_session_cleanup_and_admin_revoke.py`) cover: deleting only old sessions, the cleanup's metric and log, the periodic task continuing after an error, starting and stopping the task in `lifespan`, the CLI command, and the admin endpoint: access, the matrix of allowed roles, the events, the case with no active sessions, every restriction and the missing user.
 
-Verificare inversa: fiecare dintre urmatoarele modificari este detectata: nestergerea sesiunilor revocate, lipsa perioadei de retentie, oprirea task-ului la prima eroare, permiterea actiunii unui admin asupra altui admin. Netrimiterea anularii catre task la shutdown blocheaza oprirea aplicatiei, deci testul ramane blocat in loc sa pice.
+Reverse check: each of the following changes is detected: not deleting revoked sessions, a missing retention period, the task stopping at the first error, letting an admin act on another admin. Not sending the cancellation to the task at shutdown blocks the application from stopping, so that test hangs instead of failing.
 
 ## Cookie Authentication - Phase 1
 
-### 226. Scopul etapei
+### 226. Purpose of the stage
 
-Frontend-ul are nevoie de o sesiune in browser. Pastrarea token-ului in `localStorage` sau `sessionStorage` l-ar expune oricarui script injectat (XSS). Token-ul este pus acum intr-un cookie `httpOnly`, pe care JavaScript nu il poate citi.
+The frontend needs a session in the browser. Keeping the token in `localStorage` or `sessionStorage` would expose it to any injected script (XSS). The token now goes into an `httpOnly` cookie, which JavaScript cannot read.
 
-Autentificarea prin `Authorization: Bearer` ramane neschimbata pentru Swagger si pentru clienti API.
+Authentication through `Authorization: Bearer` stays unchanged for Swagger and for API clients.
 
-### 227. Login din browser
+### 227. Login from the browser
 
 ```http
 POST /auth/session
 ```
 
-Primeste acelasi body JSON ca `/auth/login`, foloseste aceeasi functie interna (deci aceeasi protectie brute-force, aceleasi evenimente si aceeasi sesiune) si raspunde `204 No Content`, fara token in body. Seteaza doua cookie-uri:
+It takes the same JSON body as `/auth/login`, uses the same internal function (so the same brute-force protection, the same events and the same session) and answers `204 No Content`, with no token in the body. It sets two cookies:
 
-| Cookie | Continut | `httpOnly` |
+| Cookie | Contents | `httpOnly` |
 | --- | --- | --- |
-| `sentinelcore_session` | token-ul JWT | da |
-| `sentinelcore_csrf` | token-ul CSRF | nu, frontend-ul trebuie sa-l citeasca |
+| `sentinelcore_session` | the JWT | yes |
+| `sentinelcore_csrf` | the CSRF token | no, the frontend must read it |
 
-Ambele au `Secure`, `SameSite=Strict`, `Path=/` si `Max-Age` egal cu durata token-ului.
+Both have `Secure`, `SameSite=Strict`, `Path=/` and a `Max-Age` equal to the token's lifetime.
 
-`Secure` este controlat de `AUTH_COOKIE_SECURE`, implicit `true`. Browserele trateaza `http://localhost` ca origine sigura, deci cookie-urile functioneaza si local.
+`Secure` is controlled by `AUTH_COOKIE_SECURE`, `true` by default. Browsers treat `http://localhost` as a secure origin, so the cookies work locally too.
 
-### 228. Protectia CSRF
+### 228. CSRF protection
 
-Browserul ataseaza cookie-urile automat, inclusiv la cereri pornite de alte site-uri. De aceea, orice cerere autentificata prin cookie cu metoda `POST`, `PUT`, `PATCH` sau `DELETE` trebuie sa trimita header-ul `X-CSRF-Token`, cu valoarea cookie-ului `sentinelcore_csrf`. Altfel raspunsul este `403 CSRF token missing or invalid`.
+The browser attaches cookies automatically, including to requests started by other sites. That is why every cookie-authenticated request with the `POST`, `PUT`, `PATCH` or `DELETE` method must send the `X-CSRF-Token` header, with the value of the `sentinelcore_csrf` cookie. Otherwise the response is `403 CSRF token missing or invalid`.
 
-Token-ul CSRF este un HMAC-SHA256 al id-ului sesiunii, calculat cu `SECRET_KEY` (signed double-submit, varianta recomandata de OWASP). Avantaje:
-- este valid doar pentru sesiunea respectiva
-- nu poate fi falsificat prin plantarea unui cookie CSRF propriu
-- nu necesita stocare suplimentara
+The CSRF token is an HMAC-SHA256 of the session id, computed with `SECRET_KEY` (signed double-submit, the variant OWASP recommends). Advantages:
+- it is valid only for that session
+- it cannot be forged by planting one's own CSRF cookie
+- it needs no extra storage
 
-Comparatia se face in timp constant (`hmac.compare_digest`).
+The comparison runs in constant time (`hmac.compare_digest`).
 
-Cererile cu `Authorization: Bearer` nu au nevoie de token CSRF: browserul nu trimite niciodata acest header din proprie initiativa. Daca o cerere contine si header, si cookie, header-ul are prioritate.
+Requests with `Authorization: Bearer` need no CSRF token: the browser never sends that header on its own. If a request carries both the header and the cookie, the header takes precedence.
 
 ### 229. Login CSRF
 
-Un site strain ar putea incerca sa logheze victima in contul atacatorului, trimitand un formular catre endpoint-ul de login. Formularele HTML pot trimite doar `application/x-www-form-urlencoded`, `multipart/form-data` sau `text/plain`, iar `/auth/session` accepta doar JSON: FastAPI raspunde `422` pentru orice alt tip de continut. O cerere `fetch` cu JSON de pe alt site ar necesita aprobare CORS, pe care backend-ul nu o acorda.
+A foreign site could try to sign the victim into the attacker's account by submitting a form to the login endpoint. HTML forms can only send `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain`, and `/auth/session` accepts only JSON: FastAPI answers `422` for any other content type. A `fetch` request with JSON from another site would need CORS approval, which the backend does not grant.
 
-Comportamentul este fixat prin teste, astfel incat o schimbare viitoare sa nu-l slabeasca neobservat.
+The behavior is pinned by tests, so a future change cannot weaken it unnoticed.
 
 ### 230. Logout
 
-`/auth/logout` si `/auth/logout-all` functioneaza pentru ambele tipuri de autentificare. Pe langa revocarea sesiunii in baza de date, sterg cele doua cookie-uri (`Max-Age=0`).
+`/auth/logout` and `/auth/logout-all` work for both kinds of authentication. Besides revoking the session in the database, they clear both cookies (`Max-Age=0`).
 
-### 231. Integrarea cu frontend-ul
+### 231. Integration with the frontend
 
-In development, frontend-ul va rula pe Vite si va trimite cererile `/api` catre backend printr-un proxy. Frontend-ul si API-ul par astfel sa fie pe aceeasi origine: nu este nevoie de CORS, iar cookie-urile `SameSite=Strict` functioneaza. In productie, acelasi efect se obtine servind frontend-ul si API-ul prin acelasi reverse proxy.
+In development, the frontend will run on Vite and forward `/api` requests to the backend through a proxy. The frontend and the API thus appear to share an origin: no CORS is needed, and the `SameSite=Strict` cookies work. In production, the same effect comes from serving the frontend and the API through the same reverse proxy.
 
-### 232. Validarea locala
+### 232. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
@@ -3698,65 +3706,65 @@ In development, frontend-ul va rula pe Vite si va trimite cererile `/api` catre 
 - pyright -> 0 errors
 - pytest -> 205 passed
 
-Testele noi (`tests/test_cookie_auth.py`) acopera: atributele cookie-urilor si lipsa token-ului din body, legarea token-ului CSRF de sesiune, autentificarea prin cookie, respingerea body-urilor non-JSON la login, protectia brute-force comuna, setarea `Secure`, toate variantele de token CSRF invalid, cereri reusite cu token CSRF, metodele sigure, cererile Bearer fara CSRF, prioritatea header-ului, cookie-uri invalide, logout-ul cu stergerea cookie-urilor si revocarea reala a token-ului.
+The new tests (`tests/test_cookie_auth.py`) cover: the cookie attributes and the absence of the token from the body, the CSRF token bound to the session, cookie authentication, rejecting non-JSON bodies at login, the shared brute-force protection, the `Secure` setting, every kind of invalid CSRF token, successful requests with a CSRF token, safe methods, Bearer requests without CSRF, header precedence, invalid cookies, logout clearing the cookies, and the token really being revoked.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea verificarii CSRF, un token CSRF nelegat de sesiune, cookie de sesiune citibil din JavaScript, logout fara stergerea cookie-urilor, cookie-ul preferat in locul header-ului.
+Reverse check: each of the following changes makes at least one test fail: removing the CSRF check, a CSRF token not bound to the session, a session cookie readable from JavaScript, logout without clearing the cookies, preferring the cookie over the header.
 
 ## My Account API - Phase 1
 
-### 233. Scopul etapei
+### 233. Purpose of the stage
 
-Pana acum, evenimentele de securitate puteau fi citite doar de `admin`, `owner` si `security_analyst`. Perspectiva "Contul meu" din frontend are nevoie ca orice utilizator sa-si vada propriul istoric si sa se poata deconecta de pe celelalte dispozitive.
+Until now, security events could be read only by `admin`, `owner` and `security_analyst`. The frontend's "My account" scope needs every user to see their own history and to be able to sign out of their other devices.
 
-### 234. Activitatea propriului cont
+### 234. The account's own activity
 
 ```http
 GET /users/me/activity
 ```
 
-Intoarce evenimentele de securitate despre contul curent, cu aceeasi paginare prin cursor ca listele de administrare (`items`, `next_cursor`, `before_id`, `limit`). Filtre acceptate: `event_type`, `severity`, `since`, `until`. Orice alt parametru (de exemplu `user_id` sau `email`) primeste `422`, deci endpoint-ul nu poate fi folosit pentru a citi evenimentele altcuiva.
+It returns the security events about the current account, with the same cursor pagination as the administration lists (`items`, `next_cursor`, `before_id`, `limit`). Accepted filters: `event_type`, `severity`, `since`, `until`. Any other parameter (for example `user_id` or `email`) gets `422`, so the endpoint cannot be used to read someone else's events.
 
-Ce intra in istoric:
-- evenimentele legate de cont prin `user_id`
-- incercarile de login esuate sau blocate care contin doar emailul contului: o parola gresita nu leaga incercarea de user, dar proprietarul contului trebuie sa o vada
-- dintre acestea din urma, doar cele de dupa crearea contului; incercarile facute pe acel email inainte de inregistrare raman ascunse
+What the history includes:
+- the events tied to the account through `user_id`
+- the failed or blocked login attempts that carry only the account's email: a wrong password does not tie the attempt to the user, but the account's owner must see it
+- of the latter, only those after the account was created; attempts on that email before registration stay hidden
 
-Raspunsul contine doar `id`, `event_type`, `severity`, `ip_address` si `created_at`. Campul `message` este omis: este scris pentru operatori, in engleza, si poate numi alte conturi (de exemplu "Owner changed role for user_id=12"). Frontend-ul descrie evenimentele dupa tip, in limba interfetei.
+The response contains only `id`, `event_type`, `severity`, `ip_address` and `created_at`. The `message` field is left out: it is written for operators, in English, and can name other accounts (for example "Owner changed role for user_id=12"). The frontend describes events by type, in the interface language.
 
-Citirea propriului istoric nu este auditata: nu expune datele altcuiva, iar un rand de audit la fiecare deschidere a paginii ar ingropa intrarile care conteaza.
+Reading one's own history is not audited: it exposes nobody else's data, and an audit row every time the page opens would bury the entries that matter.
 
-Evenimentele de administrare sunt inregistrate pe actor. Un admin vede in istoricul sau "Ai schimbat rolul unui utilizator"; utilizatorul afectat nu vede inca schimbarea, pentru ca evenimentele nu au un camp pentru tinta. Este o limitare cunoscuta, notata pentru o etapa viitoare. (Rezolvata in sectiunile 241-242.)
+Administrative events are recorded on the actor. An admin sees "You changed a user's role" in their history; the affected user does not see the change yet, because the events have no field for the target. This is a known limitation, noted for a later stage. (Resolved in sections 241-242.)
 
-### 235. Deconectarea celorlalte dispozitive
+### 235. Signing out of the other devices
 
 ```http
 DELETE /users/me/sessions
 ```
 
-Revoca toate sesiunile active ale utilizatorului, cu exceptia celei din care vine cererea, si raspunde `{"revoked_sessions": N}`. Spre deosebire de `/auth/logout-all`, utilizatorul ramane conectat. Creeaza audit log de tip nou `OTHER_SESSIONS_REVOKED`.
+It revokes all of the user's active sessions except the one the request comes from, and answers `{"revoked_sessions": N}`. Unlike `/auth/logout-all`, the user stays signed in. It creates an audit log of the new type `OTHER_SESSIONS_REVOKED`.
 
-`stage_revoke_all_sessions()` primeste un parametru optional `keep_session_id`, deci aceeasi functie serveste logout-all, revocarea de catre admin si aceasta actiune.
+`stage_revoke_all_sessions()` takes an optional `keep_session_id` parameter, so the same function serves logout-all, revocation by an admin, and this action.
 
-### 236. Refactorizarea filtrelor
+### 236. Refactoring the filters
 
-`EventFilters` a fost impartit:
-- `EventPageFilters`: intervalul de timp si cursorul, comune tuturor listelor
-- `EventFilters`: adauga `user_id`, `email` si `ip_address`, doar pentru listele de administrare
+`EventFilters` was split:
+- `EventPageFilters`: the time range and the cursor, shared by every list
+- `EventFilters`: adds `user_id`, `email` and `ip_address`, only for the administration lists
 
-`fetch_event_page()` aplica acum doar intervalul si cursorul; filtrele de identitate sunt construite de `event_filter_conditions()`. Astfel, `MyActivityFilters` nu mosteneste filtre care ar permite citirea altor conturi.
+`fetch_event_page()` now applies only the range and the cursor; the identity filters are built by `event_filter_conditions()`. This way, `MyActivityFilters` does not inherit filters that would allow reading other accounts.
 
-### 237. Migratii
+### 237. Migrations
 
-- `OTHER_SESSIONS_REVOKED` in `audit_event_types`; la downgrade, randurile devin `ALL_SESSIONS_REVOKED`
-- index pe `security_events.user_id`, folosit de istoricul propriu si de filtrul `user_id`
+- `OTHER_SESSIONS_REVOKED` in `audit_event_types`; on downgrade, the rows become `ALL_SESSIONS_REVOKED`
+- an index on `security_events.user_id`, used by the personal history and by the `user_id` filter
 
-### 238. Problema intalnita: Alembic ignora `DATABASE_URL`
+### 238. Problem encountered: Alembic ignored `DATABASE_URL`
 
-URL-ul bazei de date era scris direct in `alembic.ini`, iar `migrations/env.py` nu citea setarile aplicatiei. O comanda precum `DATABASE_URL=...temp alembic upgrade head` rula deci pe baza de development. Asa a fost descoperit: verificarea migratiilor pe o baza temporara a aplicat migratiile pe baza `sentinelcore`. Downgrade-ul imediat a readus-o la starea initiala, fara pierderi de date.
+The database URL was written directly in `alembic.ini`, and `migrations/env.py` did not read the application settings. A command such as `DATABASE_URL=...temp alembic upgrade head` therefore ran against the development database. That is how it was discovered: checking the migrations on a temporary database applied them to the `sentinelcore` database. An immediate downgrade brought it back to its initial state, with no data loss.
 
-Acum `env.py` seteaza URL-ul din `settings.database_url`, iar `alembic.ini` nu mai contine nicio conexiune. Verificarea a fost reluata pe o baza temporara: upgrade complet, `alembic check` fara diferente fata de modele, downgrade, din nou upgrade; baza de development a ramas neatinsa.
+`env.py` now sets the URL from `settings.database_url`, and `alembic.ini` holds no connection. The check was rerun on a temporary database: a full upgrade, `alembic check` with no differences from the models, a downgrade, then an upgrade again; the development database stayed untouched.
 
-### 239. Validarea locala
+### 239. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
@@ -3764,90 +3772,90 @@ Acum `env.py` seteaza URL-ul din `settings.database_url`, iar `alembic.ini` nu m
 - pyright -> 0 errors
 - pytest -> 223 passed
 
-Testele noi (`tests/test_my_account.py`) acopera: autentificarea obligatorie, ordinea evenimentelor, includerea incercarilor esuate care contin doar emailul, ascunderea evenimentelor altor conturi si a celor de dinainte de crearea contului, campurile din raspuns, filtrele, paginarea, respingerea filtrelor de identitate, lipsa auditului la citire, revocarea celorlalte sesiuni cu pastrarea celei curente, izolarea fata de alti useri si cerinta CSRF pentru cererile prin cookie.
+The new tests (`tests/test_my_account.py`) cover: mandatory authentication, the order of events, including failed attempts that carry only the email, hiding other accounts' events and those from before the account was created, the response fields, the filters, pagination, rejecting identity filters, not auditing the read, revoking the other sessions while keeping the current one, isolation from other users, and the CSRF requirement for cookie requests.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: eliminarea limitei de timp pentru incercarile pe email, potrivirea oricarui email, revocarea inclusiv a sesiunii curente.
+Reverse check: each of the following changes makes at least one test fail: removing the time bound for attempts on the email, matching any email, also revoking the current session.
 
 ## Organization API - Phase 1
 
-### 240. Scopul etapei
+### 240. Purpose of the stage
 
-Perspectiva "Organizatia" din frontend (evenimente, audit, utilizatori, prezentare) are nevoie de cateva lucruri pe care API-ul nu le avea: tinta actiunilor de administrare, cautare si filtre in lista de utilizatori, istoricul unui cont vazut de operator si un rezumat pentru pagina de prezentare. Etapa este primul din cele patru PR-uri ale perspectivei; celelalte trei sunt pagini de frontend.
+The frontend's "Organization" scope (events, audit, users, overview) needs a few things the API did not have: the target of administrative actions, search and filters in the user list, an account's history as seen by an operator, and a summary for the overview page. This stage is the first of the scope's four PRs; the other three are frontend pages.
 
-### 241. Tinta actiunilor de administrare
+### 241. The target of administrative actions
 
-`security_events` si `audit_logs` au o coloana noua, `target_user_id` (nullable, cheie straina spre `users`, indexata). `user_id` ramane actorul; `target_user_id` este contul asupra caruia s-a actionat. Se completeaza la:
-- schimbarea rolului (`USER_ROLE_CHANGED`)
-- activarea si dezactivarea unui cont (`USER_ACTIVATED`, `USER_DEACTIVATED`)
-- inchiderea sesiunilor unui user de catre admin (`USER_SESSIONS_REVOKED` / `ALL_SESSIONS_REVOKED`)
-- vizualizarea unui user sau a istoricului sau (audit)
+`security_events` and `audit_logs` have a new column, `target_user_id` (nullable, a foreign key to `users`, indexed). `user_id` stays the actor; `target_user_id` is the account that was acted on. It is filled in for:
+- a role change (`USER_ROLE_CHANGED`)
+- activating and deactivating an account (`USER_ACTIVATED`, `USER_DEACTIVATED`)
+- an admin closing a user's sessions (`USER_SESSIONS_REVOKED` / `ALL_SESSIONS_REVOKED`)
+- viewing a user or their history (audit)
 
-Randurile vechi raman cu tinta `NULL`; ele numesc tinta doar in mesaj ("user_id=12"). Listele de administrare accepta filtrul nou `target_user_id`, iar raspunsurile contin campul.
+Old rows keep a `NULL` target; they name the target only in the message ("user_id=12"). The administration lists accept the new `target_user_id` filter, and the responses contain the field.
 
-Aceasta rezolva limitarea notata la sectiunea 234: utilizatorul afectat vede acum in istoricul propriu actiunile facute asupra contului sau.
+This resolves the limitation noted in section 234: the affected user now sees the actions taken on their account in their own history.
 
-### 242. Istoricul propriu si actiunile primite
+### 242. The personal history and the actions received
 
-`GET /users/me/activity` include si evenimentele cu `target_user_id` egal cu contul curent. Fiecare element are campul nou `as_target`:
-- `false`: actiunea a fost facuta de cititor (un admin vede "Ai schimbat rolul unui utilizator")
-- `true`: altcineva a actionat asupra contului cititorului ("Rolul tau a fost schimbat")
+`GET /users/me/activity` also includes the events whose `target_user_id` is the current account. Every item has the new `as_target` field:
+- `false`: the reader took the action (an admin sees "You changed a user's role")
+- `true`: someone else acted on the reader's account ("Your role was changed")
 
-Pentru elementele cu `as_target: true`, `ip_address` este `null`: adresa inregistrata este a operatorului, iar utilizatorul afectat nu trebuie sa o afle. Identitatea operatorului nu apare nici ea, ca si pana acum.
+For items with `as_target: true`, `ip_address` is `null`: the recorded address is the operator's, and the affected user must not learn it. The operator's identity does not appear either, as before.
 
-### 243. Lista de utilizatori
+### 243. The user list
 
 ```http
 GET /admin/users?q=...&role=admin&role=owner&is_active=false&limit=50&before_id=...
 ```
 
-Raspunsul are acum aceeasi forma ca listele de evenimente, `{"items": [...], "next_cursor": ...}`, cu utilizatorii cei mai noi primii. Paginarea prin `offset` a fost inlocuita cu cursorul `before_id`, ca in restul API-ului. Filtre:
-- `q`: subsir din email sau username, fara diferenta intre litere mari si mici (ambele sunt stocate cu litere mici); `%` si `_` sunt cautate ca text, nu ca wildcard-uri
-- `role`: unul sau mai multe roluri
-- `is_active`: `true` sau `false`
+The response now has the same shape as the event lists, `{"items": [...], "next_cursor": ...}`, newest users first. `offset` pagination was replaced by the `before_id` cursor, as in the rest of the API. Filters:
+- `q`: a substring of the email or username, case-insensitive (both are stored in lowercase); `%` and `_` are searched as text, not as wildcards
+- `role`: one or more roles
+- `is_active`: `true` or `false`
 
-Parametrii necunoscuti, inclusiv vechiul `offset`, primesc `422`.
+Unknown parameters, including the old `offset`, get `422`.
 
-Paginarea a fost scoasa din `fetch_event_page()` intr-o functie generica, `fetch_page()` (`app/services/pagination.py`), folosita si de evenimente, si de utilizatori. La fel, `CursorPageFilters` (`before_id`, `limit`, respingerea parametrilor necunoscuti, `describe()`) este baza comuna a filtrelor.
+Pagination was moved out of `fetch_event_page()` into a generic function, `fetch_page()` (`app/services/pagination.py`), used by both events and users. Likewise, `CursorPageFilters` (`before_id`, `limit`, rejecting unknown parameters, `describe()`) is the shared base of the filters.
 
-### 244. Analistul de securitate si zgomotul din evenimente
+### 244. The security analyst, and noise in the events
 
-- `GET /admin/users`, `GET /admin/users/{id}` si noul `GET /admin/users/{id}/activity` sunt deschise si pentru `security_analyst`, care are nevoie de conturi in investigatii. Schimbarea rolului, a statusului si inchiderea sesiunilor raman la `admin` si `owner`.
-- Citirile de utilizatori nu mai creeaza security event `ADMIN_ACCESS`. Sunt inregistrate doar in audit, cu tipul nou `USERS_VIEWED` (pentru detaliu, cu tinta). Pagina Utilizatori ar fi umplut altfel fluxul de securitate la fiecare incarcare. Este aceeasi regula ca la consultarea logurilor: vizualizarea este un fapt de audit, nu un semnal de securitate.
+- `GET /admin/users`, `GET /admin/users/{id}` and the new `GET /admin/users/{id}/activity` are also open to `security_analyst`, who needs accounts during investigations. Changing the role or the status and closing sessions stay with `admin` and `owner`.
+- Reading users no longer creates an `ADMIN_ACCESS` security event. Reads are recorded only in the audit, with the new `USERS_VIEWED` type (for the detail view, with the target). Otherwise the Users page would have flooded the security stream on every load. It is the same rule as for reading the logs: viewing is an audit fact, not a security signal.
 
-### 245. Istoricul unui cont, pentru operatori
+### 245. An account's history, for operators
 
 ```http
 GET /admin/users/{user_id}/activity
 ```
 
-Intoarce acelasi set de evenimente pe care proprietarul contului il vede in istoricul propriu (actor, tinta, incercari esuate pe email dupa crearea contului), dar cu toate campurile pentru operatori (`message`, `user_id`, `target_user_id`, `email`, `source`). Accepta aceleasi filtre ca istoricul propriu (`event_type`, `severity`, `since`, `until`, cursor). Consultarea este auditata ca `SECURITY_EVENTS_VIEWED`, cu tinta.
+It returns the same events the account's owner sees in their own history (actor, target, failed attempts on the email after the account was created), but with every field operators need (`message`, `user_id`, `target_user_id`, `email`, `source`). It accepts the same filters as the personal history (`event_type`, `severity`, `since`, `until`, cursor). Reading it is audited as `SECURITY_EVENTS_VIEWED`, with the target.
 
-`MyActivityFilters` a fost redenumit `AccountActivityFilters`, pentru ca serveste ambele endpoint-uri.
+`MyActivityFilters` was renamed `AccountActivityFilters`, since it serves both endpoints.
 
-### 246. Rezumatul de securitate
+### 246. The security summary
 
 ```http
 GET /security/summary
 ```
 
-Pentru `admin`, `owner` si `security_analyst`. Intoarce:
-- `last_24h`, `last_7d`: numarul de evenimente pe severitate (`info`, `warn`, `incident`)
+For `admin`, `owner` and `security_analyst`. It returns:
+- `last_24h`, `last_7d`: the number of events per severity (`info`, `warn`, `incident`)
 - `failed_logins_24h`
-- `locked_logins`: cate emailuri au login-ul blocat acum de protectia la brute-force (eveniment `BRUTE_FORCE_DETECTED` mai nou decat durata blocarii, aceeasi regula ca in `login_protection_service`)
-- `top_failed_login_sources`: primele 5 adrese IP dupa numarul de login-uri esuate in ultimele 24 de ore (la egalitate, ordonate dupa adresa)
+- `locked_logins`: how many emails currently have login blocked by the brute-force protection (a `BRUTE_FORCE_DETECTED` event newer than the block duration, the same rule as in `login_protection_service`)
+- `top_failed_login_sources`: the top 5 IP addresses by failed logins in the last 24 hours (ties ordered by address)
 - `users_total`, `users_inactive`
-- `generated_at`: momentul calculului
+- `generated_at`: when it was computed
 
-Ferestrele sunt masurate pe ceasul bazei de date, cel care stampileaza `created_at`. Rezumatul nu este auditat: pagina de prezentare il incarca la fiecare vizita si contine numere, nu inregistrari. Deschiderea evenimentelor din spatele unui numar este auditata ca de obicei.
+The windows are measured on the database clock, the one that stamps `created_at`. The summary is not audited: the overview page loads it on every visit, and it holds numbers, not records. Opening the events behind a number is audited as usual.
 
-### 247. Migratii
+### 247. Migrations
 
-- `06b4f5ced4de`: `target_user_id` cu cheie straina si index, pe `security_events` si `audit_logs`
-- `370d6e54e7cf`: `USERS_VIEWED` in `audit_event_types`; la downgrade, randurile devin `ADMIN_ENDPOINT_ACCESSED`, tipul folosit inainte pentru citirile de utilizatori
+- `06b4f5ced4de`: `target_user_id` with a foreign key and an index, on `security_events` and `audit_logs`
+- `370d6e54e7cf`: `USERS_VIEWED` in `audit_event_types`; on downgrade, the rows become `ADMIN_ENDPOINT_ACCESSED`, the type used earlier for reading users
 
-Verificate pe o baza temporara: upgrade complet, `alembic check` fara diferente, insert cu valorile noi, downgrade (randul `USERS_VIEWED` a devenit `ADMIN_ENDPOINT_ACCESSED`, coloanele au disparut), din nou upgrade si `alembic check`.
+Checked on a temporary database: a full upgrade, `alembic check` with no differences, an insert with the new values, a downgrade (the `USERS_VIEWED` row became `ADMIN_ENDPOINT_ACCESSED`, the columns were gone), then an upgrade and `alembic check` again.
 
-### 248. Validarea locala
+### 248. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
@@ -3855,34 +3863,34 @@ Verificate pe o baza temporara: upgrade complet, `alembic check` fara diferente,
 - pyright -> 0 errors
 - pytest -> 248 passed
 
-Testele noi (`tests/test_organization_api.py`) acopera: accesul refuzat pentru useri normali si permis pentru analist, auditarea citirilor fara security events, filtrele listei de utilizatori (cautare, wildcard-uri literale, roluri, status, combinatii), paginarea si parametrii invalizi, filtrul `target_user_id`, istoricul propriu cu actiuni primite (fara IP-ul actorului), istoricul unui cont pentru operatori si auditarea lui, `404` pentru useri inexistenti, rezumatul (ferestre, blocari active si expirate, top surse, conturi, lipsa auditului) si rezumatul gol. Testele existente verifica acum si `target_user_id` la schimbarea de rol, de status si la inchiderea sesiunilor.
+The new tests (`tests/test_organization_api.py`) cover: access denied for regular users and allowed for the analyst, auditing reads without security events, the user list filters (search, literal wildcards, roles, status, combinations), pagination and invalid parameters, the `target_user_id` filter, the personal history with received actions (without the actor's IP), an account's history for operators and its auditing, `404` for missing users, the summary (windows, active and expired blocks, top sources, accounts, no audit) and the empty summary. The existing tests now also check `target_user_id` on role changes, status changes and closing sessions.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: istoricul fara evenimentele primite, cautarea fara escaparea wildcard-urilor, IP-ul actorului aratat tintei, analistul fara drept de citire, fereastra de blocare gresita, audit log fara tinta, sursele neordonate dupa numar, fereastra de 24 de ore ignorata, tipul de audit gresit la listare.
+Reverse check: each of the following changes makes at least one test fail: a history without the received events, a search that does not escape wildcards, the actor's IP shown to the target, the analyst without read access, a wrong block window, an audit log without the target, sources not ordered by count, the 24 hour window ignored, the wrong audit type for listing.
 
-Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit, prin proxy:
-- dupa ce owner-ul schimba rolul lui `mihai.pop`, istoricul propriu al acestuia contine `user_role_changed` cu `as_target: true` si fara IP, iar istoricul owner-ului acelasi eveniment cu `as_target: false` si IP
-- analistul cauta (`q=MIH`), filtreaza dupa status, primeste `422` pentru `offset`, citeste istoricul contului si rezumatul, si primeste `403` la schimbarea statusului
-- nu s-a creat niciun security event `ADMIN_ACCESS`; audit log-ul contine `USERS_VIEWED` si `SECURITY_EVENTS_VIEWED`, cu tinta acolo unde este cazul
-- capturi reale in Firefox ale paginii Activitatea mea a contului afectat, in ambele teme: randul "Rolul tau a fost schimbat" are "—" in coloana IP
+End-to-end check, with the real backend on a temporary database and Vite running, through the proxy:
+- after the owner changes `mihai.pop`'s role, that user's own history contains `user_role_changed` with `as_target: true` and no IP, and the owner's history contains the same event with `as_target: false` and the IP
+- the analyst searches (`q=MIH`), filters by status, gets `422` for `offset`, reads the account's history and the summary, and gets `403` on a status change
+- no `ADMIN_ACCESS` security event was created; the audit log contains `USERS_VIEWED` and `SECURITY_EVENTS_VIEWED`, with the target where it applies
+- real Firefox screenshots of the affected account's My activity page, in both themes: the "Your role was changed" row has "—" in the IP column
 
 ## Account Containment - Phase 1
 
-### 249. Scopul etapei
+### 249. Purpose of the stage
 
-Pana acum, analistul de securitate putea doar citi. Intr-o echipa de securitate, el este de obicei primul care observa o compromitere si trebuie sa poata izola contul imediat, fara sa astepte un admin. Etapa ii da actiuni de izolare reversibile si limitate in timp; decizia definitiva (dezactivarea) ramane la `admin` si `owner`.
+Until now, the security analyst could only read. In a security team, the analyst is usually the first to notice a compromise, and must be able to isolate the account immediately, without waiting for an admin. This stage gives the analyst reversible, time-boxed containment actions; the final decision (deactivation) stays with `admin` and `owner`.
 
-### 250. Inchiderea sesiunilor unui cont
+### 250. Closing an account's sessions
 
 ```http
 POST /admin/users/{user_id}/revoke-sessions
 {"reason": "Sign-ins from an unknown country"}
 ```
 
-Inlocuieste `DELETE /admin/users/{user_id}/sessions`. Actiunea primeste acum un motiv, iar un body pe `DELETE` nu are semantica definita in HTTP si poate fi pierdut de proxy-uri, deci a devenit o comanda `POST`. Raspunsul ramane `{"revoked_sessions": N}`.
+It replaces `DELETE /admin/users/{user_id}/sessions`. The action now takes a reason, and a body on `DELETE` has no defined semantics in HTTP and can be dropped by proxies, so it became a `POST` command. The response stays `{"revoked_sessions": N}`.
 
-Este permisa pentru `admin`, `owner` si `security_analyst`.
+It is allowed for `admin`, `owner` and `security_analyst`.
 
-### 251. Blocarea temporara
+### 251. The temporary lock
 
 ```http
 POST /admin/users/{user_id}/lock
@@ -3891,121 +3899,133 @@ POST /admin/users/{user_id}/lock
 POST /admin/users/{user_id}/unlock
 ```
 
-Blocarea:
-- seteaza coloana noua `users.locked_until` la ceasul bazei de date plus durata (1-168 ore, adica cel mult 7 zile)
-- inchide toate sesiunile contului, in aceeasi tranzactie
-- creeaza security event `ACCOUNT_LOCKED` de severitate `incident` si audit log `ACCOUNT_LOCKED`, cu tinta si motivul in mesaj
-- o noua blocare a aceluiasi cont inlocuieste ora de sfarsit
-- expira singura; nu exista un job de curatare, o valoare din trecut inseamna cont deblocat
+Locking:
+- sets the new `users.locked_until` column to the database clock plus the duration (1-168 hours, that is at most 7 days)
+- closes all of the account's sessions, in the same transaction
+- creates an `ACCOUNT_LOCKED` security event with `incident` severity and an `ACCOUNT_LOCKED` audit log, with the target and the reason in the message
+- a new lock on the same account replaces the end time
+- expires on its own; there is no cleanup job, and a value in the past means the account is unlocked
 
-Deblocarea (`unlock`) este permisa doar pentru `admin` si `owner`: analistul blocheaza, dar ridicarea mai devreme a blocarii este revizuita de altcineva. Creeaza `ACCOUNT_UNLOCKED` (`info`). Deblocarea unui cont care nu este blocat (sau a carui blocare a expirat) nu schimba nimic si nu creeaza evenimente.
+Unlocking is allowed only for `admin` and `owner`: the analyst locks, but lifting a lock early is reviewed by someone else. It creates `ACCOUNT_UNLOCKED` (`info`). Unlocking an account that is not locked (or whose lock has expired) changes nothing and creates no events.
 
-`UserRead` contine `locked_until`; lista de utilizatori accepta filtrul `locked=true|false`, iar `GET /security/summary` are campul nou `accounts_locked`.
+`UserRead` contains `locked_until`; the user list accepts the `locked=true|false` filter, and `GET /security/summary` has the new `accounts_locked` field.
 
-### 252. Login si sesiuni pentru un cont blocat
+### 252. Login and sessions for a locked account
 
-- Parola este verificata inainte de blocare, ca la conturile dezactivate: o parola gresita primeste `401` ca de obicei, deci doar cine stie parola afla ca exista o blocare.
-- Cu parola corecta, raspunsul este `403` cu `detail` `Account temporarily locked`, fara `Retry-After`: in timpul unei compromiteri suspectate, cel care stie parola poate fi atacatorul, deci nu afla cand se termina blocarea.
-- Incercarea cu parola corecta creeaza `LOGIN_BLOCKED` (`warn`), legat de cont: este un semnal util pentru analist.
-- `get_current_session` refuza cu `403` sesiunile unui cont blocat. Blocarea revoca deja sesiunile, deci verificarea conteaza doar pentru un login care s-a intersectat cu blocarea. Ea vine dupa validarea sesiunii, ca un token revocat sa primeasca `401` si sa nu afle de blocare. Un test a prins varianta initiala, in care verificarea era inaintea sesiunii.
+- The password is checked before the lock, as for deactivated accounts: a wrong password gets `401` as usual, so only someone who knows the password learns that a lock exists.
+- With the right password, the response is `403` with the `detail` `Account temporarily locked`, without `Retry-After`: during a suspected compromise, whoever knows the password may be the attacker, so they do not learn when the lock ends.
+- The attempt with the right password creates `LOGIN_BLOCKED` (`warn`), tied to the account: it is a useful signal for the analyst.
+- `get_current_session` refuses a locked account's sessions with `403`. Locking already revokes the sessions, so the check only matters for a login that raced with the lock. It runs after the session is validated, so that a revoked token gets `401` and does not learn about the lock. A test caught the initial version, in which the check came before the session.
 
-### 253. Ierarhia actiunilor
+### 253. The hierarchy of actions
 
-`_ensure_can_contain_account()` este regula pentru actiunile de izolare (inchiderea sesiunilor, blocarea, deblocarea): nimeni nu actioneaza asupra propriului cont sau asupra unui owner. Spre deosebire de schimbarea statusului, orice operator poate izola un admin: actiunile sunt reversibile, iar un admin compromis este cazul cel mai periculos.
+`_ensure_can_contain_account()` is the rule for the containment actions (closing sessions, locking, unlocking): nobody acts on their own account or on an owner. Unlike status changes, any operator can contain an admin: the actions are reversible, and a compromised admin is the most dangerous case.
 
-`_ensure_can_manage_account()` (schimbarea statusului) aplica aceeasi regula plus restrictia ca doar owner-ul actioneaza asupra unui admin.
+`_ensure_can_manage_account()` (status changes) applies the same rule, plus the restriction that only the owner acts on an admin.
 
-Consecinta: un admin poate acum inchide sesiunile altui admin, ceea ce inainte era rezervat owner-ului.
+Consequence: an admin can now close another admin's sessions, which used to be reserved for the owner.
 
-### 254. Motivul obligatoriu
+### 254. The mandatory reason
 
-`revoke-sessions` si `lock` cer `reason`: 3-500 caractere, dupa eliminarea spatiilor de la capete. Motivul apare in mesajul evenimentului si al audit log-ului (`... Reason: ...`), deci il vad operatorii, dar nu si utilizatorul afectat: istoricul propriu nu contine mesajul.
+`revoke-sessions` and `lock` require `reason`: 3-500 characters, after trimming whitespace at both ends. The reason appears in the message of the event and of the audit log (`... Reason: ...`), so operators see it, but the affected user does not: the personal history does not contain the message.
 
-Mesajele numesc rolul actorului lizibil: `Security analyst locked user_id=4 ...`, nu `Security_analyst`.
+The messages name the actor's role readably: `Security analyst locked user_id=4 ...`, not `Security_analyst`.
 
-### 255. Migratii
+### 255. Migrations
 
-`2b5ba1e0d7df`: coloana `users.locked_until` si tipurile `ACCOUNT_LOCKED`, `ACCOUNT_UNLOCKED` in `security_event_types` si `audit_event_types`. La downgrade, randurile devin `USER_SESSIONS_REVOKED` / `ALL_SESSIONS_REVOKED` (o blocare inchidea mereu sesiunile) si `USER_ACTIVATED`.
+`2b5ba1e0d7df`: the `users.locked_until` column and the `ACCOUNT_LOCKED` and `ACCOUNT_UNLOCKED` types in `security_event_types` and `audit_event_types`. On downgrade, the rows become `USER_SESSIONS_REVOKED` / `ALL_SESSIONS_REVOKED` (a lock always closed the sessions) and `USER_ACTIVATED`.
 
-Ceasul bazei de date a fost mutat in `app.core.database.database_now()`, folosit de protectia la brute-force, de rezumat si de blocari.
+The database clock moved to `app.core.database.database_now()`, used by the brute-force protection, the summary and the locks.
 
-### 256. Validarea locala
+### 256. Local validation
 
 - ruff check -> passed
 - ruff format --check -> passed
 - bandit -> No issues identified
 - pyright -> 0 errors
 - pytest -> 281 passed
-- migratia: upgrade, `alembic check`, insert cu valorile noi, downgrade (randurile mapate, coloana stearsa), din nou upgrade si `alembic check`
+- the migration: upgrade, `alembic check`, an insert with the new values, a downgrade (rows mapped, column dropped), then an upgrade and `alembic check` again
 
-Testele noi (`tests/test_account_containment.py`) acopera: accesul, blocarea de catre analist, admin si owner (inclusiv a unui admin), inchiderea sesiunilor, refuzul login-ului fara dezvaluirea blocarii, evenimentele si mesajele, restrictiile (propriul cont, owner), validarea duratei si a motivului, expirarea, reblocarea, deblocarea de catre admin si owner, refuzul deblocarii de catre analist, deblocarea fara efect, sesiunea aparuta in timpul blocarii, istoricul propriu al contului blocat, filtrul `locked` si `accounts_locked`. Testele de inchidere a sesiunilor verifica acum analistul, motivul si inchiderea sesiunilor unui admin de catre alt admin.
+The new tests (`tests/test_account_containment.py`) cover: access, locking by an analyst, an admin and the owner (including locking an admin), closing the sessions, refusing the login without revealing the lock, the events and messages, the restrictions (own account, owner), validating the duration and the reason, expiry, relocking, unlocking by an admin and the owner, refusing unlock by an analyst, an unlock with no effect, a session that appeared during the lock, the locked account's own history, the `locked` filter and `accounts_locked`. The session closing tests now check the analyst, the reason, and an admin closing another admin's sessions.
 
-Verificare inversa: fiecare dintre urmatoarele modificari face cel putin un test sa pice: login-ul care ignora blocarea, analistul care poate debloca, owner-ul neprotejat, blocarea fara inchiderea sesiunilor, sesiunile neverificate, blocarea fara severitate `incident`, filtrul `locked` care numara blocarile expirate, regula de admin pastrata la inchiderea sesiunilor, deblocarea care inregistreaza mereu, blocarea expirata care inca refuza login-ul.
+Reverse check: each of the following changes makes at least one test fail: a login that ignores the lock, an analyst who can unlock, an unprotected owner, a lock that does not close the sessions, unchecked sessions, a lock without `incident` severity, a `locked` filter that counts expired locks, the admin rule kept for closing sessions, an unlock that always records events, an expired lock that still refuses the login.
 
-Verificare end-to-end, cu backend-ul real pe o baza temporara si Vite pornit, prin proxy:
-- analistul: blocare fara motiv `422`, blocarea owner-ului `403`, blocarea unui user `200`; vechiul token al userului `401`; login cu parola corecta `403` `Account temporarily locked` fara `Retry-After`, cu parola gresita `401`
-- analistul inchide sesiunile unui admin; vechiul token al adminului `401`
-- analistul nu poate debloca (`403`), vede contul in `locked=true` si `accounts_locked: 1`; adminul deblocheaza, iar userul se poate autentifica din nou
-- evenimentele: `ACCOUNT_LOCKED` (`incident`, cu motiv), `LOGIN_BLOCKED` pe cont, `USER_SESSIONS_REVOKED` cu motiv, `ACCOUNT_UNLOCKED`
-- capturi reale in Firefox, in ambele teme, ale paginii Activitatea mea a contului deblocat si ale paginii de login cu mesajul pentru cont blocat
+End-to-end check, with the real backend on a temporary database and Vite running, through the proxy:
+- the analyst: a lock without a reason `422`, locking the owner `403`, locking a user `200`; the user's old token `401`; login with the right password `403` `Account temporarily locked` without `Retry-After`, with a wrong password `401`
+- the analyst closes an admin's sessions; the admin's old token `401`
+- the analyst cannot unlock (`403`), sees the account under `locked=true` and `accounts_locked: 1`; the admin unlocks, and the user can sign in again
+- the events: `ACCOUNT_LOCKED` (`incident`, with the reason), `LOGIN_BLOCKED` on the account, `USER_SESSIONS_REVOKED` with the reason, `ACCOUNT_UNLOCKED`
+- real Firefox screenshots, in both themes, of the unlocked account's My activity page and of the login page with the locked account message
 
 ## Event Ordering - Phase 1
 
-### 257. Problema
+### 257. The problem
 
-Listele de evenimente (`/security/events`, `/admin/audit-logs`, istoricul propriu si istoricul unui cont) erau ordonate dupa `id`, adica dupa ordinea inregistrarii. Un eveniment inregistrat dupa altele mai noi, de exemplu unul venit cu intarziere dintr-o sursa externa, aparea deasupra lor, desi s-a petrecut mai devreme. Problema a aparut in capturile paginii Evenimente, cu evenimente inserate cu o data din trecut, si ar fi devenit reala odata cu ingestia din faza A.
+The event lists (`/security/events`, `/admin/audit-logs`, the personal history and an account's history) were ordered by `id`, that is by the order of recording. An event recorded after newer ones, for example one arriving late from an external source, appeared above them, even though it happened earlier. The problem showed up in the screenshots of the Events page, with events inserted with a past date, and would have become real with the ingestion planned in phase A.
 
-### 258. Solutia
+### 258. The solution
 
-Evenimentele sunt ordonate acum dupa `created_at`, descrescator, iar intre evenimente cu acelasi `created_at` dupa `id`. Ordinea este totala, deci paginarea intoarce fiecare eveniment exact o data.
+Events are now ordered by descending `created_at`, and among events with the same `created_at`, by `id`. The order is total, so pagination returns every event exactly once.
 
-Paginarea foloseste un cursor pe perechea `(created_at, id)` (keyset), dar API-ul nu s-a schimbat: cursorul ramane `before_id`, id-ul ultimului eveniment din pagina. Serverul citeste momentul acelui eveniment intr-o subinterogare si compara perechile:
+Pagination uses a cursor on the `(created_at, id)` pair (keyset), but the API did not change: the cursor stays `before_id`, the id of the last event on the page. The server reads that event's time in a subquery and compares the pairs:
 
 ```sql
 WHERE (created_at, id) < ((SELECT created_at FROM security_events WHERE id = :before_id), :before_id)
 ORDER BY created_at DESC, id DESC
 ```
 
-Un cursor necunoscut face comparatia `NULL`, deci pagina este goala. Lista de utilizatori ramane ordonata dupa `id`: conturile nu au date din trecut.
+An unknown cursor makes the comparison `NULL`, so the page is empty. The user list stays ordered by `id`: accounts have no past dates.
 
-Testul vechi `test_pagination_follows_insertion_order_not_timestamps` a fost inlocuit. El pornea de la observatia corecta ca `created_at` este momentul inceperii tranzactiei, deci poate fi in afara ordinii de inregistrare; un cursor doar pe timp ar fi sarit sau repetat evenimente. Cursorul pe pereche rezolva exact acest caz.
+The old test `test_pagination_follows_insertion_order_not_timestamps` was replaced. It started from the correct observation that `created_at` is the start of the transaction, so it can be out of recording order; a cursor on time alone would have skipped or repeated events. The cursor on the pair solves exactly that case.
 
-### 259. Indexuri
+### 259. Indexes
 
-Migratia `fae4d7e28eb6` adauga `ix_security_events_created_at_id` si `ix_audit_logs_created_at_id` pe `(created_at, id)`. Pe 50.000 de evenimente, `EXPLAIN` arata o scanare inversa a indexului, cu comparatia pe pereche ca si conditie de index si fara sortare.
+The migration `fae4d7e28eb6` adds `ix_security_events_created_at_id` and `ix_audit_logs_created_at_id` on `(created_at, id)`. On 50,000 events, `EXPLAIN` shows a backward index scan, with the pair comparison as an index condition and no sort.
 
-### 260. Validarea locala
+### 260. Local validation
 
-- ruff, bandit, pyright -> fara probleme
+- ruff, bandit, pyright -> no problems
 - pytest -> 284 passed
-- migratia: upgrade, `alembic check`, downgrade (indexurile dispar), din nou upgrade si `alembic check`
+- the migration: upgrade, `alembic check`, downgrade (the indexes disappear), then an upgrade and `alembic check` again
 
-Teste noi: evenimentele inregistrate tarziu apar la momentul lor, paginarea dupa timp cu momente egale si in afara ordinii returneaza fiecare eveniment o data, un cursor necunoscut intoarce o pagina goala, jurnalul de audit este ordonat dupa timp.
+New tests: events recorded late appear at their time, pagination by time with equal and out-of-order times returns every event once, an unknown cursor returns an empty page, the audit log is ordered by time.
 
-Verificare inversa: ordonarea doar dupa `id`, lipsa departajarii dupa `id`, cursorul comparat doar pe timp si cursorul comparat doar pe `id` fac fiecare cel putin un test sa pice.
+Reverse check: ordering only by `id`, no tie-break on `id`, a cursor compared only on time, and a cursor compared only on `id` each make at least one test fail.
 
-Verificare end-to-end: doua evenimente inserate ultimele, cu ore din trecut, apar prin API si in pagina Evenimente la sfarsitul listei, la ora lor.
+End-to-end check: two events inserted last, with times in the past, appear through the API and on the Events page at the end of the list, at their time.
 
 ## Public Readiness
 
-### 261. Scopul etapei
+### 261. Purpose of the stage
 
-Pregatirea repository-ului pentru a deveni public. Verificari facute inainte:
-- Gitleaks pe tot istoricul git: niciun secret
-- `backend/.env` este ignorat si nu a fost niciodata urmarit
-- workflow-urile folosesc `pull_request`, nu `pull_request_target`, deci PR-urile din fork-uri nu primesc secrete sau un token cu drept de scriere
+Preparing the repository to become public. Checks made first:
+- Gitleaks over the whole git history: no secrets
+- `backend/.env` is ignored and was never tracked
+- the workflows use `pull_request`, not `pull_request_target`, so PRs from forks get no secrets and no token with write access
 
-### 262. Modificari
+### 262. Changes
 
-- **PostgreSQL doar pe localhost**: `docker-compose.yml` publica acum `127.0.0.1:5432`, nu `5432` pe toate interfetele. Parola de development este publica, deci baza nu trebuie sa fie accesibila din retea. Prometheus si Grafana ascultau deja doar pe `127.0.0.1`. Containerul existent se aplica cu `docker compose up -d postgres`; datele raman in volum.
-- **Permisiuni minime in CI**: ambele workflow-uri declara `permissions: contents: read`, deci token-ul GitHub nu are drept de scriere, independent de setarile repository-ului. Validat cu actionlint.
-- **Licenta MIT** (`LICENSE`), mentionata in README.
-- Commit-urile noi folosesc adresa noreply de la GitHub (configurata local in repository); commit-urile vechi raman neschimbate, fara rescrierea istoricului.
+- **PostgreSQL on localhost only**: `docker-compose.yml` now publishes `127.0.0.1:5432`, not `5432` on every interface. The development password is public, so the database must not be reachable from the network. Prometheus and Grafana already listened only on `127.0.0.1`. The existing container picks this up with `docker compose up -d postgres`; the data stays in the volume.
+- **Minimal CI permissions**: both workflows declare `permissions: contents: read`, so the GitHub token has no write access, regardless of the repository's settings. Validated with actionlint.
+- **MIT license** (`LICENSE`), mentioned in the README.
+- New commits use the GitHub noreply address (configured locally in the repository); old commits stay unchanged, with no history rewrite.
 
-Fixarea actiunilor GitHub pe SHA si OpenSSF Scorecard raman pentru faza C (supply chain).
+Pinning the GitHub actions to SHAs and OpenSSF Scorecard are left for phase C (supply chain).
 
-### 263. Validarea locala
+### 263. Local validation
 
-- `docker compose config` -> valid; containerul PostgreSQL recreat asculta doar pe `127.0.0.1:5432`, iar datele de development au ramas
-- actionlint -> fara probleme
-- pytest pe containerul recreat -> 284 passed
+- `docker compose config` -> valid; the recreated PostgreSQL container listens only on `127.0.0.1:5432`, and the development data was kept
+- actionlint -> no problems
+- pytest on the recreated container -> 284 passed
+
+## English Documentation
+
+### 264. Translating the documentation
+
+Once the repository was public, the documentation moved to English, and it stays in English from here on. The READMEs and `docs/00`-`docs/03` were translated; the journals keep their numbered sections, so references between documents still hold. The interface stays bilingual (Romanian by default, English available).
+
+Two documents were also reorganized while translating:
+- `docs/00`: the current status is a summary grouped by area, instead of a chronological list of every stage (the history stays in the journals), and the finished Sprint 1 plan was replaced by the roadmap
+- `docs/02`: the decisions are grouped under one heading per stage, in the original order, exact duplicates were removed, and decisions replaced later are marked *Superseded*
+
+`backend/README.md` had two "Migrations" sections; they were merged, and the session cleanup moved under "Sessions".

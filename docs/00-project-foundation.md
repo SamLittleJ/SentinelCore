@@ -2,143 +2,143 @@
 
 ## 1. Project Overview
 
-**SentinelCore** este o platforma **API-first, web-first, mobile-ready** pentru:
+**SentinelCore** is an **API-first, web-first, mobile-ready** platform for:
 
 - Identity and Access Management (IAM)
-- Security Event Monitoring (SIEM-Light)
+- Security Event Monitoring (SIEM-light)
 - Audit Logging
 - Observability
-- DevSecOps learning si demonstratie practica
+- learning and demonstrating DevSecOps in practice
 
-Proiectul este construit ca **modular monolith**, nu ca microservicii.
+The project is built as a **modular monolith**, not as microservices.
 
-Scopul lui nu este doar sa fie "o aplicatie care merge", ci sa demonstreze in mod clar competente reale de:
+Its goal is not just to be "an app that works", but to clearly demonstrate real skills in:
 
 - backend engineering
-- securitate aplicationala
+- application security
 - observability
 - DevOps
-- organizare arhitecturala
-- documentare tehnica
+- architectural organization
+- technical documentation
 
 ---
 
 ## 2. Main Objective
 
-Obiectivul principal al SentinelCore este sa devina un proiect real, serios, peste nivel de disertatie, care sa arate capacitatea de a proiecta, construi, rula, documenta si evolua o platforma moderna orientata spre securitate si operatiuni.
+The main objective of SentinelCore is to become a real, serious project, beyond the level of a dissertation, that shows the ability to design, build, run, document and evolve a modern platform focused on security and operations.
 
-Acest proieect trebuie sa demonstreze:
+The project has to demonstrate:
 
-- design coerent
-- separare clara a responsabilitatilor
-- auditabilitate
-- securitate de baza implementata corect
-- monitorizare si observabilitate gandite din timp
-- baza solida pentru extindere ulterioara
+- coherent design
+- a clear separation of responsibilities
+- auditability
+- basic security implemented correctly
+- monitoring and observability planned early
+- a solid base for later growth
 
 ---
 
-## 3. Arhitecture Direction
+## 3. Architecture Direction
 
-SentinelCore urmeaza urmatoarele princii arhitecturale:
+SentinelCore follows these architectural principles:
 
 ### API-first
-Backend-ul este sursa adevarului. Toata logica critica, validarea, securitatea si modelarea datelor pornesc din API.
+The backend is the source of truth. All critical logic, validation, security and data modelling start in the API.
 
 ### Web-first
-Clientul principal in MVP este aplicatia web.
+The main client in the MVP is the web application.
 
 ### Mobile-ready
-Nu se dezvolta aplicatie mobila in MVP, dar backend-ul si contractele API trebuie gandite astfel incat sa nu blocheze un client mobil in viitor.
+No mobile app is built in the MVP, but the backend and the API contracts must not block a future mobile client.
 
 ### Modular Monolith
-Aplicatia va fi construita ca monolit modular. Nu se folosesc microservicii in aceasta etapa deoarece ar introduce complexitate inutila si ar incetini invatarea si executia.
+The application is built as a modular monolith. Microservices are not used at this stage, because they would add needless complexity and slow down both learning and delivery.
 
 ### RBAC from the start
-Rolurile si permisiunile sunt parte din fundatia aplicatiei, nu ceva adaugat mai tarziu.
+Roles and permissions are part of the application's foundation, not something added later.
 
 ### Audit-first
-Evenimentele si audit log-urile sunt centrale in produs, nu simple detalii tehnice.
+Events and audit logs are central to the product, not mere technical details.
 
 ### Observability-first
-Metricile, logging-ul si monitorizarea trebuie gandite inca din fazele timpurii.
+Metrics, logging and monitoring are planned from the early phases.
 
 ---
 
 ## 4. User Roles
 
-Sistemul va porni cu urmatoarele roluri principale:
+The system starts with these main roles:
 
 ### User
-Utilizator standard al platformei, cu accces la datele si activitatea proprie.
+A standard user of the platform, with access to their own data and activity.
 
 ### Admin
-Gestioneaza utilizatori, roluri si acces administrativ de baza.
+Manages users, roles and basic administrative access.
 
-### Security Analist
-Analizeaza evenimentele de securitate, activitatea suspecta si timeline-ul incidentelor.
+### Security Analyst
+Analyzes security events, suspicious activity and the incident timeline, and can contain an account suspected of being compromised.
 
 ### DevOps / Owner
-Monitorizeaza sanatatea sistemului, deployment-ul, metricile si starea operationala generala.
+Monitors system health, deployment, metrics and the overall operational state.
 
 ---
 
-## 5.MVP Scope
+## 5. MVP Scope
 
-## Backend
-MVP-ul backend trebuie sa includa:
+### Backend
+The backend MVP includes:
 
 - register
 - login
 - JWT authentication
-- model User
-- roluri de baza
+- the User model
+- basic roles
 - users/me
 - audit logs
-- security events de baza
+- basic security events
 - PostgreSQL
-- health endpoint
-- structura backend modulara si clara
+- a health endpoint
+- a clear, modular backend structure
 
-## Frontend
-MVP-ul frontend trebuie sa includa:
+### Frontend
+The frontend MVP includes:
 
 - login page
 - register page
 - user dashboard
-- admin panel basic
-- security dashboard basic
+- basic admin panel
+- basic security dashboard
 
-## DevOps / Infra
-MVP-ul DevOps trebuie sa includa:
+### DevOps / Infra
+The DevOps MVP includes:
 
-- Docker local
-- PostgreSQL in mediu local
-- Prometheus local
-- Grafana local
-- baza pentru CI mai tarziu
+- local Docker
+- PostgreSQL in the local environment
+- local Prometheus
+- local Grafana
+- a base for CI later on
 
 ---
 
 ## 6. Explicit Non-Goals for MVP
 
-Lucrurile de mai jos **nu intra in MVP**:
+The following are **not part of the MVP**:
 
-- aplicatia mobila nativa
-- machine learning real
-- Kafka sau event streaming complex
-- SOAR complex
-- multi-tenant enterprise
-- zero-trust complet
-- integratii mutiple externe
-- arhitectura pe microservicii
+- a native mobile app
+- real machine learning
+- Kafka or complex event streaming
+- complex SOAR
+- enterprise multi-tenancy
+- full zero trust
+- multiple external integrations
+- a microservice architecture
 - Kubernetes
 
-Acestea pot exista mai tarziu, dar nu fac parte din fundatia initiala.
+These may come later, but they are not part of the initial foundation.
 
 ---
 
-## 7. Initial Tehincal Stack
+## 7. Initial Technical Stack
 
 ### Backend
 - Python
@@ -161,16 +161,16 @@ Acestea pot exista mai tarziu, dar nu fac parte din fundatia initiala.
 - Grafana
 
 ### Documentation
-- Markdown in repo
-- Documentare incrementala pe etape
+- Markdown in the repository
+- incremental documentation, stage by stage
 
 ---
 
 ## 8. Repository Strategy
 
-Proiectul foloseste un **single repository (monorepo)** cu separare clara pe directoare.
+The project uses a **single repository (monorepo)** with a clear split by directory.
 
-Strucutra de baza:
+Base structure:
 
 ```text
 sentinelcore/
@@ -186,257 +186,153 @@ sentinelcore/
 
 ### Motivation
 
-Aceasta abordarea a fost aleasa pentru:
+This approach was chosen for:
 
-- overhead mai mic la inceput
-- coordonare mai simpla intre backend si frontend
-- documentatie intr-un singur loc
-- CI/CD mai usor de introdus gradual
-- schimbari atomice intre UI, API si infrastructura
+- less overhead at the start
+- simpler coordination between backend and frontend
+- documentation in one place
+- CI/CD that is easier to introduce gradually
+- atomic changes across UI, API and infrastructure
 
 ---
 
 ## 9. Backend Structure Direction
 
-Backend-ul va urma directia unui monolit modular.
+The backend follows the modular monolith direction.
 
-Strucutra tinta:
+Target structure:
 
-```backend/app/
+```text
+backend/app/
 ├── api/
 ├── core/
 ├── models/
 ├── schemas/
-├── services/
+└── services/
 ```
 
 ### Meaning of each layer
-- api/ - endpoints si routere
-- core/ - configurari, security utilities, infrastructura interna
-- models/ - modele ORM
-- schemas/ - validare input/output cu Pydantic
-- services/ - logica de business si orchestration
+- `api/` - endpoints and routers
+- `core/` - settings, security utilities, internal infrastructure
+- `models/` - ORM models
+- `schemas/` - input/output validation with Pydantic
+- `services/` - business logic and orchestration
 
 ---
 
 ## 10. Current Project Status
 
-La acest moment:
+The step-by-step history is in the journals ([01](01-backend-foundation.md), [03](03-frontend-foundation.md)). What exists today:
 
-- repo-ul și structura de bază sunt create
-- frontend-ul pornește corect
-- backend-ul are virtual environment propriu
-- aplicația FastAPI pornește local
-- endpoint-ul `/health` funcționează
-- configurația aplicației este citită din `.env`
-- PostgreSQL local rulează prin Docker Compose
-- conexiunea reală la baza de date este validată
-- schema bazei de date este gestionată prin Alembic
-- migrația inițială Alembic a fost generată și aplicată
-- tabela `alembic_version` confirmă versiunea curentă a schemei DB
-- modelul `User` este definit și mapat în tabela `users`
-- modelul `AuditLog` este definit și mapat în tabela `audit_logs`
-- modelul `SecurityEvent` este definit și mapat în tabela `security_events`
-- tabelele `users`, `audit_logs` și `security_events` sunt create prin migrații
-- schemele Pydantic pentru user, audit logs și security events sunt definite
-- hashing-ul și verificarea parolei sunt implementate
-- endpoint-ul `POST /auth/register` este funcțional
-- endpoint-ul `POST /auth/login` este funcțional
-- generarea și decodarea JWT sunt funcționale
-- endpoint-ul `GET /users/me` este funcțional și testat automat
-- fundația RBAC este implementată prin roluri pe modelul `User`
-- controlul de acces pe rol este validat manual și automat
-- endpoint-ul `GET /users/admin-only` este testat pentru user normal și admin
-- audit logging-ul este funcțional pentru register, login success, login failed și acces admin
-- audit logs pot fi consultate prin API folosind `GET /admin/audit-logs`
-- endpoint-ul `GET /admin/audit-logs` este testat automat cu user admin
-- security events sunt funcționale pentru register, login success, login failed și admin access
-- security events pot fi consultate prin API folosind `GET /security/events`
-- endpoint-ul `GET /security/events` este testat automat cu user admin
-- testele automate backend sunt introduse prin `pytest`
-- testele folosesc baza separată `sentinelcore_test`
-- dependența `get_db` este suprascrisă în teste
-- backend-ul are 11 teste automate validate
-- SentinelCore are acum fundație funcțională pentru IAM, RBAC, Audit Logging, Security Events, migrații DB prin Alembic și teste automate inițiale pentru fluxurile principale
-- backend-ul are workflow CI în GitHub Actions 
-- workflow-ul CI rulează automat la modificări relevante în `backend/**` 
-- workflow-ul poate fi rulat manual prin `workflow_dispatch` 
-- CI-ul pornește PostgreSQL ca serviciu în GitHub Actions 
-- CI-ul folosește baza de date `sentinelcore_test` 
-- CI-ul instalează automat dependențele backend 
-- CI-ul rulează testele backend cu `pytest` 
-- cele 11 teste backend trec în GitHub Actions 
-- acțiunile GitHub au fost actualizate la versiuni compatibile cu Node 24 
-- dependențele backend includ suport explicit pentru `pydantic[email]` 
-- pipeline-ul backend este verde
-- Ruff este introdus pentru linting și verificarea formatării codului Python 
-- Ruff este configurat în `backend/pyproject.toml` 
-- backend-ul trece local `ruff check .` 
-- backend-ul trece local `ruff format --check .` 
-- dependency injection-ul FastAPI a fost modernizat cu `Annotated` 
-- enum-urile principale au fost modernizate la `StrEnum` 
-- workflow-ul Backend CI rulează Ruff înainte de testele pytest 
-- pipeline-ul backend este verde pentru Ruff și pytest
-- Bandit este introdus pentru scanarea de securitate a codului Python 
-- Bandit rulează local și în GitHub Actions 
-- Gitleaks este introdus pentru scanarea secretelor în repository 
-- Gitleaks rulează local prin Docker și în CI prin Docker 
-- Gitleaks scanează istoricul Git prin `fetch-depth: 0` 
-- false positive-ul Bandit pentru `token_type="bearer"` a fost tratat punctual cu `# nosec B106` 
-- pipeline-ul backend validează Ruff, Bandit, Gitleaks și pytest 
-- pipeline-ul backend este verde și fără warning-uri relevante
-- modulul Admin User Management a fost început 
-- endpoint-ul `GET /admin/users` este implementat 
-- lista utilizatorilor poate fi accesată de rolurile `admin` și `owner` 
-- userii normali primesc `403 Forbidden` pentru `GET /admin/users` 
-- listarea utilizatorilor generează audit log 
-- listarea utilizatorilor generează security event 
-- endpoint-ul `GET /admin/users` este testat automat 
-- backend-ul are 13 teste automate validate 
-- implementarea a fost livrată prin branch separat și Pull Request
-- endpoint-ul `GET /admin/users/{user_id}` este implementat 
-- un admin sau owner poate consulta detaliile unui utilizator individual 
-- userii normali primesc `403 Forbidden` pentru `GET /admin/users/{user_id}` 
-- userii inexistenți returnează `404 Not Found` 
-- vizualizarea detaliilor unui user generează audit log 
-- vizualizarea detaliilor unui user generează security event 
-- endpoint-ul `GET /admin/users/{user_id}` este testat automat 
-- backend-ul are 16 teste automate validate
-- Admin User Management Phase 3 is implemented locally on `feat/admin-user-role-phase-3`.
-- `PATCH /admin/users/{user_id}/role` allows only an owner to change a non-owner user's role.
-- Self-modification, modifying an owner, and assigning the owner role are forbidden.
-- The role change, audit log, and security event are committed in one transaction.
-- The backend has 29 tests passing locally against the separate PostgreSQL test database.
-- Ruff lint and formatting checks pass; Bandit reports no security findings, with warnings about an existing `nosec` comment.
-- Phase 3 transaction-failure testing and CI validation remain pending.
-- Alembic vede din nou toate modelele; `alembic check` confirmă că modelele și schema DB sunt sincronizate
-- utilizatorii inactivi sunt blocați la login și pe endpoint-urile autentificate
-- login-ul are timp de răspuns egal pentru email existent și inexistent
-- register-ul tratează duplicatele simultane cu `400`, nu `500`
-- uneltele de dezvoltare sunt separate în extra-ul `dev`, iar dependențele au versiuni minime
-- repository-ul are `README.md` și `backend/README.md`
-- backend-ul are 21 de teste automate validate
-- Admin User Management Phase 4 este implementat local pe `feat/admin-user-status-phase-4`
-- `PATCH /admin/users/{user_id}/status` permite activarea și dezactivarea conturilor, ierarhic pentru `admin` și `owner`
-- schimbările de rol și de status au tipuri dedicate de audit și security events
-- prima migrație Alembic după schema inițială adaugă noile tipuri de evenimente
-- testul de eșec al tranzacției, rămas din Phase 3, este implementat
-- backend-ul are 55 de teste automate validate
-- input-ul de register și login este validat: lungimi și caractere pentru username, parolă de 12-128 caractere
-- emailurile și username-urile sunt tratate fără diferență între litere mari și mici
-- backend-ul are 74 de teste automate validate
-- prima detecție SIEM-light este implementată: login-urile eșuate repetate pe același email generează un incident `BRUTE_FORCE_DETECTED` și blochează temporar login-ul
-- audit logs și security events înregistrează adresa IP a clientului
-- backend-ul are 86 de teste automate validate
-- audit logs și security events au paginare prin cursor și filtre după tip, severitate, user, email, IP și interval de timp
-- consultarea logurilor este auditată
-- backend-ul are 107 teste automate validate
-- backend-ul expune metrici Prometheus pentru HTTP și security events la `/metrics`
-- logurile sunt structurate și au request id pe fiecare cerere
-- `/health/ready` verifică disponibilitatea bazei de date
-- Prometheus și Grafana rulează local prin Docker Compose, cu dashboard-ul `SentinelCore Overview` provizionat automat
-- backend-ul are 132 de teste automate validate
-- token-ul JWT identifică userul prin id și sesiunea prin `jti`, cu `iss`, `aud` și `iat` verificate
-- sesiunile de login sunt stocate și pot fi revocate: logout, logout de pe toate dispozitivele, revocarea unei sesiuni proprii
-- dezactivarea unui cont îi revocă toate sesiunile
-- butonul Authorize din Swagger funcționează prin `POST /auth/token`
-- backend-ul are 164 de teste automate validate
-- sesiunile vechi sunt șterse periodic, după o perioadă de retenție configurabilă
-- adminii pot deconecta un user de pe toate dispozitivele fără să-i dezactiveze contul
-- backend-ul trece verificarea de tipuri Pyright fără erori
-- backend-ul are 184 de teste automate validate
-- frontend-ul se va autentifica prin cookie httpOnly, cu protecție CSRF legată de sesiune
-- backend-ul are 205 teste automate validate
-- frontend-ul are fundația construită: direcția vizuală "consolă de operațiuni" cu paleta "Electric", Tailwind CSS și shadcn/ui, React Router, TanStack Query, română și engleză
-- frontend-ul are login prin cookie httpOnly, protecția rutelor, cele două perspective (Contul meu / Organizația), temă și limbă configurabile
-- frontend-ul are 49 de teste automate și workflow CI propriu
-- jurnalul frontend-ului este în `docs/03-frontend-foundation.md`
-- utilizatorii își văd propriul istoric de securitate și se pot deconecta de pe celelalte dispozitive
-- perspectiva "Contul meu" are paginile Prezentare (cu rezumat de securitate și alerte recente), Sesiunile mele și Activitatea mea
-- backend-ul are 223 de teste automate validate, iar frontend-ul 83
-- evenimentele de administrare au țintă (`target_user_id`), iar utilizatorul afectat vede acțiunile făcute asupra contului său
-- lista de utilizatori are căutare, filtre după rol și status și paginare prin cursor; analistul de securitate o poate citi
-- citirile de utilizatori sunt doar auditate, fără security events
-- operatorii au istoricul fiecărui cont și un rezumat de securitate pentru prezentarea organizației
-- backend-ul are 248 de teste automate validate, iar frontend-ul 84
-- analistul de securitate poate izola conturi suspecte: închide sesiunile și blochează temporar login-ul, cu motiv obligatoriu
-- adminii și owner-ul pot ridica o blocare înainte de expirare
-- backend-ul are 281 de teste automate validate, iar frontend-ul 86
-- perspectiva "Organizația" are paginile Evenimente de securitate și Jurnal de audit, cu filtre păstrate în adresă și panou de detalii
-- paginile organizației se încarcă la cerere
-- frontend-ul are 111 teste automate validate
-- evenimentele sunt listate după momentul în care s-au petrecut, nu după ordinea înregistrării
-- backend-ul are 284 de teste automate validate
-- repository-ul este pregătit pentru a deveni public: licență MIT, PostgreSQL doar pe localhost, permisiuni minime în CI
+### Identity and sessions
+- registration and login, with validated input: username length and characters, passwords of 12-128 characters; emails and usernames are case-insensitive
+- concurrent duplicate registrations return `400`, not `500`
+- login takes the same time whether or not the email exists
+- the JWT identifies the user by id and the session by `jti`; `iss`, `aud` and `iat` are verified
+- sessions are stored and revocable: logout, logout everywhere, revoking one session, signing out of the other devices
+- old sessions are deleted periodically, after a configurable retention period
+- the browser authenticates with an httpOnly cookie, with CSRF protection bound to the session; the Swagger **Authorize** button works through `POST /auth/token`
+- inactive users are blocked at login and on authenticated endpoints; deactivating an account revokes all its sessions
+
+### Authorization and administration
+- RBAC with the roles `user`, `admin`, `security_analyst` and `owner`
+- the user list has search, filters by role, status and lock, and cursor pagination; operators see each account's details and security history; the security analyst can read them
+- only the owner changes roles; admins and the owner activate and deactivate accounts, hierarchically
+- the security analyst can contain a suspicious account: close its sessions and temporarily lock its login, with a mandatory reason; admins and the owner can lift a lock before it expires
+- nobody acts on their own account or on an owner
+- administrative events record their target (`target_user_id`), and the affected user sees the actions taken on their account
+
+### Audit and security events
+- audit logs and security events record the client IP address
+- both logs have cursor pagination and filters by type, severity, actor, target, email, IP and time range
+- events are listed by the moment they happened, not by the order they were recorded
+- viewing the logs and reading users are audited
+- the first SIEM-light detection: repeated failed logins for the same email raise a `BRUTE_FORCE_DETECTED` incident and temporarily block login for that email
+- a security summary (24 hours and 7 days, blocked logins, top failing IPs, accounts) feeds the organization overview
+
+### Observability
+- Prometheus metrics for HTTP and security events at `/metrics`, optionally behind a token
+- structured logs, with a request id on every request
+- `/health/ready` checks that the database is available
+- Prometheus and Grafana run locally through Docker Compose, with the `SentinelCore Overview` dashboard provisioned automatically
+
+### Frontend
+- an "operations console" visual direction with the "Electric" palette, Tailwind CSS and shadcn/ui, React Router, TanStack Query, Romanian and English, dark and light themes
+- login through an httpOnly cookie and protected routes
+- two scopes:
+  - **My account:** Overview (security summary and recent alerts), My sessions, My activity;
+  - **Organization:** Security events and Audit log, with filters kept in the address and a details panel; these pages load on demand
+
+### Quality and delivery
+- 284 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 111 frontend tests (Vitest with a mocked API)
+- the schema is managed with Alembic; `alembic check` confirms the models and the database match
+- the backend passes Pyright type checking with no errors
+- backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
+- frontend CI: dependency audit, lint, type check, tests and build
+- the workflows run with read-only repository permissions
+- the repository is public under the MIT license; the local PostgreSQL listens on `localhost` only
+
 ---
 
-## 11. Current Sprint
+## 11. Roadmap
 
-### Sprint 1 - Backend Foundation
+The project grows toward a DevSecOps showcase, in phases:
 
-Obiectivul Sprintului 1 este sa construiasca fundatia corecta a backend-ului.
-
-Ordine de lucru planificata:
-
-1. health endpoint si structura minima FastaPI
-2. configurare database
-3. model User
-4. creare tabele / migratii
-5. register
-6. login
-7. users/me
-8. roluri de baza
-9. audit log de baza
-10. security events de baza
+- **A. Application:** the "Organization" scope (in progress), event ingestion with an API key, and detection rules mapped to MITRE ATT&CK.
+- **B. Containers and local Kubernetes:** hardened images, a Helm chart on kind, migrations and session cleanup as Kubernetes jobs.
+- **C. Supply chain CI:** SAST, dependency, IaC and image scanning, an SBOM, signed images and build provenance.
+- **D. Infrastructure as code and GitOps:** Terraform, cloud access through OIDC, Argo CD with canary rollouts, preview environments.
+- **E. Cluster security and operations:** admission policies, network policies, runtime detection, OpenTelemetry, SLO alerts, tested backups.
+- **F. Presentation:** an architecture diagram, ADRs, a threat model, runbooks and a postmortem of a simulated incident.
 
 ---
 
 ## 12. Working Method
 
-Proiectul se construieste prin **project-driven learning.**
+The project is built through **project-driven learning.**
 
-Reguli de lucru:
+Working rules:
 
-- nu se cer bucati mari de cod complet fara intelegere
-- nu se sare peste fundatie
-- se invata doar ce este necesar pentru pasul curent
-- fiecare etapa trebuie implementata, inteleasa si documentata
-- problemele trebuie rezolvate concret, nu ocolite
-- complexitatea se introduce treptat, nu decorativ
+- no large chunks of complete code without understanding them
+- the foundation is never skipped
+- learn only what the current step needs
+- every stage is implemented, understood and documented
+- problems are solved concretely, not worked around
+- complexity is introduced gradually, never for decoration
 
 ---
 
 ## 13. Main Risks
 
-Riscul principal al proiectului nu este complexitatea tehnica, ci:
+The main risk of the project is not technical complexity, but:
 
-- constructia fara intelegere reala
-- saritul peste baza
-- adaugarea de tehnologii doar pentru impresie
-- umflarea arhitecturii inainte de validarea fundatiei
-- documentatie facuta prea tarziu sau deloc
+- building without real understanding
+- skipping the basics
+- adding technologies just to impress
+- inflating the architecture before the foundation is validated
+- documentation written too late, or not at all
 
 ---
 
 ## 14. Project Standard
 
-SentinelCore trebuie sa fie tratat ca un produs serios, nu ca o aplicatie de laborator.
+SentinelCore must be treated as a serious product, not as a lab exercise.
 
-Standardul urmarit:
+The standard it aims for:
 
-- structura clara
-- decizii argumentate
-- implementare incrementala
-- documentatie continua
-- naming curat
-- separare logica a componentelor
-- baza solida pentru audit, securitate si observabilitate
+- a clear structure
+- reasoned decisions
+- incremental implementation
+- continuous documentation
+- clean naming
+- a logical separation of components
+- a solid base for audit, security and observability
 
 ---
 
 ## 15. Immediate Next Step
 
-Pasul imediat este construirea paginilor perspectivei "Organizația", pe API-ul din Organization API - Phase 1 și Account Containment - Phase 1:
+The next step is building the remaining pages of the "Organization" scope, on top of the API from Organization API - Phase 1 and Account Containment - Phase 1:
 
-- Utilizatori: listă cu căutare și filtre, detaliu cu istoricul contului, acțiunile de administrare și cele de izolare (închiderea sesiunilor, blocarea temporară)
-- Prezentare: indicatori pe 24 de ore și 7 zile, incidente recente, surse cu cele mai multe eșecuri
+- Users: a list with search and filters, a detail view with the account's history, the administrative actions and the containment actions (closing sessions, temporary lock)
+- Overview: indicators over 24 hours and 7 days, recent incidents, the sources with the most failures
