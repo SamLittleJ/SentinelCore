@@ -4,19 +4,6 @@ import { Link } from 'react-router'
 import { StatusPage } from '@/components/StatusPage'
 import { Button } from '@/components/ui/button'
 
-type SectionTitleKey = 'nav.users'
-
-/** Sections that arrive in later stages show where they will live. */
-export function PlaceholderPage({ title }: { title: SectionTitleKey }) {
-  const { t } = useTranslation()
-  return (
-    <div className="flex flex-col gap-2">
-      <h1 className="text-xl font-semibold">{t(title)}</h1>
-      <p className="text-muted-foreground">{t('placeholder.body')}</p>
-    </div>
-  )
-}
-
 export function OrganizationOverviewPage() {
   const { t } = useTranslation()
   return (

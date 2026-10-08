@@ -1,5 +1,4 @@
-import { ChevronDown, Search, X } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { ChevronDown, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { SegmentedControl } from '@/components/SegmentedControl'
@@ -12,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
 import { SEVERITIES, type Severity } from '@/features/account/api'
 import { cn } from '@/lib/utils'
 
@@ -22,6 +20,7 @@ import {
   type LogFilters,
   TIME_RANGES,
 } from './filters'
+import { SearchForm } from './SearchForm'
 
 interface LogFilterBarProps<Type extends string> {
   filters: LogFilters<Type>
@@ -96,7 +95,13 @@ export function LogFilterBar<Type extends string>({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <SearchForm value={filters.search} onSubmit={(search) => update({ search })} />
+        <SearchForm
+          label={t('orgLog.search')}
+          submitLabel={t('orgLog.searchSubmit')}
+          clearLabel={t('orgLog.clearSearch')}
+          value={filters.search}
+          onSubmit={(search) => update({ search })}
+        />
 
         {filters.userId !== undefined && (
           <FilterChip
@@ -161,59 +166,6 @@ function SeverityToggles({
         )
       })}
     </div>
-  )
-}
-
-function SearchForm({ value, onSubmit }: { value: string; onSubmit: (search: string) => void }) {
-  const { t } = useTranslation()
-  const inputId = useId()
-  const [draft, setDraft] = useState(value)
-  // Follows changes made elsewhere, e.g. from a record's details or a reset,
-  // without remounting, so the field keeps focus after a search.
-  const [shown, setShown] = useState(value)
-  if (value !== shown) {
-    setShown(value)
-    setDraft(value)
-  }
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    onSubmit(draft.trim())
-  }
-
-  return (
-    <form role="search" onSubmit={handleSubmit} className="flex w-full max-w-sm items-center gap-2">
-      <label htmlFor={inputId} className="sr-only">
-        {t('orgLog.search')}
-      </label>
-      <div className="relative flex-1">
-        <Input
-          id={inputId}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder={t('orgLog.search')}
-          className="pr-8 font-mono text-xs"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {draft && (
-          <button
-            type="button"
-            aria-label={t('orgLog.clearSearch')}
-            onClick={() => {
-              setDraft('')
-              if (value) onSubmit('')
-            }}
-            className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-          >
-            <X aria-hidden className="size-4" />
-          </button>
-        )}
-      </div>
-      <Button type="submit" variant="outline" size="icon" aria-label={t('orgLog.searchSubmit')}>
-        <Search aria-hidden />
-      </Button>
-    </form>
   )
 }
 

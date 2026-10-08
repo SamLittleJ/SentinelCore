@@ -1,4 +1,5 @@
 import type { Page, SecurityEventType, Severity } from '@/features/account/api'
+import type { Role, User } from '@/features/auth/api'
 import { apiRequest } from '@/lib/api'
 
 export const AUDIT_EVENT_TYPES = [
@@ -102,4 +103,93 @@ export function fetchAuditLogs(
   const params = logParams(query)
   for (const type of query.eventType ?? []) params.append('event_type', type)
   return apiRequest<Page<AuditLog>>(withQuery('/admin/audit-logs', params), { signal })
+}
+
+// Account states the user list filters by. The API filters `is_active` and
+// `locked` separately; "active" means neither deactivated nor locked.
+export const ACCOUNT_STATES = ['active', 'locked', 'inactive'] as const
+export type AccountState = (typeof ACCOUNT_STATES)[number]
+
+export interface UserQuery {
+  // A substring of the username or email.
+  search?: string
+  roles?: readonly Role[]
+  state?: AccountState
+  beforeId?: number | null
+}
+
+export function fetchUsers(query: UserQuery, signal?: AbortSignal): Promise<Page<User>> {
+  const params = new URLSearchParams()
+  if (query.search) params.set('q', query.search)
+  for (const role of query.roles ?? []) params.append('role', role)
+  if (query.state === 'active') {
+    params.set('is_active', 'true')
+    params.set('locked', 'false')
+  } else if (query.state === 'locked') {
+    params.set('locked', 'true')
+  } else if (query.state === 'inactive') {
+    params.set('is_active', 'false')
+  }
+  if (query.beforeId) params.set('before_id', String(query.beforeId))
+  return apiRequest<Page<User>>(withQuery('/admin/users', params), { signal })
+}
+
+export function fetchUser(userId: number, signal?: AbortSignal): Promise<User> {
+  return apiRequest<User>(`/admin/users/${userId}`, { signal })
+}
+
+/** The security events about one account, the set its owner sees, with the
+ * operator details. */
+export function fetchUserActivity(
+  userId: number,
+  beforeId: number | null,
+  signal?: AbortSignal,
+): Promise<Page<SecurityEvent>> {
+  const params = new URLSearchParams()
+  if (beforeId) params.set('before_id', String(beforeId))
+  return apiRequest<Page<SecurityEvent>>(withQuery(`/admin/users/${userId}/activity`, params), {
+    signal,
+  })
+}
+
+// The roles an owner can assign; nobody is promoted to owner.
+export const ASSIGNABLE_ROLES = ['user', 'security_analyst', 'admin'] as const satisfies readonly Role[]
+export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number]
+
+export function changeUserRole(userId: number, role: AssignableRole): Promise<User> {
+  return apiRequest<User>(`/admin/users/${userId}/role`, { method: 'PATCH', body: { role } })
+}
+
+export function changeUserStatus(userId: number, isActive: boolean): Promise<User> {
+  return apiRequest<User>(`/admin/users/${userId}/status`, {
+    method: 'PATCH',
+    body: { is_active: isActive },
+  })
+}
+
+/** Signs the user out everywhere; `reason` goes to the logs. */
+export function revokeUserSessions(
+  userId: number,
+  reason: string,
+): Promise<{ revoked_sessions: number }> {
+  return apiRequest<{ revoked_sessions: number }>(`/admin/users/${userId}/revoke-sessions`, {
+    method: 'POST',
+    body: { reason },
+  })
+}
+
+// The lock lengths offered, in hours; the API accepts 1 to 168.
+export const LOCK_DURATIONS = [1, 24, 168] as const
+export type LockDuration = (typeof LOCK_DURATIONS)[number]
+
+/** Refuses the user's logins for `durationHours` and closes their sessions. */
+export function lockUser(userId: number, durationHours: LockDuration, reason: string): Promise<User> {
+  return apiRequest<User>(`/admin/users/${userId}/lock`, {
+    method: 'POST',
+    body: { duration_hours: durationHours, reason },
+  })
+}
+
+export function unlockUser(userId: number): Promise<User> {
+  return apiRequest<User>(`/admin/users/${userId}/unlock`, { method: 'POST' })
 }

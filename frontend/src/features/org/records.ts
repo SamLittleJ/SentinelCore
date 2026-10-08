@@ -71,3 +71,16 @@ export function narrowingActions<Type extends string>(
   }
   return actions
 }
+
+/** Links to the accounts `record` names: its actor and its target, except
+ * `current`, the account already shown. */
+export function accountLinks(record: LogRecord, t: TFunction, current?: number): DetailAction[] {
+  const links: DetailAction[] = []
+  if (record.user_id !== null && record.user_id !== current) {
+    links.push({ label: t('orgLog.openAccount'), to: `/org/users/${record.user_id}` })
+  }
+  if (record.target_user_id !== null && record.target_user_id !== current) {
+    links.push({ label: t('orgLog.openTarget'), to: `/org/users/${record.target_user_id}` })
+  }
+  return links
+}

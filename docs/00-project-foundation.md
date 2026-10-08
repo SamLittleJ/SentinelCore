@@ -261,10 +261,10 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - login through an httpOnly cookie and protected routes
 - two scopes:
   - **My account:** Overview (security summary and recent alerts), My sessions, My activity;
-  - **Organization:** Security events and Audit log, with filters kept in the address and a details panel; these pages load on demand
+  - **Organization:** Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; these pages load on demand
 
 ### Quality and delivery
-- 284 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 111 frontend tests (Vitest with a mocked API)
+- 284 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 147 frontend tests (Vitest with a mocked API)
 - the schema is managed with Alembic; `alembic check` confirms the models and the database match
 - the backend passes Pyright type checking with no errors
 - backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
@@ -332,7 +332,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The next step is building the remaining pages of the "Organization" scope, on top of the API from Organization API - Phase 1 and Account Containment - Phase 1:
-
-- Users: a list with search and filters, a detail view with the account's history, the administrative actions and the containment actions (closing sessions, temporary lock)
-- Overview: indicators over 24 hours and 7 days, recent incidents, the sources with the most failures
+The next step is the last page of the "Organization" scope, the Overview, on `GET /security/summary`: indicators over 24 hours and 7 days, recent incidents, and the sources with the most failures.

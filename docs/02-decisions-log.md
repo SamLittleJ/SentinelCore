@@ -397,3 +397,14 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - The CI workflows have only the `contents: read` permission.
 - New commits use the GitHub noreply address; the existing history is not rewritten.
 - The documentation is in English from here on; the earlier Romanian documentation was translated.
+
+## Organization users page
+
+- An account has its own page (`/org/users/:id`), not a side panel: it holds a paged history and the action forms, and its address can be shared.
+- The page offers only the actions the signed-in operator may take; one's own account and the owner's show a sentence explaining why there are none. The rules mirror the API's in `features/org/permissions.ts`; the API still decides.
+- A temporary lock offers 1 hour, 24 hours or 7 days.
+- The containment actions ask for a reason in the page, with the API's bounds (3-500 characters after trimming) checked before sending.
+- The "Active" state filter means active and not locked, so a locked account never shows as active.
+- A change the API answers with the account replaces the cached account instead of reading it again, since every account read is audited.
+- The details panel of a log record links to the accounts it names.
+

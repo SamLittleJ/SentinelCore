@@ -34,7 +34,7 @@ src/
 ├── features/
 │   ├── account/     # the "My account" scope: sessions, activity
 │   ├── auth/        # authentication API client, hooks, route protection
-│   ├── org/         # the "Organization" scope: logs, filters, details
+│   ├── org/         # the "Organization" scope: logs, users, filters, account actions
 │   └── theme/       # dark / light theme
 ├── i18n/            # Romanian and English translations
 ├── lib/             # API client, TanStack Query setup, utilities

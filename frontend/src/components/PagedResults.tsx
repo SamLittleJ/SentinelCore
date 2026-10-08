@@ -20,6 +20,8 @@ export interface PagedQuery<Item> {
 interface PagedResultsProps<Item> {
   query: PagedQuery<Item>
   empty: ReactNode
+  // Shown once every page is loaded; defaults to the end of a history.
+  end?: ReactNode
   // The message for a failed first load; defaults to the generic one.
   errorMessage?: (error: Error | null) => string | undefined
   children: (items: Item[]) => ReactNode
@@ -27,7 +29,13 @@ interface PagedResultsProps<Item> {
 
 /** Loading, error and empty states, the items, and "load more" for a
  * newest-first list read with a cursor. */
-export function PagedResults<Item>({ query, empty, errorMessage, children }: PagedResultsProps<Item>) {
+export function PagedResults<Item>({
+  query,
+  empty,
+  end,
+  errorMessage,
+  children,
+}: PagedResultsProps<Item>) {
   const { t } = useTranslation()
   const items = query.data?.pages.flatMap((page) => page.items) ?? []
 
@@ -70,7 +78,7 @@ export function PagedResults<Item>({ query, empty, errorMessage, children }: Pag
           {query.isFetchingNextPage ? t('paging.loadingMore') : t('paging.loadMore')}
         </Button>
       ) : (
-        <p className="text-xs text-muted-foreground">{t('paging.end')}</p>
+        <p className="text-xs text-muted-foreground">{end ?? t('paging.end')}</p>
       )}
       {query.isFetchNextPageError && (
         <p role="alert" className="text-sev-incident">
