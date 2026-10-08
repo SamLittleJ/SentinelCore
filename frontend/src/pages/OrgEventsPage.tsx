@@ -19,7 +19,7 @@ import { securityEventsKey, useSecurityEvents } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
 import { LogFilterBar } from '@/features/org/LogFilterBar'
 import { LogTable } from '@/features/org/LogTable'
-import { accountLabel, narrowingActions, recordFields } from '@/features/org/records'
+import { accountLabel, accountLinks, narrowingActions, recordFields } from '@/features/org/records'
 import { ApiError } from '@/lib/api'
 
 export function OrgEventsPage() {
@@ -108,7 +108,11 @@ export function OrgEventsPage() {
               ]
             : []
         }
-        actions={selected ? narrowingActions(selected, filters, applyFilters, t) : []}
+        actions={
+          selected
+            ? [...narrowingActions(selected, filters, applyFilters, t), ...accountLinks(selected, t)]
+            : []
+        }
       />
     </div>
   )

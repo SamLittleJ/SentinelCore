@@ -181,6 +181,34 @@ describe('organization security events page', () => {
     expect(requests.at(-1)?.get('target_user_id')).toBe('4')
   })
 
+  it('opens the accounts an event names', async () => {
+    const user = userEvent.setup()
+    serveEvents(() => [failed, locked])
+    const { table, router } = await openEvents()
+
+    await user.click(within(rows(table)[1]).getByRole('button', { name: 'Cont blocat temporar' }))
+    const panel = await screen.findByRole('dialog', { name: 'Cont blocat temporar' })
+    expect(within(panel).getByRole('link', { name: 'Deschide contul' })).toHaveAttribute(
+      'href',
+      '/org/users/3',
+    )
+
+    await user.click(within(panel).getByRole('link', { name: 'Deschide ținta' }))
+
+    expect(router.state.location.pathname).toBe('/org/users/4')
+  })
+
+  it('offers no account links for a failed sign-in that names no account', async () => {
+    const user = userEvent.setup()
+    serveEvents(() => [failed])
+    const { table } = await openEvents()
+
+    await user.click(within(rows(table)[0]).getByRole('button', { name: 'Autentificare eșuată' }))
+    const panel = await screen.findByRole('dialog', { name: 'Autentificare eșuată' })
+
+    expect(within(panel).queryByRole('link')).not.toBeInTheDocument()
+  })
+
   it('filters a failed sign-in by the email it names, and opens rows by mouse', async () => {
     const user = userEvent.setup()
     const requests = serveEvents(() => [failed])

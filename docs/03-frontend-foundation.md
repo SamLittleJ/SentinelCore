@@ -288,3 +288,66 @@ Observation: the lists were ordered by `id` (the order of recording), not by `cr
 ### 29. Scrollbars
 
 On phones, a white scrollbar appeared under the sidebar's horizontal menu, even in the dark theme. `color-scheme` was already set, but some browsers (among them headless Firefox, used for the screenshots) ignore it for scrollbars. `:root` now has a `scrollbar-color` from the theme colors (`--muted-foreground` at 45%, on a transparent track), and the horizontal menu has a thin scrollbar (`scrollbar-width: thin`). The screenshots at 390 px, in both themes, show a discreet scrollbar in the theme colors.
+
+## Stage 4: Organization - Users
+
+### 30. What was built
+
+The Users page of the Organization scope, for `admin`, `owner` and `security_analyst`, on the API from Organization API - Phase 1 and Account Containment - Phase 1. No backend change was needed.
+
+- the list (`/org/users`), on `GET /admin/users`
+- one page per account (`/org/users/:id`), on `GET /admin/users/{id}` and `GET /admin/users/{id}/activity`, with the actions the signed-in operator may take
+
+Both load on demand, like the other organization pages.
+
+### 31. The list
+
+- **Search**: a substring of the username or email, applied on Enter or on the search button. The search field is now a shared component (`SearchForm`), also used by the logs.
+- **Roles**: a menu with checkboxes, like the event types.
+- **State**: All, Active, Locked, Deactivated. The API filters `is_active` and `locked` separately; "Active" asks for both `is_active=true` and `locked=false`, so a locked account never shows as active.
+
+The filters are kept in the address (`q`, `role`, `state`), and invalid values are ignored. Each row shows the username, email, role, state and member-since date; a click anywhere on the row opens the account, and from the keyboard the username is a link. On phones, the state moves under the email and the date column is hidden, so what matters stays in view without scrolling the table sideways. The list ends with "That is every account." instead of the history wording, through a new `end` option of `PagedResults`.
+
+### 32. The account page
+
+The page shows the username, the email, the state (with the lock's end time while it is in force), the id, role, member-since date and last change, then the actions and the account's history.
+
+The history is the set the account's owner sees in My activity, with the operator details: the same table and details panel as the logs, with neutral descriptions and the actor's account in its own column. The back link returns to the list as it was filtered, through the router's location state.
+
+An unknown account (`404`) and an address that is not an account id show "Account not found".
+
+### 33. Actions
+
+The page offers only what the operator may do, mirroring the API's rules in `features/org/permissions.ts` (the API still decides):
+
+| Operator | Actions |
+| --- | --- |
+| `security_analyst` | End sessions, Lock temporarily |
+| `admin` | the above, Unlock (while locked), Deactivate / Reactivate (not on another admin) |
+| `owner` | everything, including Change the role |
+
+On one's own account or on the owner's, no actions appear, and a sentence explains why. Each action opens a step in the page, not a dialog, that names its effect and asks for confirmation, as the session actions in My account do:
+- **End sessions** and **Lock temporarily** ask for a reason, 3-500 characters after trimming, the API's bounds; the confirmation stays off until the reason fits
+- **Lock temporarily** offers 1 hour, 24 hours (default) or 7 days
+- **Change the role** offers user, security analyst or administrator; choosing the current role keeps the confirmation off
+
+A change the API answers with the account (lock, unlock, status, role) replaces the cached account, so the page updates without reading it again, which would add another audited read. The account's history, the user list and both logs are marked stale. A refused action (`403`, for example a role changed meanwhile by someone else) says so and reads the account again.
+
+### 34. Links from the logs
+
+The details panel of an event or audit record now has "Open the account" and "Open the target", which lead to the account pages. In an account's history, the link to the account already shown is left out. The links sit on their own row, with an arrow, apart from the actions that narrow the list.
+
+### 35. Local validation
+
+- eslint -> no problems
+- tsc (5.9 and 6.0) -> no errors
+- vitest -> 147 passed
+- build -> successful; the two pages are separate chunks (about 5 KB and 10 KB)
+- npm audit -> 0 vulnerabilities
+
+The new tests cover: the list's rows and states (locked, deactivated, an expired lock not shown), search with focus kept, roles and states sent to the API and kept in the address, a shared link with invalid values, reset, the empty state, opening an account from a row and going back to the filtered list, pagination; on the account page: the profile and the neutral history, the actions offered to each role (including a locked account for the analyst, an admin on another admin, one's own account and the owner's), locking with a duration and a trimmed reason, ending sessions, cancelling, deactivating and reactivating, unlocking, changing the role, a refused action, an unknown account and an invalid address, and the account links in both the logs and the history; the address filters and the permission rules as units.
+
+Reverse check: each of the following changes makes at least one test fail: an analyst offered Unlock, a lock that ignores the chosen duration, "Active" counting locked accounts, a link to the account already shown (actor or target), a reason without a minimum, an action that reads the account again instead of using the answer, a back link that forgets the filters.
+
+End-to-end check, with the real backend on a temporary database and Vite running: ten accounts, with sessions ended and a lock by the analyst, a deactivation by an admin and a role change by the owner. Through the proxy, the API refused an analyst's unlock, a lock on the owner and an admin deactivating another admin (`403`), the state filters returned the expected accounts, and a cookie action without the CSRF header got `403`, with it `200`. Every list, account and history read appeared in the audit log, with the target for account reads, and no `ADMIN_ACCESS` security event was created. Real Firefox screenshots, in both themes: the list (filtered too), a locked account as an admin, the lock form as an analyst, the event panel with the account links, and phone width (390 px). After the screenshots: the state moved under the email on phones, and the account links got their own row and an arrow.
+

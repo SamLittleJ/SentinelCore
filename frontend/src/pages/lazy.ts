@@ -10,3 +10,11 @@ export const OrgEventsPage = lazy(() =>
 export const OrgAuditPage = lazy(() =>
   import('./OrgAuditPage').then((module) => ({ default: module.OrgAuditPage })),
 )
+
+export const OrgUsersPage = lazy(() =>
+  import('./OrgUsersPage').then((module) => ({ default: module.OrgUsersPage })),
+)
+
+export const OrgUserPage = lazy(() =>
+  import('./OrgUserPage').then((module) => ({ default: module.OrgUserPage })),
+)

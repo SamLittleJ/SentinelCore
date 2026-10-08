@@ -84,6 +84,11 @@ export const server = setupServer(
   http.get('/api/users/me/activity', () => HttpResponse.json(page([]))),
   http.get('/api/security/events', () => HttpResponse.json(page([]))),
   http.get('/api/admin/audit-logs', () => HttpResponse.json(page([]))),
+  http.get('/api/admin/users', () => HttpResponse.json(page([]))),
+  http.get('/api/admin/users/:userId', ({ params }) =>
+    HttpResponse.json(makeUser('user', { id: Number(params.userId) })),
+  ),
+  http.get('/api/admin/users/:userId/activity', () => HttpResponse.json(page([]))),
 )
 
 /** The API answers as if `user` is signed in (or nobody, for null). */

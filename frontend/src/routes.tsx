@@ -6,8 +6,8 @@ import { LoginPage } from '@/pages/LoginPage'
 import { MyActivityPage } from '@/pages/MyActivityPage'
 import { MyOverviewPage } from '@/pages/MyOverviewPage'
 import { MySessionsPage } from '@/pages/MySessionsPage'
-import { NotFoundPage, OrganizationOverviewPage, PlaceholderPage } from '@/pages/SimplePages'
-import { OrgAuditPage, OrgEventsPage } from '@/pages/lazy'
+import { NotFoundPage, OrganizationOverviewPage } from '@/pages/SimplePages'
+import { OrgAuditPage, OrgEventsPage, OrgUserPage, OrgUsersPage } from '@/pages/lazy'
 
 // Shared by the browser router (main.tsx) and the memory router in tests.
 export const appRoutes: RouteObject[] = [
@@ -29,7 +29,8 @@ export const appRoutes: RouteObject[] = [
               { index: true, element: <OrganizationOverviewPage /> },
               { path: 'events', element: <OrgEventsPage /> },
               { path: 'audit', element: <OrgAuditPage /> },
-              { path: 'users', element: <PlaceholderPage title="nav.users" /> },
+              { path: 'users', element: <OrgUsersPage /> },
+              { path: 'users/:userId', element: <OrgUserPage /> },
             ],
           },
           { path: '*', element: <NotFoundPage /> },
