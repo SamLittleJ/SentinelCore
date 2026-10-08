@@ -5,7 +5,17 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from app.api.middleware import observe_requests
-from app.api.routes import admin_users, audit, auth, health, metrics, security, users
+from app.api.routes import (
+    admin_users,
+    api_keys,
+    audit,
+    auth,
+    health,
+    ingest,
+    metrics,
+    security,
+    users,
+)
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.services.session_cleanup import run_session_cleanup_periodically
@@ -40,3 +50,5 @@ app.include_router(users.router)
 app.include_router(audit.router)
 app.include_router(security.router)
 app.include_router(admin_users.router)
+app.include_router(api_keys.router)
+app.include_router(ingest.router)

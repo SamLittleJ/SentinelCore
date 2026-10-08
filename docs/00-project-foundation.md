@@ -250,6 +250,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - the first SIEM-light detection: repeated failed logins for the same email raise a `BRUTE_FORCE_DETECTED` incident and temporarily block login for that email
 - a detection engine runs rules mapped to MITRE ATT&CK on every recorded event, and only alerts: password spray (T1110.003, failed sign-ins for many emails from one address), a sign-in to a dormant account (T1078) and a privileged role granted (T1098); every detection names its technique
 - a security summary (24 hours and 7 days, blocked logins, top failing IPs, accounts) feeds the organization overview
+- other systems send sign-ins through `POST /ingest/events` with an API key issued by the owner; keys expire, can be revoked, and are stored only as hashes; ingested events keep the time they happened and go through the same detection rules, but never lock anyone out of this application
 
 ### Observability
 - Prometheus metrics for HTTP and security events at `/metrics`, optionally behind a token
@@ -265,7 +266,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
   - **Organization:** an Overview (incidents, warnings and informational events over 24 hours and 7 days, failed sign-ins and the addresses behind them, locked and deactivated accounts, the latest incidents); Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; these pages load on demand
 
 ### Quality and delivery
-- 302 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 153 frontend tests (Vitest with a mocked API)
+- 344 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 153 frontend tests (Vitest with a mocked API)
 - the schema is managed with Alembic; `alembic check` confirms the models and the database match
 - the backend passes Pyright type checking with no errors
 - backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
@@ -333,4 +334,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The detection rules are in place. The next step is event ingestion: API keys created by the owner and stored only as hashes, an endpoint through which other systems send security events, the same rules running on them, and a rule for a sign-in from a new network and device. The attack simulator then sends traffic through it to measure detection.
+Ingestion is in place. The next step is the rule for a sign-in from an unfamiliar network and device (T1078), on the new `user_agent` column, followed by the attack simulator, which sends normal traffic and attacks through ingestion and measures detection.

@@ -32,6 +32,14 @@ SECURITY_EVENTS = Counter(
     ["event_type", "severity"],
 )
 
+# Labelled by the source of the API key: one series per source an owner
+# created a key for, so the label set stays small.
+INGESTED_EVENTS = Counter(
+    "sentinelcore_ingested_events_total",
+    "Security events received through the ingestion endpoint, by source.",
+    ["source"],
+)
+
 
 def record_http_request(
     method: str,

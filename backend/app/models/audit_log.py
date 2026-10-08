@@ -25,6 +25,9 @@ class AuditEventType(StrEnum):
     USERS_VIEWED = "users_viewed"
     ACCOUNT_LOCKED = "account_locked"
     ACCOUNT_UNLOCKED = "account_unlocked"
+    API_KEY_CREATED = "api_key_created"
+    API_KEY_REVOKED = "api_key_revoked"
+    API_KEYS_VIEWED = "api_keys_viewed"
 
 
 class AuditLog(Base):

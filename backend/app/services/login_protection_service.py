@@ -3,6 +3,10 @@
 Lockout state is derived from recorded security events rather than stored
 separately. Times come from the database clock, the same one that stamps
 `created_at`, so comparisons never mix application and database time.
+
+Only this application's own sign-ins count. Sign-ins other systems report
+through ingestion reach the detection rules, but never lock anyone out of
+this application.
 """
 
 import math
@@ -16,6 +20,7 @@ from app.core.database import database_now
 from app.core.metrics import record_security_event
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import (
+    BACKEND_SOURCE,
     SecurityEvent,
     SecurityEventType,
     SecuritySeverity,
@@ -31,6 +36,7 @@ def _latest_event_time(
     statement = select(func.max(SecurityEvent.created_at)).where(
         SecurityEvent.email == email,
         SecurityEvent.event_type == event_type,
+        SecurityEvent.source == BACKEND_SOURCE,
     )
     return db.scalar(statement)
 
@@ -66,6 +72,7 @@ def count_recent_failed_logins(db: Session, email: str) -> int:
     statement = select(func.count(SecurityEvent.id)).where(
         SecurityEvent.email == email,
         SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
+        SecurityEvent.source == BACKEND_SOURCE,
         SecurityEvent.created_at > since,
     )
     return db.execute(statement).scalar_one()
@@ -105,7 +112,7 @@ def lock_login(
                 user_id=user_id,
                 email=email,
                 ip_address=ip_address,
-                source="backend",
+                source=BACKEND_SOURCE,
                 message=message,
             ),
         ]

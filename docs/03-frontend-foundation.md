@@ -415,3 +415,8 @@ The backend's detection rules raise three new security event types, which the fr
 - eslint, tsc -> no problems
 - vitest -> 153 passed; the My activity test now includes the new alerts, as actor and as target
 - build -> successful
+
+### 43. API key events
+
+The backend's ingestion stage adds security events for creating and revoking an API key, and audit entries for those and for listing the keys. The frontend names them in both languages ("API key created", "API key revoked", "API keys viewed"), and the owner reads "You created an API key" in My activity. The page for managing keys comes in a later stage. vitest -> 153 passed.
+

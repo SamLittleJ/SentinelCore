@@ -427,3 +427,16 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - A failing rule is logged and skipped; it never fails the action that triggered it.
 - Downgrading the migration deletes the alert rows instead of relabelling them, since no older type means the same.
 
+## Event ingestion
+
+- Other systems send security events through `POST /ingest/events` with an API key. The keys are created and revoked by the owner only; admins and analysts can list them.
+- Every key expires, after 30, 90 or 365 days chosen at creation, and can be revoked at once.
+- Keys are stored as a prefix and a SHA-256 hash of a 32-byte random secret, and shown in full only once.
+- Only sign-ins are accepted for now (`login_success`, `login_failed`), the events the rules and the simulator use; more types come with a real source for them.
+- The sender states what happened; the server sets the severity and the message. The key's source is stamped on each event, and `backend` and `detection` are reserved.
+- Ingested events keep the time they happened, and up to a year of history is accepted, so the rules can look back over it. A key holder could in principle shape that history; keys are issued by the owner and expire.
+- The response reports only how many events were accepted, never the alerts they raised.
+- Brute-force protection counts only the application's own sign-ins: reported failures never lock anyone out here, and reported successes never reset the count.
+- Security events record the user agent of sign-ins, for the new device rule.
+- The ingestion stage was split from the new network and device rule, which comes next, to keep each change reviewable.
+
