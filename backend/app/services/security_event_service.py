@@ -19,6 +19,7 @@ from app.schemas.security_event import (
     SecuritySummary,
     SeverityCounts,
 )
+from app.services.detection_service import run_detection
 from app.services.event_query import event_filter_conditions, fetch_event_page
 
 
@@ -45,6 +46,7 @@ def create_security_event(
     db.commit()
     db.refresh(security_event)
     record_security_event(event_type, severity)
+    run_detection(db, security_event)
     return security_event
 
 

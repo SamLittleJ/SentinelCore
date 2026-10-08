@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     login_max_failed_attempts: int = 5
     login_failure_window_minutes: int = 15
     login_lockout_minutes: int = 15
+    # Password spray: failed sign-ins for this many different emails from one
+    # address within the window raise an incident.
+    detection_spray_min_accounts: int = Field(default=10, ge=2)
+    detection_spray_window_minutes: int = Field(default=15, ge=1)
+    # A sign-in after this many days without one is flagged.
+    detection_dormant_days: int = Field(default=90, ge=1)
     # Expired or revoked sessions are kept this long for investigations.
     session_retention_days: int = Field(default=30, ge=1)
     # How often the API deletes old sessions; 0 disables the periodic task.

@@ -130,6 +130,9 @@ const ro = {
     user_sessions_revoked: 'Ai închis sesiunile unui utilizator',
     account_locked: 'Ai blocat temporar un cont',
     account_unlocked: 'Ai deblocat un cont',
+    password_spray_detected: 'Atac de tip password spray detectat',
+    dormant_account_login: 'Autentificare după o perioadă lungă de inactivitate',
+    privileged_role_granted: 'Ai acordat un rol privilegiat',
   },
   eventsAsTarget: {
     user_role_changed: 'Rolul tău a fost schimbat',
@@ -138,6 +141,7 @@ const ro = {
     user_sessions_revoked: 'Un administrator ți-a închis sesiunile',
     account_locked: 'Contul tău a fost blocat temporar',
     account_unlocked: 'Contul tău a fost deblocat',
+    privileged_role_granted: 'Ai primit un rol privilegiat',
   },
   orgLog: {
     refresh: 'Reîmprospătează',
@@ -200,6 +204,9 @@ const ro = {
       user_sessions_revoked: 'Sesiuni închise de un operator',
       account_locked: 'Cont blocat temporar',
       account_unlocked: 'Cont deblocat',
+      password_spray_detected: 'Password spray detectat',
+      dormant_account_login: 'Autentificare pe un cont inactiv de mult timp',
+      privileged_role_granted: 'Rol privilegiat acordat',
     },
   },
   audit: {

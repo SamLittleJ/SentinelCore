@@ -29,6 +29,25 @@ class SecurityEventType(StrEnum):
     USER_SESSIONS_REVOKED = "user_sessions_revoked"
     ACCOUNT_LOCKED = "account_locked"
     ACCOUNT_UNLOCKED = "account_unlocked"
+    # Alerts raised by the detection rules (services/detection_service.py).
+    # An event type, not a password.
+    PASSWORD_SPRAY_DETECTED = "password_spray_detected"  # nosec B105
+    DORMANT_ACCOUNT_LOGIN = "dormant_account_login"
+    PRIVILEGED_ROLE_GRANTED = "privileged_role_granted"
+
+
+# The MITRE ATT&CK technique each detection stands for
+# (https://attack.mitre.org/techniques/).
+MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
+    # Brute Force: Password Guessing
+    SecurityEventType.BRUTE_FORCE_DETECTED: "T1110.001",
+    # Brute Force: Password Spraying
+    SecurityEventType.PASSWORD_SPRAY_DETECTED: "T1110.003",
+    # Valid Accounts
+    SecurityEventType.DORMANT_ACCOUNT_LOGIN: "T1078",
+    # Account Manipulation
+    SecurityEventType.PRIVILEGED_ROLE_GRANTED: "T1098",
+}
 
 
 class SecuritySeverity(StrEnum):
@@ -49,6 +68,13 @@ class SecurityEvent(Base):
         ),
         # Serves the newest-first listings and their cursor.
         Index("ix_security_events_created_at_id", "created_at", "id"),
+        # Serves the per-address lookups of password spray detection.
+        Index(
+            "ix_security_events_ip_type_created",
+            "ip_address",
+            "event_type",
+            "created_at",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -93,3 +119,8 @@ class SecurityEvent(Base):
         server_default=func.now(),
         nullable=False,
     )
+
+    @property
+    def mitre_technique(self) -> str | None:
+        """The ATT&CK technique this event detects, if it is a detection."""
+        return MITRE_TECHNIQUES.get(self.event_type)

@@ -61,6 +61,15 @@ describe('my activity page', () => {
       makeEvent({ id: 201, event_type: 'user_role_changed' }),
       makeEvent({ id: 200, event_type: 'user_sessions_revoked', as_target: true, ip_address: null }),
       makeEvent({ id: 199, event_type: 'account_locked', as_target: true, ip_address: null }),
+      makeEvent({
+        id: 198,
+        event_type: 'privileged_role_granted',
+        severity: 'warn',
+        as_target: true,
+        ip_address: null,
+      }),
+      makeEvent({ id: 197, event_type: 'privileged_role_granted', severity: 'warn' }),
+      makeEvent({ id: 196, event_type: 'dormant_account_login', severity: 'warn' }),
     ])
     renderApp('/me/activity')
 
@@ -71,6 +80,9 @@ describe('my activity page', () => {
       expect.stringContaining('Ai schimbat rolul unui utilizator'),
       expect.stringContaining('Un administrator ți-a închis sesiunile'),
       expect.stringContaining('Contul tău a fost blocat temporar'),
+      expect.stringContaining('Ai primit un rol privilegiat'),
+      expect.stringContaining('Ai acordat un rol privilegiat'),
+      expect.stringContaining('Autentificare după o perioadă lungă de inactivitate'),
     ])
     expect(rowTexts()[0]).toContain('—')
   })

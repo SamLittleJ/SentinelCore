@@ -4029,3 +4029,60 @@ Two documents were also reorganized while translating:
 - `docs/02`: the decisions are grouped under one heading per stage, in the original order, exact duplicates were removed, and decisions replaced later are marked *Superseded*
 
 `backend/README.md` had two "Migrations" sections; they were merged, and the session cleanup moved under "Sessions".
+
+## Detection Rules - Phase 1
+
+### 265. Purpose of the stage
+
+Until now there was one detection, brute force on one email, built into the login. Phase A adds the detections that make SentinelCore a SIEM-light, each mapped to the MITRE ATT&CK technique it detects, and a common place where they run, so the ingestion endpoint of the next stage feeds the same rules.
+
+### 266. The engine
+
+`app/services/detection_service.py` holds the rules. Each rule names the event types it watches and the alert type it raises:
+
+| Rule | Watches | Alert | Severity | Technique |
+| --- | --- | --- | --- | --- |
+| Password spray | `LOGIN_FAILED` | `PASSWORD_SPRAY_DETECTED` | `incident` | T1110.003 |
+| Dormant account | `LOGIN_SUCCESS` | `DORMANT_ACCOUNT_LOGIN` | `warn` | T1078 |
+| Privileged role | `USER_ROLE_CHANGED` | `PRIVILEGED_ROLE_GRANTED` | `warn` | T1098 |
+
+`run_detection(db, event)` runs after the watched event is committed: by `create_security_event` and by `_commit_user_change` in `user_service`. The alerts it raises are security events like any other, with the `detection` source, so they appear in the event log, the summary, the metrics and the activity of the accounts they name.
+
+- **Alerts only.** The rules do not block anything; responding stays with the operators, through containment. A false positive never locks anyone out. Brute-force protection keeps its block on the email and stays in `login_protection_service`, mapped to T1110.001.
+- **No loops.** No rule watches an alert type, and a test checks it.
+- **Never in the way.** A failing rule is logged (`Detection failed`) and its alerts are dropped; the action that triggered it, a sign-in for example, still succeeds.
+- **Time.** Windows are measured back from the triggering event's own `created_at`, so a late event, once ingestion exists, is judged against the events around it.
+
+`MITRE_TECHNIQUES` in `models/security_event.py` maps each detection type to its technique, and `SecurityEventRead` has the new `mitre_technique` field (`null` for events that are not detections).
+
+### 267. Password spray
+
+A password spray tries one or a few common passwords against many accounts, staying under each account's lockout. The rule counts the different emails that failed to sign in from the event's address within `DETECTION_SPRAY_WINDOW_MINUTES` (15). At `DETECTION_SPRAY_MIN_ACCOUNTS` (10) it raises an `incident` with the address and no account, since the attack targets many.
+
+Counting starts after the latest spray alert for that address, so a continuing attack raises a new alert only after enough new emails, as brute-force protection does after a lockout. Many failures for one email count once: that is brute force, the other rule. Events without an address are skipped.
+
+### 268. Dormant account
+
+A sign-in to an account with no sign-in for `DETECTION_DORMANT_DAYS` (90) days raises a `warn` on the account: an old account that comes back to life is a classic sign of stolen credentials (Valid Accounts). An account that never signed in counts from its creation. The account sees the alert in its own activity.
+
+### 269. Privileged role
+
+Giving an account the `admin` or `security_analyst` role, both of which reach every other account, raises a `warn` with the owner as the actor and the account as the target. Only the owner changes roles, so the alert matters most when the owner's account is the compromised one (Account Manipulation). The role is read from the account after the change; a demotion raises nothing.
+
+### 270. Migrations
+
+`da3df9063709`: the three alert types in `security_event_types`, and the `ix_security_events_ip_type_created` index on `(ip_address, event_type, created_at)`, which serves the spray rule's per-address lookups. On downgrade the alert rows are deleted rather than relabelled: no older type means the same, and each is derived from events that stay.
+
+### 271. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit -> No issues identified (`PASSWORD_SPRAY_DETECTED` is marked `nosec B105`: an event type, not a password)
+- pyright -> 0 errors
+- pytest -> 302 passed
+- the migration: upgrade, `alembic check`, an alert row and a regular event inserted, a downgrade (the alert deleted, the event kept, the index dropped), then an upgrade and `alembic check` again
+
+The new tests (`tests/test_detection.py`) send sign-ins from a fixed address through a test client of their own, since the default one has none. They cover the spray threshold, the alert's fields and message, a continuing spray, one email failing repeatedly, the window, separate addresses, thresholds from settings; a dormant sign-in after a previous one and after creation, recent and new accounts, an old account in regular use, the account's own activity; granting admin and analyst, and a demotion; a failing rule that does not fail the sign-in, no rule watching an alert, the metrics, and `mitre_technique` in the event log. The organization test that filters by target now expects the privileged-role alert beside the role change.
+
+Reverse check: each of the following changes makes at least one test fail: a spray threshold off by one, counting failures instead of emails, ignoring the previous spray alert, ignoring the window, measuring dormancy from creation only, leaving the analyst role out, and dropping either call to `run_detection` or the rule guard.
+
+End-to-end check, with the real backend on a temporary database and Vite running, through the proxy: ten failed sign-ins for ten different emails raised one `password_spray_detected` incident (T1110.003, source `detection`); the first sign-in of an account created 200 days earlier raised `dormant_account_login` ("200 days after the account's creation"); the owner promoting a user to admin through the browser session raised `privileged_role_granted` with the target. The event log returned each with its `mitre_technique`, the summary counted them, and real Firefox screenshots of the event log, in both themes, showed the new names.

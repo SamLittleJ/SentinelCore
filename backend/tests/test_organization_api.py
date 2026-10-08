@@ -275,8 +275,12 @@ def test_admin_actions_can_be_filtered_by_target(
             headers=analyst_headers,
         )
     )
-    assert [event["event_type"] for event in events] == ["user_role_changed"]
-    assert events[0]["target_user_id"] == target.id
+    # Newest first: the promotion to admin also raises a detection alert.
+    assert [event["event_type"] for event in events] == [
+        "privileged_role_granted",
+        "user_role_changed",
+    ]
+    assert {event["target_user_id"] for event in events} == {target.id}
 
     audit_logs = items(
         client.get(

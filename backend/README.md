@@ -43,6 +43,24 @@ LOGIN_LOCKOUT_MINUTES=15
 
 Behind a reverse proxy, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>`; otherwise every event records the proxy's IP.
 
+## Detection rules
+
+Every recorded security event goes through the detection rules in `app/services/detection_service.py`. They raise alerts, security events from the `detection` source, and never block anything; each names its MITRE ATT&CK technique in `mitre_technique`:
+
+| Alert | Technique | When |
+| --- | --- | --- |
+| `password_spray_detected` (incident) | T1110.003 | failed sign-ins for many different emails from one address |
+| `dormant_account_login` (warn) | T1078 | a sign-in after a long time without one |
+| `privileged_role_granted` (warn) | T1098 | an account given the `admin` or `security_analyst` role |
+
+The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds are configurable in `.env`:
+
+```env
+DETECTION_SPRAY_MIN_ACCOUNTS=10
+DETECTION_SPRAY_WINDOW_MINUTES=15
+DETECTION_DORMANT_DAYS=90
+```
+
 ## Observability
 
 - `GET /health`: the process is running

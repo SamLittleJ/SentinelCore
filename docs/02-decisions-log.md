@@ -415,3 +415,15 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - The counts and the incidents reload together, only on the page's refresh button, never on window focus, so they always describe the same moment and the audit log gains no automatic entries.
 - Every count opens the records behind it: the event log filtered by severity or type over 24 hours, or the user list filtered by state. Each failed sign-in source opens the failed sign-ins from that address.
 - The failed sign-in sources are bars scaled to the largest, in the accent color, with the count written beside each, so the number never rests on bar length alone.
+
+## Detection rules
+
+- Detection rules run in one engine (`detection_service`), after the event they watch is committed, so internal events and, later, ingested ones feed the same rules.
+- The new rules only alert; responding stays with the operators through containment, so a false positive never locks anyone out. Brute-force protection keeps its block on the email.
+- The location rule, planned for the ingestion stage, compares the network (a /24 for IPv4, a /64 for IPv6) and the device, not the country: it needs no outside data and behaves the same in tests and in the simulator.
+- Each detection is mapped to a MITRE ATT&CK technique in code (`MITRE_TECHNIQUES`), not stored per row: the technique follows from the type.
+- Password spray: 10 different emails failing from one address within 15 minutes is an incident; counting restarts after each alert. Dormant: 90 days without a sign-in. Privileged: granting `admin` or `security_analyst`. All thresholds are settings.
+- Windows are measured from the triggering event's own time, not from now, so late events are judged in their context.
+- A failing rule is logged and skipped; it never fails the action that triggered it.
+- Downgrading the migration deletes the alert rows instead of relabelling them, since no older type means the same.
+

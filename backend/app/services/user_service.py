@@ -15,6 +15,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserFilters
+from app.services.detection_service import run_detection
 from app.services.pagination import fetch_page
 from app.services.session_service import stage_revoke_all_sessions
 
@@ -111,6 +112,16 @@ def _commit_user_change(
     """Commit a staged change to `user` together with its audit and security
     events, so either all three are stored or none are. The events name
     `actor` as their user and `user` as their target."""
+    security_event = SecurityEvent(
+        event_type=security_event_type,
+        severity=severity,
+        user_id=actor.id,
+        target_user_id=user.id,
+        email=actor.email,
+        ip_address=ip_address,
+        source="backend",
+        message=message,
+    )
     db.add_all(
         [
             AuditLog(
@@ -121,16 +132,7 @@ def _commit_user_change(
                 ip_address=ip_address,
                 message=message,
             ),
-            SecurityEvent(
-                event_type=security_event_type,
-                severity=severity,
-                user_id=actor.id,
-                target_user_id=user.id,
-                email=actor.email,
-                ip_address=ip_address,
-                source="backend",
-                message=message,
-            ),
+            security_event,
         ]
     )
 
@@ -141,6 +143,7 @@ def _commit_user_change(
         raise
 
     record_security_event(security_event_type, severity)
+    run_detection(db, security_event)
     db.refresh(user)
     return user
 
