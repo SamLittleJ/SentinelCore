@@ -91,8 +91,8 @@ describe('organization overview', () => {
     const requests = serve({}, [lock, bruteForce])
     await openOverview()
 
-    const table = await screen.findByRole('table', { name: 'Ultimele incidente' })
-    const [first, second] = within(table).getAllByRole('row').slice(1)
+    const timeline = await screen.findByRole('list', { name: 'Ultimele incidente' })
+    const [first, second] = within(timeline).getAllByRole('listitem')
     expect(first).toHaveTextContent('Cont blocat temporar')
     expect(first).toHaveTextContent('ioana.sec@example.com')
     expect(second).toHaveTextContent('Forță brută detectată, autentificare blocată')
@@ -111,7 +111,7 @@ describe('organization overview', () => {
       '/org/events?severity=incident',
     )
 
-    await user.click(within(first).getByRole('button', { name: 'Cont blocat temporar' }))
+    await user.click(within(first).getByRole('button', { name: /^Cont blocat temporar/ }))
     const details = await screen.findByRole('dialog', { name: 'Cont blocat temporar' })
     expect(details).toHaveTextContent('Security analyst locked user_id=12 for 24 hour(s)')
     expect(within(details).getByRole('link', { name: 'Deschide contul' })).toHaveAttribute(
@@ -166,8 +166,10 @@ describe('organization overview', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Serverul nu a răspuns.')
-    expect(screen.getByRole('table', { name: 'Ultimele incidente' })).toBeInTheDocument()
-    expect(screen.getByText('Indisponibil.')).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'Ultimele incidente' })).toBeInTheDocument()
+    // Techniques and failed sign-in sources wait for the counts too.
+    expect(screen.getAllByText('Indisponibil.')).toHaveLength(2)
+    expect(screen.queryByRole('region', { name: 'Starea amenințărilor' })).not.toBeInTheDocument()
 
     server.use(
       http.get('/api/security/summary', () =>
@@ -184,7 +186,7 @@ describe('organization overview', () => {
     const user = userEvent.setup()
     const requests = serve({}, [bruteForce])
     await openOverview()
-    await screen.findByRole('table', { name: 'Ultimele incidente' })
+    await screen.findByRole('list', { name: 'Ultimele incidente' })
     await screen.findByText(/^Actualizat/)
     expect(requests.summary).toBe(1)
     expect(requests.incidents).toHaveLength(1)

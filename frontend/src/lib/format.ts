@@ -45,6 +45,8 @@ export function useFormatters() {
   return {
     date: (value: string | Date) => formatDate(value, locale),
     dateTime: (value: string | Date) => formatDateTime(value, locale),
+    time: (value: string | Date) =>
+      new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(value)),
     relative: (value: string | Date) => formatRelative(value, locale),
     number: (value: number) => new Intl.NumberFormat(locale).format(value),
   }

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { canViewOrganization, type User } from '@/features/auth/api'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { useSecuritySummary } from '@/features/org/hooks'
+import { ThreatBand } from '@/features/org/ThreatBand'
 import { cn } from '@/lib/utils'
 
 import { AccountMenu } from './AccountMenu'
@@ -137,6 +138,7 @@ function PageLoader() {
 export function AppShell() {
   const { data: user } = useCurrentUser()
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const inOrganization = scopeOf(useLocation().pathname) === 'organization'
 
   // Ctrl+K, or Cmd+K on a Mac, from anywhere in the application.
   useEffect(() => {
@@ -158,13 +160,16 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <Sidebar user={user} onOpenPalette={() => setPaletteOpen(true)} />
-      <main className="min-w-0 flex-1 px-4 pt-8 pb-12 md:px-8 md:pt-12">
-        {/* One centered column for every page, so titles keep their place
-            when moving between pages and wide screens stay balanced. */}
-        <div className="mx-auto w-full max-w-5xl">
-          <Suspense fallback={<PageLoader />}>
-            <Outlet />
-          </Suspense>
+      <main className="min-w-0 flex-1">
+        {inOrganization && canViewOrganization(user) && <ThreatBand />}
+        <div className="px-4 pt-8 pb-12 md:px-8 md:pt-12">
+          {/* One centered column for every page, so titles keep their place
+              when moving between pages and wide screens stay balanced. */}
+          <div className="mx-auto w-full max-w-5xl">
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
+          </div>
         </div>
       </main>
       <CommandPalette user={user} open={paletteOpen} onOpenChange={setPaletteOpen} />

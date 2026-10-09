@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict
 
@@ -84,6 +84,36 @@ class FailedLoginSource(BaseModel):
     failed_logins: int
 
 
+class SeverityBucket(BaseModel):
+    """The events of one window: `start` up to the next bucket's start."""
+
+    start: datetime
+    counts: SeverityCounts
+
+
+class TechniqueCount(BaseModel):
+    """Alerts for one MITRE ATT&CK technique, and the event types that
+    stand for it, to open them in the event log."""
+
+    technique: str
+    alerts: int
+    event_types: list[SecurityEventType]
+
+
+class LatestDetection(BaseModel):
+    """When the latest detection was raised, and its technique. No account
+    or address: the summary holds counts, not records, so it is not
+    audited."""
+
+    technique: str
+    created_at: datetime
+
+
+# calm: nothing raised in 24 hours; warn: a detection alert; incident: an
+# incident.
+ThreatLevel = Literal["calm", "warn", "incident"]
+
+
 class SecuritySummary(BaseModel):
     """Aggregates for the organization overview, measured back from
     `generated_at` on the database clock."""
@@ -100,3 +130,12 @@ class SecuritySummary(BaseModel):
     users_inactive: int
     # Accounts an operator has locked, and whose lock has not expired.
     accounts_locked: int
+    threat_level: ThreatLevel
+    latest_detection: LatestDetection | None
+    # The last 24 hours, an hour each, and the last 7 days, a day each,
+    # oldest first. Windows are measured back from `generated_at`, so the
+    # hours add up to `last_24h` and the days to `last_7d`.
+    hourly: list[SeverityBucket]
+    daily: list[SeverityBucket]
+    # Alerts per technique over the last 7 days, the most frequent first.
+    techniques_7d: list[TechniqueCount]

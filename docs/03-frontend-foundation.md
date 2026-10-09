@@ -521,3 +521,30 @@ The new tests cover: opening the palette with Ctrl+K and from the sidebar, closi
 Reverse check: each of the following changes makes at least one test fail: no Ctrl+K listener, diacritics kept in matching, organization search or pages offered to a user, arrows that stop at the ends, no `aria-activedescendant`, the palette left open after a command, Enter doing nothing, the event search dropping the query, the counts loaded on every page, the badge without its screen reader text, an account's page not placed under Users, and unpadded page numbers (13 of 13).
 
 End-to-end check, with the real backend on a temporary database seeded by the attack simulator, the owner created from the command line, and Vite running: headless Firefox took screenshots of the organization overview (dark, light, dark and light at phone width), the event log with the palette open on an IP search, the personal overview (light), the palette at phone width (light), an account's page (dark) and the user list at phone width (light). A check run in each page confirmed the theme, the header's location line, the condensed font loaded, the wordmark, the badge (11 incidents), the palette's commands and no horizontal scrolling at phone width. The first round of screenshots showed the search button and the badge cut off in a 256 px sidebar; the sidebar was widened and the names truncated, and a second round confirmed the fix.
+
+## Stage 9: Security trends
+
+### 54. Threat status band
+
+`ThreatBand` (`features/org/ThreatBand.tsx`) sits above every organization page, under a top edge in the level's color: the level ("Incident activ", "Atenție", "Calm") with a dot, the last 24 hours as 24 cells colored by the most severe event of each hour (the counts in each cell's tooltip), and the latest detection's technique and time, linked to the event log filtered by that technique's types. Screen readers get the 24-hour totals as text; the cells are decorative. It reads the summary, shared with the overview and the sidebar badge, and stays hidden until the counts arrive or when they fail, where the overview offers the retry.
+
+### 55. Trends on the overview
+
+- The three severity tiles show their last 7 days as small bars, scaled to the busiest day; days without events show a short bar in the border color.
+- The latest incidents are a timeline: time, a dot on a line, the description with its technique, the account and address. Each entry opens the details panel, as the table rows did.
+- "Tehnici detectate" lists the alerts per technique over 7 days as bars, with the technique's MITRE name; each opens the alerts behind it.
+- A `time` formatter joins the date formatters.
+
+### 56. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 188 passed
+- build -> successful, no warnings
+- npm audit -> 0 vulnerabilities
+
+The new tests cover: the band's level, its screen reader totals, the color of each hour and its tooltip, and the latest detection's link; the calm and warning states; no band and no request for the counts on personal pages; the 7-day bars and their scale; the techniques, their order, names, links and bars, and their empty state; the timeline opening the details; no band when the counts fail.
+
+Reverse check: each of the following changes makes at least one test fail: the band shown on personal pages, warnings drawn over incidents, the band's link without the technique's types, the wrong color for a warning, bars not scaled to the busiest day, a technique's link without its types, and timeline entries that open nothing (7 of 7).
+
+End-to-end check, with the real backend on a temporary database seeded by the attack simulator: headless Firefox took the overview (dark and light, desktop and phone width) and the event log (dark, and light at phone width). Checks in the page confirmed the band on both pages (level, 24 cells, the latest detection linked to its alerts), 21 bars on the tiles, four techniques, five timeline entries and no horizontal scrolling at phone width. The light screenshots showed empty cells and days nearly invisible against the background; they now use the border color, and a second round confirmed it.

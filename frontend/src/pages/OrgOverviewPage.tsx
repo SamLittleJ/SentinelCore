@@ -19,8 +19,8 @@ import {
   useSecuritySummary,
 } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
-import { LogTable } from '@/features/org/LogTable'
 import { accountLabel, accountLinks } from '@/features/org/records'
+import { techniqueName } from '@/features/org/mitre'
 import { securityEventFields, techniqueBadge } from '@/features/org/security-event-fields'
 import { writeUserFilters } from '@/features/org/user-filters'
 import { useFormatters } from '@/lib/format'
@@ -81,12 +81,21 @@ export function OrgOverviewPage() {
 
       <SummaryTiles summary={summary} />
 
-      <section aria-labelledby="recent-incidents" className="flex flex-col gap-3">
-        <SectionHeading id="recent-incidents" help={t('orgOverview.incidentsHelp')}>
-          {t('orgOverview.incidents')}
-        </SectionHeading>
-        <RecentIncidents query={incidents} />
-      </section>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <section aria-labelledby="recent-incidents" className="flex flex-col gap-3">
+          <SectionHeading id="recent-incidents" help={t('orgOverview.incidentsHelp')}>
+            {t('orgOverview.incidents')}
+          </SectionHeading>
+          <RecentIncidents query={incidents} />
+        </section>
+
+        <section aria-labelledby="detected-techniques" className="flex flex-col gap-3">
+          <SectionHeading id="detected-techniques" help={t('orgOverview.techniquesHelp')}>
+            {t('orgOverview.techniques')}
+          </SectionHeading>
+          <DetectedTechniques summary={summary} />
+        </section>
+      </div>
 
       <section aria-labelledby="failed-login-sources" className="flex flex-col gap-3">
         <SectionHeading id="failed-login-sources" help={t('orgOverview.sourcesHelp')}>
@@ -160,6 +169,8 @@ function SummaryTiles({ summary }: { summary: SummaryQuery }) {
           value={format.number(data.last_24h[severity])}
           unit={t('orgOverview.in24h')}
           detail={t('orgOverview.in7d', { value: format.number(data.last_7d[severity]) })}
+          trend={data.daily.map((day) => day.counts[severity])}
+          trendClass={TREND_STYLES[severity]}
         />
       ))}
       <Tile
@@ -193,9 +204,35 @@ interface TileProps {
   value: string
   unit?: string
   detail: string
+  // Counts for the last 7 days, oldest first, drawn as small bars.
+  trend?: number[]
+  trendClass?: string
 }
 
-function Tile({ to, label, icon: Icon, iconClass, value, unit, detail }: TileProps) {
+const TREND_STYLES: Record<Severity, string> = {
+  incident: 'bg-sev-incident',
+  warn: 'bg-sev-warn',
+  info: 'bg-sev-info',
+}
+
+/** Small bars scaled to the busiest day. Decorative: the tile's own text
+ * gives the 24-hour and 7-day numbers. */
+function Sparkline({ values, className }: { values: number[]; className?: string }) {
+  const largest = Math.max(...values, 1)
+  return (
+    <span aria-hidden className="grid h-9 w-24 shrink-0 grid-cols-7 items-end gap-[3px]">
+      {values.map((value, index) => (
+        <span
+          key={index}
+          className={cn('rounded-[1px]', value > 0 ? className : 'bg-border')}
+          style={{ height: `${Math.max(6, (value / largest) * 100)}%` }}
+        />
+      ))}
+    </span>
+  )
+}
+
+function Tile({ to, label, icon: Icon, iconClass, value, unit, detail, trend, trendClass }: TileProps) {
   return (
     <li className="flex">
       <Link
@@ -206,9 +243,12 @@ function Tile({ to, label, icon: Icon, iconClass, value, unit, detail }: TilePro
           {Icon && <Icon aria-hidden className={cn('size-3.5', iconClass)} />}
           {label}
         </span>
-        <span className="flex items-baseline gap-2">
-          <span className="font-display text-5xl leading-none font-semibold">{value}</span>
-          {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+        <span className="flex items-end justify-between gap-3">
+          <span className="flex items-baseline gap-2">
+            <span className="font-display text-5xl leading-none font-semibold">{value}</span>
+            {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
+          </span>
+          {trend && <Sparkline values={trend} className={trendClass} />}
         </span>
         <span className="text-xs text-muted-foreground">{detail}</span>
       </Link>
@@ -250,25 +290,36 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
           {t('orgOverview.noIncidents')}
         </p>
       ) : (
-        <LogTable
-          label={t('orgOverview.incidents')}
-          items={items}
-          describe={describe}
-          annotate={techniqueBadge}
-          onSelect={setSelected}
-          columns={[
-            {
-              header: t('orgLog.account'),
-              cell: (event) => accountLabel(event, t),
-              className: 'max-w-56 truncate font-mono text-xs',
-            },
-            {
-              header: t('orgLog.ipAddress'),
-              cell: (event) => event.ip_address ?? t('orgLog.none'),
-              className: 'font-mono text-xs text-muted-foreground',
-            },
-          ]}
-        />
+        <ol aria-label={t('orgOverview.incidents')} className="flex w-full flex-col">
+          {items.map((event, index) => (
+            <li key={event.id} className="grid grid-cols-[3.5rem_1rem_minmax(0,1fr)] gap-x-3">
+              <time
+                dateTime={event.created_at}
+                title={format.dateTime(event.created_at)}
+                className="pt-2.5 font-mono text-xs text-muted-foreground"
+              >
+                {format.time(event.created_at)}
+              </time>
+              <span aria-hidden className="flex flex-col items-center">
+                <span className="mt-3.5 size-2.5 shrink-0 rounded-full bg-sev-incident ring-4 ring-sev-incident-bg" />
+                {index < items.length - 1 && <span className="w-px flex-1 bg-border" />}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelected(event)}
+                className="mb-1 flex min-w-0 flex-col items-start gap-1 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  {describe(event)}
+                  {techniqueBadge(event)}
+                </span>
+                <span className="max-w-full truncate font-mono text-xs text-muted-foreground">
+                  {accountLabel(event, t)} · {event.ip_address ?? t('orgLog.none')}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
       )}
       <Button asChild variant="outline" size="sm">
         <Link to={eventsLink({ severities: ['incident'] })}>{t('orgOverview.viewIncidents')}</Link>
@@ -283,6 +334,62 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
         actions={selected ? accountLinks(selected, t) : []}
       />
     </div>
+  )
+}
+
+/** Alerts per MITRE ATT&CK technique over 7 days, as bars scaled to the
+ * most frequent, each opening the alerts behind it. */
+function DetectedTechniques({ summary }: { summary: SummaryQuery }) {
+  const { t } = useTranslation()
+  const format = useFormatters()
+
+  if (summary.isPending) {
+    return <Skeleton role="status" aria-label={t('app.loading')} className="h-24 w-full" />
+  }
+  if (summary.isError || !summary.data) {
+    return <p className="text-muted-foreground">{t('orgOverview.unavailable')}</p>
+  }
+
+  const techniques = summary.data.techniques_7d
+  if (techniques.length === 0) {
+    return (
+      <p className="rounded-lg border bg-card px-4 py-4 text-muted-foreground">
+        {t('orgOverview.noTechniques')}
+      </p>
+    )
+  }
+
+  const largest = Math.max(...techniques.map((entry) => entry.alerts))
+  return (
+    <ol aria-label={t('orgOverview.techniques')} className="flex flex-col rounded-lg border bg-card">
+      {techniques.map((entry) => (
+        <li key={entry.technique} className="border-b last:border-b-0">
+          <Link
+            to={eventsLink({ types: entry.event_types })}
+            aria-label={t('orgOverview.techniqueLabel', {
+              technique: entry.technique,
+              name: techniqueName(entry.technique) ?? entry.technique,
+              count: entry.alerts,
+            })}
+            className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+          >
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="flex min-w-0 items-baseline gap-2">
+                <span className="font-mono text-xs text-brand">{entry.technique}</span>
+                <span className="truncate text-xs text-muted-foreground">{techniqueName(entry.technique)}</span>
+              </span>
+              <span className="font-mono text-xs tabular-nums">{format.number(entry.alerts)}</span>
+            </span>
+            <span aria-hidden className="h-1.5 rounded-full bg-muted">
+              <span
+                className="block h-full rounded-full bg-brand"
+                style={{ width: `${(entry.alerts / largest) * 100}%` }}
+              />
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ol>
   )
 }
 

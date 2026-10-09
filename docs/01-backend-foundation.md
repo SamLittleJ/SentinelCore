@@ -4400,3 +4400,29 @@ The simulator invites each of its people as the owner and accepts on their behal
 - Gitleaks on `backend/app`, `tests`, `simulator` and `migrations` -> no leaks
 
 Reverse check: each of the following changes makes at least one test fail: an admin allowed to invite an admin, an inactive author's invitation accepted, an expired, revoked or used token accepted, the author's role not checked again, no row lock, the secret not compared, the old invitation kept open, the T1098 rule blind to new accounts, a second owner allowed, the command line echoing the input, a distinct answer for an expired token, an admin revoking an owner's admin invitation, the email race reported as a taken username, an existing account invited, the token stored as is, a used invitation revoked, and public sign-up still answering (19 of 20). The one that passes lets the analyst through the route's role check; the table of grantable roles refuses them with the same `403`, so the behaviour does not change.
+
+## Security Trends in the Summary
+
+### 308. Purpose of the stage
+
+The interface gained a threat status band above every organization page and seven-day trends on the overview. Both read `GET /security/summary`, which now returns the counts they need. The endpoint stays unaudited: everything it returns is a count, never a record.
+
+### 309. New fields
+
+`get_security_summary` (`app/services/security_event_service.py`) adds:
+
+- `hourly` and `daily`: 24 windows of an hour and 7 of a day, oldest first, each with its start and its counts per severity. Windows are measured back from `generated_at` on the database clock, not aligned to calendar hours or days, so there is no time zone to choose, the hours add up to `last_24h` and the days to `last_7d`. One grouped query per series computes each event's age in whole windows; an event stamped exactly at the start of the oldest window counts in it, as in the totals.
+- `techniques_7d`: alerts per MITRE ATT&CK technique over 7 days, the most frequent first, with the event types behind each, so the interface opens them in the event log without its own copy of the mapping. T1078 gathers `dormant_account_login` and `unfamiliar_sign_in`.
+- `threat_level`: `incident` when an incident was recorded in the last 24 hours, `warn` when an alert from the `detection` source was, `calm` otherwise. Ordinary warnings, such as blocked sign-ins, do not raise the level: with real traffic it would stay at `warn`.
+- `latest_detection`: the technique and time of the newest event mapped to a technique in the last 24 hours, or null. No account or address, which would make the summary a read of a record.
+
+### 310. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 411 passed
+
+The new tests place events in their hour and day, check the window starts and that the windows add up to the totals, merge the two T1078 alert types and order the techniques, keep the latest detection free of accounts and addresses, and set the threat level for no events, a blocked sign-in, a detection alert, an incident, and an alert older than a day.
+
+Reverse check: each of the following changes makes at least one test fail: windows listed newest first, the level ignoring detection alerts, warnings from any source raising it, techniques counted per event type, techniques least frequent first, and the latest detection taken from all time (6 of 6).

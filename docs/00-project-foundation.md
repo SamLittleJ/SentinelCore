@@ -250,7 +250,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - viewing the logs and reading users are audited
 - the first SIEM-light detection: repeated failed logins for the same email raise a `BRUTE_FORCE_DETECTED` incident and temporarily block login for that email
 - a detection engine runs rules mapped to MITRE ATT&CK on every recorded event, and only alerts: password spray (T1110.003, failed sign-ins for many emails from one address), a sign-in to a dormant account (T1078), a sign-in from a network and a device the account has not used (T1078) and a privileged role granted (T1098), by a role change or an invitation; every detection names its technique
-- a security summary (24 hours and 7 days, blocked logins, top failing IPs, accounts) feeds the organization overview
+- a security summary (24 hours and 7 days, hour by hour and day by day, alerts per MITRE ATT&CK technique, a threat level, blocked logins, top failing IPs, accounts) feeds the organization overview and a threat status band above every organization page
 - other systems send sign-ins through `POST /ingest/events` with an API key issued by the owner; keys expire, can be revoked, and are stored only as hashes; ingested events keep the time they happened and go through the same detection rules, but never lock anyone out of this application
 - an attack simulator (`backend/simulator/`) plays a synthetic organization's routine, five attacks per rule and five of each evasive variant against a running instance, and reports detection rate, false positives, time to detect and what passes unseen in `docs/evaluation/`
 
@@ -268,7 +268,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
   - **Organization:** an Overview (incidents, warnings and informational events over 24 hours and 7 days, failed sign-ins and the addresses behind them, locked and deactivated accounts, the latest incidents); Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; API keys, listed for every operator, issued and revoked by the owner, with a new key shown once; detections carry their MITRE ATT&CK technique, linked to its page; these pages load on demand
 
 ### Quality and delivery
-- 405 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 181 frontend tests (Vitest with a mocked API)
+- 411 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 188 frontend tests (Vitest with a mocked API)
 - the schema is managed with Alembic; `alembic check` confirms the models and the database match
 - the backend passes Pyright type checking with no errors
 - backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
@@ -336,4 +336,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. Four evasive variants (a slow spray, a distributed spray, a copied user agent, an account idle for just under the dormancy threshold) all pass, 0 of 20, and the report gives the reason for each: these are the rules' known limits. API keys and MITRE ATT&CK techniques are in the interface, which closes phase A. Public sign-up was then replaced by invitations, and the interface got its own visual identity and a command palette (Ctrl+K). The next step is the security trends on the overview (a threat status band, hourly and daily counts, alerts per technique), then the invitations interface, a README demo (`make demo`) and the STRIDE threat model.
+The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. Four evasive variants (a slow spray, a distributed spray, a copied user agent, an account idle for just under the dormancy threshold) all pass, 0 of 20, and the report gives the reason for each: these are the rules' known limits. API keys and MITRE ATT&CK techniques are in the interface, which closes phase A. Public sign-up was then replaced by invitations, and the interface got its own visual identity and a command palette (Ctrl+K). A threat status band, seven-day trends and alerts per technique followed. The next step is the invitations interface, then a README demo (`make demo`) and the STRIDE threat model.

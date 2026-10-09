@@ -3,7 +3,13 @@ import { setupServer } from 'msw/node'
 
 import type { ActivityEvent, Page, Session } from '@/features/account/api'
 import type { Role, User } from '@/features/auth/api'
-import type { ApiKey, AuditLog, SecurityEvent, SecuritySummary } from '@/features/org/api'
+import type {
+  ApiKey,
+  AuditLog,
+  SecurityEvent,
+  SecuritySummary,
+  SeverityBucket,
+} from '@/features/org/api'
 
 export function makeUser(role: Role = 'user', overrides: Partial<User> = {}): User {
   return {
@@ -91,9 +97,25 @@ export function makeApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
   }
 }
 
+const HOUR_MS = 3600_000
+
+/** `count` empty windows of `width` ms, oldest first, ending now. */
+export function emptyBuckets(count: number, width: number): SeverityBucket[] {
+  const end = Date.now()
+  return Array.from({ length: count }, (_, index) => ({
+    start: new Date(end - (count - index) * width).toISOString(),
+    counts: { info: 0, warn: 0, incident: 0 },
+  }))
+}
+
 export function makeSummary(overrides: Partial<SecuritySummary> = {}): SecuritySummary {
   return {
     generated_at: new Date().toISOString(),
+    threat_level: 'calm',
+    latest_detection: null,
+    hourly: emptyBuckets(24, HOUR_MS),
+    daily: emptyBuckets(7, 24 * HOUR_MS),
+    techniques_7d: [],
     last_24h: { info: 0, warn: 0, incident: 0 },
     last_7d: { info: 0, warn: 0, incident: 0 },
     failed_logins_24h: 0,

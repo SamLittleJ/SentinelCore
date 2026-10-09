@@ -124,6 +124,23 @@ export interface SeverityCounts {
 
 /** Organization-wide aggregates, measured back from `generated_at` on the
  * database clock. Reading them is not audited: they hold counts, not records. */
+/** The events of one window, from `start` to the next window's start. */
+export interface SeverityBucket {
+  start: string
+  counts: SeverityCounts
+}
+
+export interface TechniqueCount {
+  technique: string
+  alerts: number
+  // The event types that stand for the technique, to open them in the log.
+  event_types: SecurityEventType[]
+}
+
+// calm: nothing raised in 24 hours; warn: a detection alert; incident: an
+// incident.
+export type ThreatLevel = 'calm' | 'warn' | 'incident'
+
 export interface SecuritySummary {
   generated_at: string
   last_24h: SeverityCounts
@@ -137,6 +154,14 @@ export interface SecuritySummary {
   users_inactive: number
   // Accounts an operator has locked, whose lock has not expired.
   accounts_locked: number
+  threat_level: ThreatLevel
+  // Its technique and time only: the summary holds counts, not records.
+  latest_detection: { technique: string; created_at: string } | null
+  // 24 windows of an hour and 7 of a day, oldest first, ending now.
+  hourly: SeverityBucket[]
+  daily: SeverityBucket[]
+  // Alerts per technique over 7 days, the most frequent first.
+  techniques_7d: TechniqueCount[]
 }
 
 export function fetchSecuritySummary(signal?: AbortSignal): Promise<SecuritySummary> {
