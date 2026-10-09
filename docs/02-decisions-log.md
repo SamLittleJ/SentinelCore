@@ -459,3 +459,10 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - Benign cases that the rules' design cannot tell from attacks (a new laptop on a trip, a return from long leave, a password change day behind one office address) are part of the routine and expected to alert. They are reported as false positives with their cause, not left out.
 - The simulator attacks only `localhost` unless told otherwise, reads the owner's password from the environment or a prompt, and revokes its API key at the end.
 - Evasive attack variants were split into a later stage, to keep each change reviewable.
+
+## Alert event time
+
+- Alerts keep the time of the event that raised them in a new `occurred_at` column, and rules compare earlier alerts by it. Changing only the spray rule's comparison would have fixed the symptom; the column fixes the cause, for every later rule and for sources that deliver logs late.
+- `created_at` stays the time an alert was raised, so new alerts remain at the top of the event log and in the overview's last 24 hours. Stamping alerts with the event's time instead would have hidden a late alert in the past.
+- Existing alerts get their `created_at` as `occurred_at`; the event's time was not kept, and for real-time events it is the same moment.
+- A replayed log raises no second spray alert, which the simpler fix would not have guaranteed.

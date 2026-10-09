@@ -46,7 +46,7 @@ Behind a reverse proxy, start uvicorn with `--proxy-headers --forwarded-allow-ip
 
 ## Detection rules
 
-Every recorded security event goes through the detection rules in `app/services/detection_service.py`. They raise alerts, security events from the `detection` source, and never block anything; each names its MITRE ATT&CK technique in `mitre_technique`:
+Every recorded security event goes through the detection rules in `app/services/detection_service.py`. They raise alerts, security events from the `detection` source, and never block anything; each names its MITRE ATT&CK technique in `mitre_technique`, and keeps in `occurred_at` the time of the event that raised it (`created_at` is when it was raised; the two differ for events reported late):
 
 | Alert | Technique | When |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ What it does:
 
 Time to detect is given in attack time (from the first step to the one after which the alert appeared, and in steps) and as the latency of the request that raised the alert. What is an attack stays with the simulator; the server only sees sign-ins. The seed fixes the people and their behaviour, and passwords are random and never written anywhere.
 
-Run it on a fresh database: password spray and brute force count from their latest alert, so a second run on the same data detects less. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
+Run it on a fresh database. A second run reuses the same attacker addresses at the same times of day, so its sprays overlap the first run's and are caught sooner; its brute force attempts, all from `127.0.0.1`, add up with the first run's into a spray from that address. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
 
 ## Observability
 

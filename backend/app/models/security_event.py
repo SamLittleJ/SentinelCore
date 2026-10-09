@@ -137,6 +137,13 @@ class SecurityEvent(Base):
         nullable=False,
     )
 
+    # For alerts, the time of the event that raised them, while created_at is
+    # when they were raised: the two differ for events reported late through
+    # ingestion. Empty for other events, whose created_at is their own time.
+    occurred_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     @property
     def mitre_technique(self) -> str | None:
         """The ATT&CK technique this event detects, if it is a detection."""

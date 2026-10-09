@@ -24,6 +24,8 @@ class SecurityEventRead(BaseModel):
     source: str
     message: str
     created_at: datetime
+    # For alerts, when the event that raised them happened; null otherwise.
+    occurred_at: datetime | None
     # The MITRE ATT&CK technique a detection stands for, e.g. "T1110.003".
     mitre_technique: str | None
 
