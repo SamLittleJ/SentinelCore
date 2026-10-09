@@ -474,3 +474,10 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - An evasion counts as caught by any alert that names it, not only by the rule it targets.
 - The tests require every variant to pass: the limits are recorded, and a rule change that closes one shows up as a test to update.
 - The limits are documented, not fixed in this stage; each fix trades for false positives or needs a new signal.
+
+## API keys and MITRE ATT&CK in the interface
+
+- API keys have their own organization page, `/org/api-keys`, listed for every operator and changed only by the owner.
+- A new key is shown once in a panel in the page, not in a dialog, like the other confirmations. It is kept only in the page's state, never in the address, browser storage or the query cache.
+- Detections show their MITRE ATT&CK technique as a badge in every event table; the details panel adds its name and a link to attack.mitre.org in a new tab without a referrer, and, for a late alert, when its event happened.
+- No filter by technique yet: it would need a new API parameter, and the type filter already selects the detections.

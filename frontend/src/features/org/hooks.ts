@@ -6,6 +6,8 @@ import type { User } from '@/features/auth/api'
 import {
   type AuditEventType,
   type AuditLog,
+  createApiKey,
+  fetchApiKeys,
   fetchAuditLogs,
   fetchSecurityEvents,
   fetchSecuritySummary,
@@ -13,6 +15,7 @@ import {
   fetchUserActivity,
   fetchUsers,
   type LogQuery,
+  revokeApiKey,
   revokeUserSessions,
   type SecurityEvent,
 } from './api'
@@ -28,6 +31,7 @@ export const userListKey = [...usersKey, 'list'] as const
 const userKey = (userId: number) => [...usersKey, 'detail', userId] as const
 const userActivityKey = (userId: number) => [...usersKey, 'activity', userId] as const
 export const securitySummaryKey = [...orgKey, 'security-summary'] as const
+export const apiKeysKey = [...orgKey, 'api-keys'] as const
 // Under the events key, so whatever refreshes the event log refreshes it too.
 export const recentIncidentsKey = [...securityEventsKey, 'recent-incidents'] as const
 
@@ -188,4 +192,36 @@ export function useRevokeUserSessions(userId: number) {
     mutationFn: (reason: string) => revokeUserSessions(userId, reason),
     onSettled: (_result, error) => afterAction(error !== null),
   })
+}
+
+/** Every API key. Listing them is audited, so they reload only on request. */
+export function useApiKeys() {
+  return useQuery({
+    queryKey: apiKeysKey,
+    queryFn: ({ signal }) => fetchApiKeys(signal),
+    refetchOnWindowFocus: false,
+  })
+}
+
+/** Issuing or revoking a key changes the list and adds to both logs. */
+function useAfterKeyChange() {
+  const queryClient = useQueryClient()
+  return () => {
+    for (const queryKey of [apiKeysKey, securityEventsKey, auditLogsKey]) {
+      void queryClient.invalidateQueries({ queryKey })
+    }
+  }
+}
+
+/** Issues a key. The answer holds the full key, which must not outlive the
+ * moment it is shown: the page keeps it in its own state and resets this
+ * mutation, and `gcTime: 0` then drops it from the mutation cache at once. */
+export function useCreateApiKey() {
+  const afterChange = useAfterKeyChange()
+  return useMutation({ mutationFn: createApiKey, gcTime: 0, onSettled: afterChange })
+}
+
+export function useRevokeApiKey() {
+  const afterChange = useAfterKeyChange()
+  return useMutation({ mutationFn: revokeApiKey, onSettled: afterChange })
 }

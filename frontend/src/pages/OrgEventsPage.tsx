@@ -19,11 +19,14 @@ import { securityEventsKey, useSecurityEvents } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
 import { LogFilterBar } from '@/features/org/LogFilterBar'
 import { LogTable } from '@/features/org/LogTable'
-import { accountLabel, accountLinks, narrowingActions, recordFields } from '@/features/org/records'
+import { accountLabel, accountLinks, narrowingActions } from '@/features/org/records'
+import { securityEventFields, techniqueBadge } from '@/features/org/security-event-fields'
 import { ApiError } from '@/lib/api'
+import { useFormatters } from '@/lib/format'
 
 export function OrgEventsPage() {
   const { t } = useTranslation()
+  const format = useFormatters()
   const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const filters = useMemo(() => readLogFilters(params, SECURITY_EVENT_TYPES), [params])
@@ -73,6 +76,7 @@ export function OrgEventsPage() {
             label={t('orgEvents.tableLabel')}
             items={items}
             describe={(event) => describe(event.event_type)}
+            annotate={techniqueBadge}
             onSelect={setSelected}
             columns={[
               {
@@ -99,15 +103,7 @@ export function OrgEventsPage() {
         onClose={() => setSelected(null)}
         title={selected ? describe(selected.event_type) : ''}
         badge={selected && <SeverityBadge severity={selected.severity} />}
-        fields={
-          selected
-            ? [
-                ...recordFields(selected, t),
-                { label: t('orgLog.source'), value: selected.source, mono: true },
-                { label: t('orgLog.message'), value: selected.message, mono: true },
-              ]
-            : []
-        }
+        fields={selected ? securityEventFields(selected, t, format) : []}
         actions={
           selected
             ? [...narrowingActions(selected, filters, applyFilters, t), ...accountLinks(selected, t)]

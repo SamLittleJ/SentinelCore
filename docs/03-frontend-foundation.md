@@ -430,3 +430,50 @@ The backend's new detection rule raises `unfamiliar_sign_in` on the account that
 | `unfamiliar_sign_in` | Sign-in from an unfamiliar network and device | Sign-in from a new network on a new device |
 
 The event log text is neutral, as for every organization view; the account's own activity speaks to it. The My activity test now includes the new alert. eslint and tsc report no problems, vitest 153 passed, the build succeeds and `npm audit` finds 0 vulnerabilities.
+
+## Stage 7: API keys and MITRE ATT&CK
+
+### 45. The API keys page
+
+`/org/api-keys` (`OrgApiKeysPage`, loaded on demand like the other organization pages), linked from the organization menu as "API keys":
+
+- Every operator sees the keys: name, prefix (`sck_<prefix>_…`), source, state, expiry and last use. The state is a word with a color, never color alone: active, expired (past `expires_at`) or revoked, computed as the API decides it (`keyState` in `features/org/api-keys.ts`). On phones, source and state move under the name; expiry and last use appear from medium widths.
+- Only the owner sees "New key" and the revoke buttons (`canManageApiKeys` in `permissions.ts`); the others read "Only the organization owner creates and revokes keys." The API still decides.
+- Listing keys is audited (`API_KEYS_VIEWED`), so the list does not reload on window focus; the page has a refresh button.
+
+### 46. Issuing a key and showing it once
+
+"New key" opens a form in the page, like the account actions: a name (3-100 characters), a source and a lifetime (30 days, 90 days or 1 year, 90 by default). The source is checked as the API checks it, after trimming and lowercasing: 2-50 letters, digits and `_ . -`, starting with a letter or digit, and not `backend` or `detection`, with the reason shown under the field. The API still decides; a refused key (422) is explained and the form stays.
+
+The answer holds the full key. It is shown once, in a panel in the page: the key, a copy button (the Clipboard API, with a fallback message to copy it by hand), how a system sends it (`Authorization: Bearer sck_…`), and the warning that it will not be shown again because only a hash is kept. "I have saved the key" closes the panel.
+
+The key lives only in the page's state. It is never in the address, in browser storage or in the query cache: the creating mutation is reset as soon as it succeeds, with `gcTime: 0`, so TanStack Query drops its answer at once instead of keeping it for five minutes. A test checks all four places.
+
+Revoking asks for confirmation in the page ("Systems that use it will no longer be able to send events. Revoking cannot be undone.") and is offered only on active keys. Creating or revoking refreshes the key list and both logs.
+
+The confirmation form of the account actions moved to `features/org/ActionForm.tsx` (`ActionForm`, `ConfirmForm`, `ActionNotice`), shared by both pages, and the overview's load-failure block to `components/LoadFailed.tsx`.
+
+### 47. MITRE ATT&CK techniques
+
+Security events now carry `mitre_technique` and `occurred_at` from the API.
+
+- In every table of security events (the event log, an account's history, the overview's latest incidents), a detection shows a small badge with its technique id beside its description (`LogTable` gained an `annotate` column slot). The technique's name is in the tooltip, and screen readers hear "MITRE ATT&CK technique T1110.003".
+- The details panel shows the technique id and name, and a link to its page on attack.mitre.org, opened in a new tab with `rel="noopener noreferrer"`: the new page cannot reach back to SentinelCore, and MITRE is not told which address it came from. The link is built only from a valid technique id (`T1234` or `T1234.567`, `features/org/mitre.ts`); anything else gives no link.
+- For an alert about an event reported late, the panel also shows when the event happened ("Happened at"), beside the time the alert was raised.
+- Technique names stay in English in both languages: they are MITRE's proper names.
+
+The fields shared by the three pages' details panels are now built in one place (`securityEventFields` in `features/org/security-event-fields.tsx`).
+
+### 48. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 171 passed
+- build -> successful; the API keys page is its own chunk (about 9.5 KB)
+- npm audit -> 0 vulnerabilities
+
+The new tests cover: the list for an admin and an analyst (states, last use, no actions); creating a key as the owner, with the request body (trimmed name, lowercased source, lifetime), the key shown once, copied to the clipboard, absent from the address, browser storage, query and mutation caches, and gone once saved; the name and source checks; a refused key; revoking only active keys, after confirmation, with cancel; an empty list; the technique badge in the event log, an account's history and the overview; the details link and its `rel`; the time of a late alert's event; the link built only from valid ids; the menu link.
+
+Reverse check: each of the following changes makes at least one test fail: admins allowed to manage keys, the creating mutation not reset, the mutation kept in the cache, a revoked key counted as active, reserved sources allowed, any value turned into a link, the link sending a referrer, the event time always shown, the badge not rendered, revoke offered on every key, the page letting every operator manage keys, and the source sent as typed (12 of 12).
+
+End-to-end check, with the real backend on a temporary database and Vite running: an owner and an analyst; three keys (one used through ingestion, one revoked, one expired); a password spray and a sign-in from an unfamiliar network and device reported through ingestion, the latter three hours late, and a brute-force attack through the real sign-in. Headless Firefox took eleven screenshots: the keys page as the owner (light, dark, phone width), as the analyst (phone width, dark), a key created through the page's own form and shown once (light; dark at phone width), the event log with its badges (light, dark), an alert's details (light; dark at phone width), and the overview. On each, a check run in the page confirmed the theme, the expected texts, no horizontal scrolling at phone width, the badges `T1110.001`, `T1110.003` and `T1078`, the details' "Happened at", link and `rel`, and a key of the right shape in the creation panel. The audit log recorded both keys created through the page and one `API_KEYS_VIEWED` per load of the list.

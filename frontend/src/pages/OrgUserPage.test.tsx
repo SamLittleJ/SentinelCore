@@ -120,13 +120,27 @@ function actionButtons() {
 
 describe('organization account page', () => {
   it("shows the account's profile and its history, described neutrally", async () => {
-    const { served } = await openAccount(ACTORS.security_analyst, mihai, [roleChanged, signedIn])
+    const unfamiliar = makeSecurityEvent({
+      id: 602,
+      event_type: 'unfamiliar_sign_in',
+      severity: 'warn',
+      user_id: 12,
+      source: 'detection',
+      mitre_technique: 'T1078',
+    })
+    const { served } = await openAccount(ACTORS.security_analyst, mihai, [
+      unfamiliar,
+      roleChanged,
+      signedIn,
+    ])
 
     const title = screen.getByRole('heading', { name: 'mihai.pop', level: 1 }).parentElement
     expect(title).toHaveTextContent('mihai.pop@example.com')
     expect(title).toHaveTextContent('Activ')
     const table = await screen.findByRole('table', { name: 'Istoricul contului' })
-    const [first, second] = within(table).getAllByRole('row').slice(1)
+    const [alert, first, second] = within(table).getAllByRole('row').slice(1)
+    expect(alert).toHaveTextContent('Tehnica MITRE ATT&CK T1078')
+    expect(first).not.toHaveTextContent('MITRE')
     expect(first).toHaveTextContent('Rol schimbat')
     expect(first).toHaveTextContent('owner@example.com')
     expect(second).toHaveTextContent('Autentificare reușită')

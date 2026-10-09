@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 
 import type { SecurityEvent } from '@/features/org/api'
+import { formatDateTime } from '@/lib/format'
 import { renderApp } from '@/test/render'
 import { makeSecurityEvent, makeUser, page, server, signedInAs } from '@/test/server'
 
@@ -179,6 +180,66 @@ describe('organization security events page', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(router.state.location.search).toBe('?target=4')
     expect(requests.at(-1)?.get('target_user_id')).toBe('4')
+  })
+
+  it('marks detections with their MITRE ATT&CK technique and links it from the details', async () => {
+    const user = userEvent.setup()
+    const spray = makeSecurityEvent({
+      id: 504,
+      event_type: 'password_spray_detected',
+      severity: 'incident',
+      email: null,
+      source: 'detection',
+      message: 'Password spray from 203.0.113.9',
+      mitre_technique: 'T1110.003',
+      created_at: '2026-10-06T08:15:00Z',
+      occurred_at: '2026-10-06T08:15:00Z',
+    })
+    serveEvents(() => [spray, failed])
+    const { table } = await openEvents()
+
+    const [first, second] = rows(table)
+    expect(first).toHaveTextContent('Tehnica MITRE ATT&CK T1110.003')
+    expect(within(first).getByTitle('Brute Force: Password Spraying')).toBeInTheDocument()
+    expect(second).not.toHaveTextContent('MITRE')
+
+    await user.click(within(first).getByRole('button', { name: 'Password spray detectat' }))
+    const panel = await screen.findByRole('dialog', { name: 'Password spray detectat' })
+    expect(panel).toHaveTextContent('T1110.003 · Brute Force: Password Spraying')
+    const link = within(panel).getByRole('link', { name: /Deschide pe attack\.mitre\.org/ })
+    expect(link).toHaveAttribute('href', 'https://attack.mitre.org/techniques/T1110/003/')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    // Raised as it happened: no separate time.
+    expect(panel).not.toHaveTextContent('A avut loc')
+  })
+
+  it('shows when the event behind a late alert happened', async () => {
+    const user = userEvent.setup()
+    const late = makeSecurityEvent({
+      id: 505,
+      event_type: 'unfamiliar_sign_in',
+      severity: 'warn',
+      user_id: 4,
+      source: 'detection',
+      mitre_technique: 'T1078',
+      created_at: '2026-10-06T09:00:00Z',
+      occurred_at: '2026-10-06T06:30:00Z',
+    })
+    serveEvents(() => [late])
+    const { table } = await openEvents()
+
+    await user.click(
+      within(rows(table)[0]).getByRole('button', { name: 'Autentificare din rețea și de pe dispozitiv nefamiliare' }),
+    )
+
+    const panel = await screen.findByRole('dialog')
+    // The panel's heading time is when the alert was raised; this is the event's.
+    const happened = within(panel).getByText('A avut loc').nextElementSibling
+    expect(happened).toHaveTextContent(formatDateTime('2026-10-06T06:30:00Z', 'ro'))
+    expect(happened).not.toHaveTextContent(formatDateTime('2026-10-06T09:00:00Z', 'ro'))
+    expect(panel).toHaveTextContent(formatDateTime('2026-10-06T09:00:00Z', 'ro'))
+    expect(panel).toHaveTextContent('T1078 · Valid Accounts')
   })
 
   it('opens the accounts an event names', async () => {

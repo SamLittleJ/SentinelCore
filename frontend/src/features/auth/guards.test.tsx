@@ -78,6 +78,7 @@ describe('route guards and navigation', () => {
       )
       const nav = screen.getByRole('navigation', { name: 'Navigare principală' })
       expect(within(nav).getByRole('link', { name: 'Evenimente de securitate' })).toBeInTheDocument()
+      expect(within(nav).getByRole('link', { name: 'Chei API' })).toBeInTheDocument()
     },
   )
 
@@ -89,6 +90,7 @@ describe('route guards and navigation', () => {
     expect(within(nav).getByRole('link', { name: 'Prezentare' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('link', { name: 'Sesiunile mele' })).toBeInTheDocument()
     expect(within(nav).queryByRole('link', { name: 'Utilizatori' })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: 'Chei API' })).not.toBeInTheDocument()
   })
 
   it('shows a not found page for unknown addresses', async () => {

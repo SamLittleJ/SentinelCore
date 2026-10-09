@@ -41,6 +41,11 @@ export interface SecurityEvent {
   // Written by the backend for operators, in English.
   message: string
   created_at: string
+  // For alerts, when the event that raised them happened; created_at is when
+  // they were raised. Null for other events.
+  occurred_at: string | null
+  // The MITRE ATT&CK technique a detection stands for, e.g. "T1110.003".
+  mitre_technique: string | null
 }
 
 export interface AuditLog {
@@ -225,4 +230,50 @@ export function lockUser(userId: number, durationHours: LockDuration, reason: st
 
 export function unlockUser(userId: number): Promise<User> {
   return apiRequest<User>(`/admin/users/${userId}/unlock`, { method: 'POST' })
+}
+
+/** A key another system sends events with. Only its prefix is ever shown
+ * again; the full key exists once, in the answer that created it. */
+export interface ApiKey {
+  id: number
+  prefix: string
+  name: string
+  // Stamped on every event the key sends, e.g. "vpn".
+  source: string
+  created_by_id: number
+  created_at: string
+  expires_at: string
+  revoked_at: string | null
+  last_used_at: string | null
+}
+
+export interface CreatedApiKey {
+  api_key: ApiKey
+  key: string
+}
+
+// Every key expires; these are the lifetimes the API accepts, in days.
+export const KEY_LIFETIMES = [30, 90, 365] as const
+export type KeyLifetime = (typeof KEY_LIFETIMES)[number]
+
+export interface NewApiKey {
+  name: string
+  source: string
+  expiresInDays: KeyLifetime
+}
+
+/** Every key, newest first. Listing them is audited. */
+export function fetchApiKeys(signal?: AbortSignal): Promise<ApiKey[]> {
+  return apiRequest<ApiKey[]>('/admin/api-keys', { signal })
+}
+
+export function createApiKey(input: NewApiKey): Promise<CreatedApiKey> {
+  return apiRequest<CreatedApiKey>('/admin/api-keys', {
+    method: 'POST',
+    body: { name: input.name, source: input.source, expires_in_days: input.expiresInDays },
+  })
+}
+
+export function revokeApiKey(keyId: number): Promise<ApiKey> {
+  return apiRequest<ApiKey>(`/admin/api-keys/${keyId}/revoke`, { method: 'POST' })
 }
