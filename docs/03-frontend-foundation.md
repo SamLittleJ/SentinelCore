@@ -420,3 +420,13 @@ The backend's detection rules raise three new security event types, which the fr
 
 The backend's ingestion stage adds security events for creating and revoking an API key, and audit entries for those and for listing the keys. The frontend names them in both languages ("API key created", "API key revoked", "API keys viewed"), and the owner reads "You created an API key" in My activity. The page for managing keys comes in a later stage. vitest -> 153 passed.
 
+
+### 44. Unfamiliar sign-in alert
+
+The backend's new detection rule raises `unfamiliar_sign_in` on the account that signed in. The frontend names it in both languages and offers it in the event log's type filter:
+
+| Type | Event log | My activity |
+| --- | --- | --- |
+| `unfamiliar_sign_in` | Sign-in from an unfamiliar network and device | Sign-in from a new network on a new device |
+
+The event log text is neutral, as for every organization view; the account's own activity speaks to it. The My activity test now includes the new alert. eslint and tsc report no problems, vitest 153 passed, the build succeeds and `npm audit` finds 0 vulnerabilities.

@@ -14,7 +14,9 @@ Windows are measured back from the triggering event's own time, so an event
 that arrives late is judged against the events around it.
 """
 
+import ipaddress
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
@@ -43,6 +45,7 @@ class Alert:
     target_user_id: int | None = None
     email: str | None = None
     ip_address: str | None = None
+    user_agent: str | None = None
 
 
 @dataclass(frozen=True)
@@ -129,6 +132,85 @@ def detect_dormant_account_login(db: Session, event: SecurityEvent) -> Alert | N
     )
 
 
+# Addresses in the same /24 (IPv4) or /64 (IPv6) count as one network: a home
+# or office router hands out addresses from one such block.
+NETWORK_PREFIXES = {4: 24, 6: 64}
+# Version numbers, such as "143.0" or "10_15_7", change with every update.
+VERSION_NUMBER = re.compile(r"\d+(?:[._]\d+)*")
+
+
+def network_of(ip_address: str) -> str | None:
+    try:
+        address = ipaddress.ip_address(ip_address)
+    except ValueError:
+        return None
+    prefix = NETWORK_PREFIXES[address.version]
+    return str(ipaddress.ip_network(f"{address}/{prefix}", strict=False))
+
+
+def device_of(user_agent: str) -> str:
+    """The browser and system a user agent names, without their versions, so
+    an update does not make a known device look new."""
+    return VERSION_NUMBER.sub("", user_agent)
+
+
+def detect_unfamiliar_sign_in(db: Session, event: SecurityEvent) -> Alert | None:
+    """T1078: a sign-in from a network and a device the account has not used.
+
+    Each alone is common (a trip, a new laptop), so only both together alert.
+    The account's habits are its sign-ins of the lookback period that recorded
+    both an address and a user agent; with fewer than the minimum, it is still
+    learning and is not judged. A sign-in that is flagged becomes a habit, so
+    repeated sign-ins from the same place alert once.
+    """
+    if event.user_id is None or event.ip_address is None or not event.user_agent:
+        return None
+    network = network_of(event.ip_address)
+    if network is None:
+        return None
+
+    since = event.created_at - timedelta(
+        days=settings.detection_unfamiliar_lookback_days
+    )
+    habits = db.execute(
+        select(
+            SecurityEvent.ip_address,
+            SecurityEvent.user_agent,
+            func.count(),
+        )
+        .where(
+            SecurityEvent.user_id == event.user_id,
+            SecurityEvent.event_type == SecurityEventType.LOGIN_SUCCESS,
+            SecurityEvent.created_at >= since,
+            SecurityEvent.created_at < event.created_at,
+            SecurityEvent.ip_address.is_not(None),
+            SecurityEvent.user_agent.is_not(None),
+        )
+        .group_by(SecurityEvent.ip_address, SecurityEvent.user_agent)
+    ).all()
+    if sum(count for _, _, count in habits) < (
+        settings.detection_unfamiliar_min_sign_ins
+    ):
+        return None
+
+    networks = {network_of(ip) for ip, _, _ in habits}
+    devices = {device_of(user_agent) for _, user_agent, _ in habits}
+    if network in networks or device_of(event.user_agent) in devices:
+        return None
+
+    return Alert(
+        severity=SecuritySeverity.WARN,
+        user_id=event.user_id,
+        email=event.email,
+        ip_address=event.ip_address,
+        user_agent=event.user_agent,
+        message=(
+            f"Sign-in to user_id={event.user_id} from an unfamiliar network "
+            f"({network}) and device"
+        ),
+    )
+
+
 # Roles that see or change every account in the organization.
 PRIVILEGED_ROLES = frozenset({UserRole.ADMIN, UserRole.SECURITY_ANALYST})
 
@@ -166,6 +248,11 @@ RULES: tuple[Rule, ...] = (
         evaluate=detect_dormant_account_login,
     ),
     Rule(
+        alert_type=SecurityEventType.UNFAMILIAR_SIGN_IN,
+        triggers=frozenset({SecurityEventType.LOGIN_SUCCESS}),
+        evaluate=detect_unfamiliar_sign_in,
+    ),
+    Rule(
         alert_type=SecurityEventType.PRIVILEGED_ROLE_GRANTED,
         triggers=frozenset({SecurityEventType.USER_ROLE_CHANGED}),
         evaluate=detect_privileged_role_granted,
@@ -197,6 +284,7 @@ def run_detection(db: Session, event: SecurityEvent) -> list[SecurityEvent]:
                         target_user_id=alert.target_user_id,
                         email=alert.email,
                         ip_address=alert.ip_address,
+                        user_agent=alert.user_agent,
                         source=DETECTION_SOURCE,
                         message=alert.message,
                     )

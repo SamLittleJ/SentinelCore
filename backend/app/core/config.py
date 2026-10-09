@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     detection_spray_window_minutes: int = Field(default=15, ge=1)
     # A sign-in after this many days without one is flagged.
     detection_dormant_days: int = Field(default=90, ge=1)
+    # A sign-in from a network and a device not seen in the account's sign-ins
+    # of this many days is flagged, once it has this many to compare with.
+    detection_unfamiliar_lookback_days: int = Field(default=90, ge=1)
+    detection_unfamiliar_min_sign_ins: int = Field(default=3, ge=1)
     # Expired or revoked sessions are kept this long for investigations.
     session_retention_days: int = Field(default=30, ge=1)
     # How often the API deletes old sessions; 0 disables the periodic task.

@@ -51,6 +51,7 @@ Every recorded security event goes through the detection rules in `app/services/
 | --- | --- | --- |
 | `password_spray_detected` (incident) | T1110.003 | failed sign-ins for many different emails from one address |
 | `dormant_account_login` (warn) | T1078 | a sign-in after a long time without one |
+| `unfamiliar_sign_in` (warn) | T1078 | a sign-in from a network (/24, /64) and a device the account has not used in its recent sign-ins |
 | `privileged_role_granted` (warn) | T1098 | an account given the `admin` or `security_analyst` role |
 
 The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds are configurable in `.env`:
@@ -59,6 +60,8 @@ The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds a
 DETECTION_SPRAY_MIN_ACCOUNTS=10
 DETECTION_SPRAY_WINDOW_MINUTES=15
 DETECTION_DORMANT_DAYS=90
+DETECTION_UNFAMILIAR_LOOKBACK_DAYS=90
+DETECTION_UNFAMILIAR_MIN_SIGN_INS=3
 ```
 
 
