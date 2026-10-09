@@ -92,11 +92,12 @@ python -m simulator --owner-email owner@example.com [--seed 42] [--base-url http
 
 What it does:
 
-1. Creates an API key with the `simulator` source, and registers 26 synthetic people.
+1. Creates an API key with the `simulator` source, and registers 36 synthetic people.
 2. Reports 30 days of their routine through ingestion, oldest first: office sign-ins behind one address on workdays, with an occasional typo, evenings and weekends from home, a browser update, and benign cases that a rule could take for an attack (a trip with a known laptop, a new phone, a new laptop on a trip, a return from a long leave, a password change day at the office).
-3. Plays five attacks per rule, one step at a time: password sprays (T1110.003), sign-ins to dormant accounts and from an attacker's network and computer (T1078) through ingestion; brute force (T1110.001) through the real sign-in, since the lockout counts only this application's own sign-ins; admin roles granted by the owner (T1098) through the real API.
-4. After each step, reads the new alerts. An attack is detected when an alert it would raise appears; every other alert is a false positive, put down to the benign case it names.
-5. Revokes its key.
+3. Plays five of each evasive variant, built to pass under one rule: a spray slower than its window, a spray spread over many addresses, a stolen password used with the victim's own user agent, and an account left unused for 85 days, under the 90-day threshold. Any alert that names them counts as catching them; they are reported apart, with the reason each one passes.
+4. Plays five attacks per rule, one step at a time: password sprays (T1110.003), sign-ins to dormant accounts and from an attacker's network and computer (T1078) through ingestion; brute force (T1110.001) through the real sign-in, since the lockout counts only this application's own sign-ins; admin roles granted by the owner (T1098) through the real API.
+5. After each step, reads the new alerts. An attack is detected when an alert it would raise appears; every other alert is a false positive, put down to the benign case it names.
+6. Revokes its key.
 
 Time to detect is given in attack time (from the first step to the one after which the alert appeared, and in steps) and as the latency of the request that raised the alert. What is an attack stays with the simulator; the server only sees sign-ins. The seed fixes the people and their behaviour, and passwords are random and never written anywhere.
 

@@ -59,6 +59,8 @@ def to_markdown(evaluation: Evaluation) -> str:
         ),
         f"- **Attacks detected:** {e.detected} of {e.attacks} "
         f"({percent(e.detection_rate)})",
+        f"- **Evasive variants detected:** {e.evasive_detected} of "
+        f"{e.evasive_attacks} (see Evasion)",
         f"- **False positives:** {len(e.false_positives)} over {attempts} "
         f"routine sign-in attempts by {e.people} people "
         f"({e.false_positives_per_1000_sign_ins:.1f} per 1,000)",
@@ -86,6 +88,25 @@ def to_markdown(evaluation: Evaluation) -> str:
             f"| {rule.false_positives} |"
         )
 
+    lines += [
+        "",
+        "## Evasion",
+        "",
+        "Variants built to pass under one rule, the way a careful attacker "
+        "would. Any alert that names them counts as catching them, whichever "
+        "rule raised it. A variant that passes marks a limit of the rules, "
+        "not a failure of the run.",
+        "",
+        "| Variant | Technique | Passes under | Why | Detected | Caught by |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for evasion in e.evasions:
+        caught_by = ", ".join(f"`{alert}`" for alert in evasion.caught_by) or "—"
+        lines.append(
+            f"| `{evasion.variant}` | {evasion.technique} "
+            f"| {RULE_NAMES[evasion.evades]} | {evasion.evasion} "
+            f"| {evasion.detected}/{evasion.attacks} | {caught_by} |"
+        )
     lines += [
         "",
         "## Benign behaviour",
@@ -122,14 +143,17 @@ def to_markdown(evaluation: Evaluation) -> str:
         "",
         "## Attacks",
         "",
+        "Evasive variants are marked *(evasive)*.",
+        "",
         "| Attack | Technique | What it does | Detected | Steps to detect "
         "| Attack time to detect | Pipeline latency |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for d in e.detections:
         steps = f"{d.steps_to_detect} of {d.steps}" if d.detected else f"— of {d.steps}"
+        name = f"{d.attack} *(evasive)*" if d.evasion else d.attack
         lines.append(
-            f"| {d.attack} | {d.technique} | {d.description} "
+            f"| {name} | {d.technique} | {d.description} "
             f"| {'yes' if d.detected else '**no**'} | {steps} "
             f"| {seconds(d.seconds_to_detect)} | {milliseconds(d.latency_ms)} |"
         )
@@ -137,9 +161,12 @@ def to_markdown(evaluation: Evaluation) -> str:
         "",
         "## Scope",
         "",
-        "- Attacks are played the way the rules expect them. Evasive variants, "
-        "such as a slower spray or a copied user agent, are not part of this run.",
-        "- Five attacks per rule against one synthetic organization: the rates "
+        "- The evasive variants are the ones this project chose; a real attacker "
+        "has more. Slow brute force is not among them: its lockout counts only "
+        "this application's own sign-ins, in real time, so it cannot be "
+        "replayed in seconds.",
+        "- Five attacks per rule and per variant against one synthetic "
+        "organization: the rates "
         "describe this scenario, not real attacks in general.",
         "- The seed fixes the people, devices and behaviour; the calendar follows "
         "the day of the run, so counts can differ slightly from one day to the next.",

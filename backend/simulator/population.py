@@ -91,8 +91,11 @@ LAST_NAMES = (
     "pop", "ionescu", "marin", "stan", "dumitru", "georgescu", "toma",
     "munteanu", "rusu", "lazar", "matei", "ene", "barbu", "dinu",
 )  # fmt: skip
-ACTIVE_PEOPLE = 20
+ACTIVE_PEOPLE = 25
 DORMANT_PEOPLE = 5
+# Unused for a while, but less than the dormant account rule's 90 days.
+IDLE_PEOPLE = 5
+IDLE_DAYS = 85
 
 
 def user_agent(device: str, day: int) -> str:
@@ -161,19 +164,20 @@ class BenignCase:
 class Organization:
     active: list[Person]
     dormant: list[Person]
+    idle: list[Person]
     returning: Person
     sign_ins: list[SignIn]
     cases: list[BenignCase]
 
     @property
     def people(self) -> list[Person]:
-        return [*self.active, *self.dormant, self.returning]
+        return [*self.active, *self.dormant, *self.idle, self.returning]
 
 
 def make_people(rng: random.Random, tag: str) -> list[Person]:
     """Distinct people; `tag` keeps their emails apart from earlier runs."""
     names = [(first, last) for first in FIRST_NAMES for last in LAST_NAMES]
-    chosen = rng.sample(names, ACTIVE_PEOPLE + DORMANT_PEOPLE + 1)
+    chosen = rng.sample(names, ACTIVE_PEOPLE + DORMANT_PEOPLE + IDLE_PEOPLE + 1)
     people = []
     for home, (first, last) in enumerate(chosen):
         handle = f"{first}.{last}"
@@ -212,6 +216,7 @@ def build_organization(rng: random.Random, now: datetime, tag: str) -> Organizat
     people = make_people(rng, tag)
     active = people[:ACTIVE_PEOPLE]
     dormant = people[ACTIVE_PEOPLE : ACTIVE_PEOPLE + DORMANT_PEOPLE]
+    idle = people[ACTIVE_PEOPLE + DORMANT_PEOPLE : -1]
     returning = people[-1]
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -286,10 +291,12 @@ def build_organization(rng: random.Random, now: datetime, tag: str) -> Organizat
                     SignIn(at(day_start, 10, rng, 10), True, person.email, home, phone)
                 )
 
-    # Accounts that were used long ago and then left alone; attackers wake
-    # them up later. The returning person is back from a long leave, for real.
+    # Accounts that were used long ago, or a while ago, and then left alone;
+    # attackers wake them up later. The returning person is back from a long
+    # leave, for real.
     for person, first_day, last_day in [
         *((person, 200, 100) for person in dormant),
+        *((person, IDLE_DAYS + 7 * 12, IDLE_DAYS) for person in idle),
         (returning, 160, LEAVE_STARTED_DAY),
     ]:
         for day in range(first_day, last_day - 1, -7):
@@ -352,4 +359,4 @@ def build_organization(rng: random.Random, now: datetime, tag: str) -> Organizat
         ),
     ]
     sign_ins.sort(key=lambda sign_in: sign_in.occurred_at)
-    return Organization(active, dormant, returning, sign_ins, cases)
+    return Organization(active, dormant, idle, returning, sign_ins, cases)

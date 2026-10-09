@@ -466,3 +466,11 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - `created_at` stays the time an alert was raised, so new alerts remain at the top of the event log and in the overview's last 24 hours. Stamping alerts with the event's time instead would have hidden a late alert in the past.
 - Existing alerts get their `created_at` as `occurred_at`; the event's time was not kept, and for real-time events it is the same moment.
 - A replayed log raises no second spray alert, which the simpler fix would not have guaranteed.
+
+## Evasive attack variants
+
+- Four variants, five of each: a slow spray, a distributed spray, a copied user agent, and an account idle for just under the dormancy threshold. Slow brute force is left out: its lockout works in real time only, and waiting it out would make runs take hours.
+- Evasions are reported in their own section with their own rate and the reason each passes. The headline detection rate stays that of the attacks the rules are built for.
+- An evasion counts as caught by any alert that names it, not only by the rule it targets.
+- The tests require every variant to pass: the limits are recorded, and a rule change that closes one shows up as a test to update.
+- The limits are documented, not fixed in this stage; each fix trades for false positives or needs a new signal.
