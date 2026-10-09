@@ -36,6 +36,7 @@ class SecurityEventType(StrEnum):
     PASSWORD_SPRAY_DETECTED = "password_spray_detected"  # nosec B105
     DORMANT_ACCOUNT_LOGIN = "dormant_account_login"
     PRIVILEGED_ROLE_GRANTED = "privileged_role_granted"
+    UNFAMILIAR_SIGN_IN = "unfamiliar_sign_in"
 
 
 # The sources this application stamps on its own events. Ingested events
@@ -53,6 +54,7 @@ MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
     SecurityEventType.PASSWORD_SPRAY_DETECTED: "T1110.003",
     # Valid Accounts
     SecurityEventType.DORMANT_ACCOUNT_LOGIN: "T1078",
+    SecurityEventType.UNFAMILIAR_SIGN_IN: "T1078",
     # Account Manipulation
     SecurityEventType.PRIVILEGED_ROLE_GRANTED: "T1098",
 }

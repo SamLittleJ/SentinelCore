@@ -440,3 +440,11 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - Security events record the user agent of sign-ins, for the new device rule.
 - The ingestion stage was split from the new network and device rule, which comes next, to keep each change reviewable.
 
+
+## Unfamiliar network and device
+
+- A sign-in alerts only when both its network and its device are new to the account. Either alone is common and would make the rule noisy; both together is the pattern of stolen credentials used elsewhere.
+- The network is the /24 (IPv4) or /64 (IPv6) block of the address. No GeoIP database: it would add a licensed, regularly updated dependency, and countries say little about a single organization's users.
+- The device is the user agent without its version numbers, with no parsing library: a browser update keeps the device, and the rule stays explainable in one line.
+- The account's habits are its last 90 days of sign-ins with an address and a user agent, and it is judged only after 3 of them, so new accounts and old history without user agents stay quiet.
+- The alert is a `warn`, like the dormant account rule: a signal to investigate, not a confirmed incident.

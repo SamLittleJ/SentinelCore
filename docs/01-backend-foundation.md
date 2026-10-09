@@ -4152,3 +4152,49 @@ Reverse check: each of the following changes makes at least one test fail: accep
 
 End-to-end check, with the real backend on a temporary database and Vite running, through the proxy: the owner created a key (a cookie request without the CSRF header got `403`), an admin's attempt got `403`; twelve failed sign-ins for twelve emails from `203.0.113.77` and a sign-in from `198.51.100.20` were accepted (`202`, `{"accepted": 13}`) and raised one `password_spray_detected` incident; a wrong key got `401`; after the owner revoked the key, it got `401` too. The database held the prefix and a 64-character hash, without the secret. Real Firefox screenshots of the event log in both themes and of the audit log.
 
+
+## Detection Rules - Unfamiliar Network and Device
+
+### 279. Purpose of the stage
+
+Stolen credentials work from anywhere, so a sign-in that is valid but comes from a place and a machine the account has never used is a classic sign of Valid Accounts (T1078). This stage adds that rule, on the `user_agent` column the ingestion stage introduced. It uses no GeoIP database: the network is the address's block, and the device is the browser and system named by the user agent.
+
+### 280. The rule
+
+`detect_unfamiliar_sign_in` in `app/services/detection_service.py` watches `LOGIN_SUCCESS` and raises `UNFAMILIAR_SIGN_IN` (`warn`, T1078) on the account:
+
+- **Network.** Addresses in the same /24 (IPv4) or /64 (IPv6) count as one network, since a home or office router hands out addresses from one such block (`network_of`).
+- **Device.** The user agent without its version numbers (`device_of`), so `Firefox/143.0` and `Firefox/144.0` are the same device and a browser update does not look like a new machine.
+- **Both.** Only a new network *and* a new device alert. Each alone is common (a trip, a café, a new laptop at home), and alerting on either would bury the real cases.
+- **Habits.** The account's sign-ins of the last `DETECTION_UNFAMILIAR_LOOKBACK_DAYS` (90) days that recorded both an address and a user agent. Older sign-ins are forgotten.
+- **Learning.** With fewer than `DETECTION_UNFAMILIAR_MIN_SIGN_INS` (3) such sign-ins the account is not judged, so a new account, or one whose history predates the `user_agent` column, does not alert on its first sign-ins.
+- **Not judged.** A sign-in without an address, a valid address, a user agent or an account (an ingested sign-in for an unknown email).
+- **Once.** A flagged sign-in becomes part of the habits, so repeated sign-ins from the same new place alert once.
+
+The habits are read with one grouped query, `(ip_address, user_agent, count)`, measured back from the sign-in's own time; an ingested sign-in that arrives late is judged against the sign-ins before it. With the default settings, where the lookback and the dormancy period are both 90 days, a dormant account that signs in from a new place has no habits in the lookback, so it raises the dormant alert only.
+
+The alert carries the sign-in's address and user agent: the `Alert` dataclass gained a `user_agent` field, and `run_detection` stores it. The message names the network: `Sign-in to user_id=7 from an unfamiliar network (203.0.113.0/24) and device`.
+
+### 281. Limits
+
+- The rule learns from every successful sign-in, including an attacker's: after the first alert, the same place is familiar. The alert is the signal; it is not repeated.
+- An attacker who copies the victim's user agent and signs in from a new network is not flagged. The user agent is sent by the client, so the device is a hint, not a proof.
+- Addresses behind carrier-grade NAT or a VPN change networks often; the "and device" condition is what keeps those quiet.
+
+### 282. Migrations
+
+`1c12aa5d76da`: `UNFAMILIAR_SIGN_IN` in `security_event_types`. On downgrade the alerts are deleted (each is derived from sign-ins that stay) and the type is recreated without the value.
+
+### 283. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit -> No issues identified
+- pyright -> 0 errors
+- pytest -> 356 passed
+- the migration: upgrade, `alembic check`, an alert row inserted, a downgrade (the alert deleted, the value gone from the type), then an upgrade and `alembic check` again, on a temporary database
+
+The new tests (`tests/test_detection.py`) sign in from any address and user agent through a client of their own, after recording earlier sign-ins for the account. They cover the alert's fields and message; a known device on a new network, a new device on a known network and a browser update, none of which alert; IPv6 grouped by /64; the learning period; the lookback; sign-ins without a user agent, which teach nothing and are not judged; one alert for repeated sign-ins; and an ingested sign-in judged at its own time.
+
+Reverse check: each of the following changes makes at least one test fail: "or" instead of "and", no version stripping, /32 instead of /24, /128 instead of /64, no learning period, no lookback, no upper time bound, counting sign-ins without a user agent, judging a sign-in without one, dropping the alert's user agent, `incident` instead of `warn`, and the rule left out of `RULES` (12 of 12).
+
+End-to-end check, with the real backend on a temporary database and Vite running, through the proxy: the owner created a key and sent seven sign-ins for one account through ingestion (three from a home network with Firefox, then a Firefox update, a known Firefox on a new network, and two Chrome sign-ins from a new network). Exactly one `unfamiliar_sign_in` alert was raised, for the first Chrome sign-in, naming `203.0.113.0/24`; the response said only `accepted: 7`. The account's real sign-in through the browser, from a new network with its known Firefox, raised nothing. Headless Firefox, signed in as the owner and as the account, loaded the organization's event log (light, dark, phone width) and the account's own activity (light, dark at phone width); each page's event request returned `200` and was audited.

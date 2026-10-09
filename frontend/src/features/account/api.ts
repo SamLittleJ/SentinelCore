@@ -29,6 +29,7 @@ export const SECURITY_EVENT_TYPES = [
   'password_spray_detected',
   'dormant_account_login',
   'privileged_role_granted',
+  'unfamiliar_sign_in',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 

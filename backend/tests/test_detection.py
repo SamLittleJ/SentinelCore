@@ -1,6 +1,6 @@
 import logging
-from collections.abc import Generator
-from datetime import timedelta
+from collections.abc import Callable, Generator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -357,6 +357,270 @@ def test_granting_a_role_that_reaches_every_account_is_flagged(
     assert alert.email == "owneruser@example.com"
     assert alert.mitre_technique == "T1098"
     assert alert.message == f"user_id={target.id} was granted the {new_role.value} role"
+
+
+# Unfamiliar network and device (T1078)
+
+HOME_IP = "198.51.100.20"
+FIREFOX = "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0"
+FIREFOX_UPDATED = (
+    "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0"
+)
+SAFARI = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+)
+CHROME = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+)
+
+
+@pytest.fixture()
+def sign_in(db_session: Session) -> Generator[Callable[..., int]]:
+    """Signs in from any address and browser."""
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    def sign_in(email: str, ip: str, user_agent: str | None) -> int:
+        test_client = TestClient(app, client=(ip, 50000))
+        if user_agent is None:
+            del test_client.headers["user-agent"]
+        else:
+            test_client.headers["user-agent"] = user_agent
+        return login(test_client, email)
+
+    yield sign_in
+    app.dependency_overrides.clear()
+
+
+def add_sign_ins(
+    db_session: Session,
+    email: str,
+    ip: str = HOME_IP,
+    user_agent: str = FIREFOX,
+    *,
+    count: int = 3,
+    days_ago: int = 1,
+) -> User:
+    """Records `count` earlier sign-ins to the account from `ip` and
+    `user_agent`, `days_ago` days back."""
+    user = user_by_email(db_session, email)
+    for _ in range(count):
+        db_session.add(
+            SecurityEvent(
+                event_type=SecurityEventType.LOGIN_SUCCESS,
+                severity=SecuritySeverity.INFO,
+                user_id=user.id,
+                email=email,
+                ip_address=ip,
+                user_agent=user_agent,
+                message="Successful login",
+                created_at=func.now() - timedelta(days=days_ago),
+            )
+        )
+    db_session.commit()
+    return user
+
+
+def test_a_sign_in_from_an_unfamiliar_network_and_device_is_flagged(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+) -> None:
+    email = register(client, "traveller")
+    user = add_sign_ins(db_session, email)
+
+    assert sign_in(email, ATTACKER_IP, CHROME) == 200
+
+    [alert] = alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN)
+    assert alert.severity == SecuritySeverity.WARN
+    assert alert.source == "detection"
+    assert alert.user_id == user.id
+    assert alert.email == email
+    assert alert.ip_address == ATTACKER_IP
+    assert alert.user_agent == CHROME
+    assert alert.mitre_technique == "T1078"
+    assert alert.message == (
+        f"Sign-in to user_id={user.id} from an unfamiliar network "
+        "(203.0.113.0/24) and device"
+    )
+
+
+@pytest.mark.parametrize(
+    ("ip", "user_agent"),
+    [
+        # A known device on a new network: a trip, a café, a phone hotspot.
+        (ATTACKER_IP, FIREFOX),
+        # A new device on a known network: another address of the same /24.
+        ("198.51.100.77", CHROME),
+        # A browser update is the same device.
+        (ATTACKER_IP, FIREFOX_UPDATED),
+    ],
+)
+def test_a_sign_in_with_something_familiar_is_not_flagged(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+    ip: str,
+    user_agent: str,
+) -> None:
+    email = register(client, "regular")
+    add_sign_ins(db_session, email)
+
+    assert sign_in(email, ip, user_agent) == 200
+
+    assert alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN) == []
+
+
+@pytest.mark.parametrize(
+    ("ip", "flagged"),
+    [("2001:db8:1:2::ffff", False), ("2001:db8:1:3::1", True)],
+)
+def test_ipv6_addresses_are_grouped_by_their_64_prefix(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+    ip: str,
+    flagged: bool,
+) -> None:
+    email = register(client, "ipv6user")
+    add_sign_ins(db_session, email, ip="2001:db8:1:2::1")
+
+    assert sign_in(email, ip, CHROME) == 200
+
+    found = alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN)
+    assert len(found) == (1 if flagged else 0)
+
+
+def test_an_account_still_learning_its_habits_is_not_flagged(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+) -> None:
+    email = register(client, "newcomer")
+    add_sign_ins(
+        db_session, email, count=settings.detection_unfamiliar_min_sign_ins - 1
+    )
+
+    assert sign_in(email, ATTACKER_IP, CHROME) == 200
+
+    assert alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN) == []
+
+
+def test_sign_ins_older_than_the_lookback_are_forgotten(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+) -> None:
+    email = register(client, "returning")
+    add_sign_ins(db_session, email)
+    days = settings.detection_unfamiliar_lookback_days + 1
+    add_sign_ins(db_session, email, ATTACKER_IP, CHROME, count=1, days_ago=days)
+
+    assert sign_in(email, ATTACKER_IP, CHROME) == 200
+
+    assert len(alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN)) == 1
+
+
+def test_sign_ins_without_a_device_are_not_history(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    email = register(client, "learner")
+    user = add_sign_ins(
+        db_session, email, count=settings.detection_unfamiliar_min_sign_ins - 1
+    )
+    for _ in range(settings.detection_unfamiliar_min_sign_ins):
+        db_session.add(
+            SecurityEvent(
+                event_type=SecurityEventType.LOGIN_SUCCESS,
+                severity=SecuritySeverity.INFO,
+                user_id=user.id,
+                email=email,
+                ip_address=HOME_IP,
+                message="Successful login",
+                created_at=func.now() - timedelta(hours=1),
+            )
+        )
+    db_session.commit()
+
+    # Still learning: only the sign-ins with a device count.
+    assert sign_in(email, ATTACKER_IP, CHROME) == 200
+
+    assert alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN) == []
+    # Judged and let through, not dropped by a failing rule.
+    assert "Detection failed" not in caplog.text
+
+
+def test_a_sign_in_without_a_device_is_not_judged(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    email = register(client, "headless")
+    add_sign_ins(db_session, email)
+
+    assert sign_in(email, ATTACKER_IP, None) == 200
+
+    assert alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN) == []
+    # Judged and let through, not dropped by a failing rule.
+    assert "Detection failed" not in caplog.text
+
+
+def test_only_the_first_sign_in_from_a_new_place_is_flagged(
+    client: TestClient,
+    db_session: Session,
+    sign_in: Callable[..., int],
+) -> None:
+    email = register(client, "traveller")
+    add_sign_ins(db_session, email)
+
+    assert sign_in(email, ATTACKER_IP, CHROME) == 200
+    assert sign_in(email, ATTACKER_IP, CHROME) == 200
+
+    assert len(alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN)) == 1
+
+
+def test_ingested_sign_ins_are_judged_at_their_own_time(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    email = register(client, "remote")
+    add_sign_ins(db_session, email, days_ago=10)
+    key = client.post(
+        "/admin/api-keys",
+        json={"name": "Corporate VPN", "source": "vpn", "expires_in_days": 30},
+        headers={"Authorization": f"Bearer {owner_token(client, db_session)}"},
+    ).json()["key"]
+    now = datetime.now(UTC)
+
+    def ingested_sign_in(ip: str, user_agent: str, days_ago: int) -> dict:
+        return {
+            "event_type": "login_success",
+            "occurred_at": (now - timedelta(days=days_ago)).isoformat(),
+            "email": email,
+            "ip_address": ip,
+            "user_agent": user_agent,
+        }
+
+    response = client.post(
+        "/ingest/events",
+        json={
+            "events": [
+                # Arrives late: when it happened, the account had no history.
+                ingested_sign_in(ATTACKER_IP, CHROME, days_ago=20),
+                ingested_sign_in("192.0.2.40", SAFARI, 0),
+            ]
+        },
+        headers={"Authorization": f"Bearer {key}"},
+    )
+
+    assert response.status_code == 202
+    [alert] = alerts(db_session, SecurityEventType.UNFAMILIAR_SIGN_IN)
+    assert alert.ip_address == "192.0.2.40"
 
 
 # The engine

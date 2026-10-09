@@ -70,6 +70,7 @@ describe('my activity page', () => {
       }),
       makeEvent({ id: 197, event_type: 'privileged_role_granted', severity: 'warn' }),
       makeEvent({ id: 196, event_type: 'dormant_account_login', severity: 'warn' }),
+      makeEvent({ id: 195, event_type: 'unfamiliar_sign_in', severity: 'warn' }),
     ])
     renderApp('/me/activity')
 
@@ -83,6 +84,7 @@ describe('my activity page', () => {
       expect.stringContaining('Ai primit un rol privilegiat'),
       expect.stringContaining('Ai acordat un rol privilegiat'),
       expect.stringContaining('Autentificare după o perioadă lungă de inactivitate'),
+      expect.stringContaining('Autentificare dintr-o rețea nouă, de pe un dispozitiv nou'),
     ])
     expect(rowTexts()[0]).toContain('—')
   })

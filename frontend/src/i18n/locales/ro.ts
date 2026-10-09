@@ -135,6 +135,7 @@ const ro = {
     password_spray_detected: 'Atac de tip password spray detectat',
     dormant_account_login: 'Autentificare după o perioadă lungă de inactivitate',
     privileged_role_granted: 'Ai acordat un rol privilegiat',
+    unfamiliar_sign_in: 'Autentificare dintr-o rețea nouă, de pe un dispozitiv nou',
   },
   eventsAsTarget: {
     user_role_changed: 'Rolul tău a fost schimbat',
@@ -211,6 +212,7 @@ const ro = {
       password_spray_detected: 'Password spray detectat',
       dormant_account_login: 'Autentificare pe un cont inactiv de mult timp',
       privileged_role_granted: 'Rol privilegiat acordat',
+      unfamiliar_sign_in: 'Autentificare din rețea și de pe dispozitiv nefamiliare',
     },
   },
   audit: {
