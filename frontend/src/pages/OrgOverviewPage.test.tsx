@@ -17,6 +17,7 @@ const bruteForce = makeSecurityEvent({
   email: 'mihai.pop@example.com',
   ip_address: '203.0.113.9',
   message: 'Login locked for email: mihai.pop@example.com',
+  mitre_technique: 'T1110.001',
 })
 const lock = makeSecurityEvent({
   id: 502,
@@ -96,6 +97,8 @@ describe('organization overview', () => {
     expect(first).toHaveTextContent('ioana.sec@example.com')
     expect(second).toHaveTextContent('Forță brută detectată, autentificare blocată')
     expect(second).toHaveTextContent('203.0.113.9')
+    expect(second).toHaveTextContent('Tehnica MITRE ATT&CK T1110.001')
+    expect(first).not.toHaveTextContent('MITRE')
 
     const [params] = requests.incidents
     expect(params.getAll('severity')).toEqual(['incident'])

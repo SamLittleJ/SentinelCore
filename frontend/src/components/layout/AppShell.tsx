@@ -16,6 +16,7 @@ type NavKey =
   | 'nav.securityEvents'
   | 'nav.auditLog'
   | 'nav.users'
+  | 'nav.apiKeys'
 
 const PERSONAL_NAV: { to: string; label: NavKey; end?: boolean }[] = [
   { to: '/me', label: 'nav.overview', end: true },
@@ -28,6 +29,7 @@ const ORGANIZATION_NAV: { to: string; label: NavKey; end?: boolean }[] = [
   { to: '/org/events', label: 'nav.securityEvents' },
   { to: '/org/audit', label: 'nav.auditLog' },
   { to: '/org/users', label: 'nav.users' },
+  { to: '/org/api-keys', label: 'nav.apiKeys' },
 ]
 
 function BrandMark() {

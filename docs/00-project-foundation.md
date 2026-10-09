@@ -264,10 +264,10 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - login through an httpOnly cookie and protected routes
 - two scopes:
   - **My account:** Overview (security summary and recent alerts), My sessions, My activity;
-  - **Organization:** an Overview (incidents, warnings and informational events over 24 hours and 7 days, failed sign-ins and the addresses behind them, locked and deactivated accounts, the latest incidents); Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; these pages load on demand
+  - **Organization:** an Overview (incidents, warnings and informational events over 24 hours and 7 days, failed sign-ins and the addresses behind them, locked and deactivated accounts, the latest incidents); Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; API keys, listed for every operator, issued and revoked by the owner, with a new key shown once; detections carry their MITRE ATT&CK technique, linked to its page; these pages load on demand
 
 ### Quality and delivery
-- 344 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 153 frontend tests (Vitest with a mocked API)
+- 373 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 171 frontend tests (Vitest with a mocked API)
 - the schema is managed with Alembic; `alembic check` confirms the models and the database match
 - the backend passes Pyright type checking with no errors
 - backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
@@ -335,4 +335,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. Four evasive variants (a slow spray, a distributed spray, a copied user agent, an account idle for just under the dormancy threshold) all pass, 0 of 20, and the report gives the reason for each: these are the rules' known limits. The next step is the frontend for API keys and MITRE ATT&CK badges.
+The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. Four evasive variants (a slow spray, a distributed spray, a copied user agent, an account idle for just under the dormancy threshold) all pass, 0 of 20, and the report gives the reason for each: these are the rules' known limits. API keys and MITRE ATT&CK techniques are in the interface, which closes phase A. The next step is the STRIDE threat model and a README demo (`make demo`).

@@ -16,6 +16,8 @@ interface LogTableProps<Item extends { id: number; created_at: string }> {
   items: Item[]
   // What the record is, shown as the button that opens its details.
   describe: (item: Item) => string
+  // Shown beside the description, such as a detection's technique.
+  annotate?: (item: Item) => ReactNode
   // Columns after the time and the description.
   columns: LogColumn<Item>[]
   onSelect: (item: Item) => void
@@ -27,6 +29,7 @@ export function LogTable<Item extends { id: number; created_at: string }>({
   label,
   items,
   describe,
+  annotate,
   columns,
   onSelect,
 }: LogTableProps<Item>) {
@@ -64,13 +67,16 @@ export function LogTable<Item extends { id: number; created_at: string }>({
                 </time>
               </td>
               <td className="min-w-56 px-4 py-2.5">
-                {/* Its click, also from Enter or Space, bubbles to the row. */}
-                <button
-                  type="button"
-                  className="rounded-sm text-left hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                >
-                  {describe(item)}
-                </button>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {/* Its click, also from Enter or Space, bubbles to the row. */}
+                  <button
+                    type="button"
+                    className="rounded-sm text-left hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    {describe(item)}
+                  </button>
+                  {annotate?.(item)}
+                </div>
               </td>
               {columns.map((column) => (
                 <td key={column.header} className={cn('px-4 py-2.5', column.className)}>

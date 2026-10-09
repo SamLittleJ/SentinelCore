@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SegmentedControl } from '@/components/SegmentedControl'
@@ -7,8 +7,8 @@ import { Textarea } from '@/components/ui/textarea'
 import type { User } from '@/features/auth/api'
 import { ApiError } from '@/lib/api'
 import { useFormatters } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
+import { ActionForm, ActionNotice, type Notice, ConfirmForm } from './ActionForm'
 import {
   ASSIGNABLE_ROLES,
   type AssignableRole,
@@ -23,8 +23,6 @@ import { useAccountChange, useRevokeUserSessions } from './hooks'
 import { accountActions } from './permissions'
 
 type ActionName = 'revokeSessions' | 'lock' | 'unlock' | 'deactivate' | 'activate' | 'changeRole'
-
-type Notice = { tone: 'ok' | 'error'; text: string }
 
 // The API's bounds for a containment reason, after trimming.
 const REASON_MIN = 3
@@ -206,87 +204,9 @@ export function AccountActions({ actor, account }: { actor: User; account: User 
         forms[open]()
       )}
 
-      {notice && (
-        <p
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-          className={cn(
-            'rounded-lg px-4 py-3',
-            notice.tone === 'error'
-              ? 'bg-sev-incident-bg text-sev-incident'
-              : 'bg-sev-ok-bg text-sev-ok',
-          )}
-        >
-          {notice.text}
-        </p>
-      )}
+      {notice && <ActionNotice notice={notice} />}
     </div>
   )
-}
-
-interface FormFrameProps {
-  title: string
-  help: string
-  children?: ReactNode
-  confirmDisabled?: boolean
-  destructive?: boolean
-  pending: boolean
-  onCancel: () => void
-  onSubmit: () => void
-}
-
-/** A confirmation step in the page, not a dialog, like the other actions
- * that end sessions. */
-function FormFrame({
-  title,
-  help,
-  children,
-  confirmDisabled = false,
-  destructive = false,
-  pending,
-  onCancel,
-  onSubmit,
-}: FormFrameProps) {
-  const { t } = useTranslation()
-  const titleId = useId()
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    onSubmit()
-  }
-
-  return (
-    <form
-      aria-labelledby={titleId}
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-lg border border-sev-warn/40 bg-sev-warn-bg/40 px-4 py-4"
-    >
-      <div className="flex flex-col gap-1">
-        <h3 id={titleId} className="font-medium">
-          {title}
-        </h3>
-        <p className="text-sm text-muted-foreground">{help}</p>
-      </div>
-      {children}
-      <div className="flex gap-2">
-        <Button
-          type="submit"
-          variant={destructive ? 'destructive' : 'default'}
-          disabled={confirmDisabled || pending}
-          // A form without fields starts on its confirmation.
-          autoFocus={children === undefined}
-        >
-          {t('userDetail.confirm')}
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          {t('userDetail.cancel')}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-function ConfirmForm(props: Omit<FormFrameProps, 'onSubmit' | 'children'> & { onConfirm: () => void }) {
-  const { onConfirm, ...frame } = props
-  return <FormFrame {...frame} onSubmit={onConfirm} />
 }
 
 interface ReasonFormProps {
@@ -313,7 +233,7 @@ function ReasonForm({ title, help, withDuration = false, pending, onCancel, onCo
   }))
 
   return (
-    <FormFrame
+    <ActionForm
       title={title}
       help={help}
       destructive
@@ -347,7 +267,7 @@ function ReasonForm({ title, help, withDuration = false, pending, onCancel, onCo
           {t('userDetail.reasonHelp')}
         </p>
       </div>
-    </FormFrame>
+    </ActionForm>
   )
 }
 
@@ -368,7 +288,7 @@ function RoleForm({
   )
 
   return (
-    <FormFrame
+    <ActionForm
       title={t('userDetail.changeRole')}
       help={t('userDetail.changeRoleHelp')}
       confirmDisabled={role === current}
@@ -382,6 +302,6 @@ function RoleForm({
         value={role}
         onChange={setRole}
       />
-    </FormFrame>
+    </ActionForm>
   )
 }

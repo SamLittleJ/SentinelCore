@@ -3,7 +3,7 @@ import { setupServer } from 'msw/node'
 
 import type { ActivityEvent, Page, Session } from '@/features/account/api'
 import type { Role, User } from '@/features/auth/api'
-import type { AuditLog, SecurityEvent, SecuritySummary } from '@/features/org/api'
+import type { ApiKey, AuditLog, SecurityEvent, SecuritySummary } from '@/features/org/api'
 
 export function makeUser(role: Role = 'user', overrides: Partial<User> = {}): User {
   return {
@@ -56,6 +56,8 @@ export function makeSecurityEvent(overrides: Partial<SecurityEvent> = {}): Secur
     source: 'backend',
     message: 'Failed login attempt for email: mihai.pop@example.com',
     created_at: '2026-10-06T08:15:00Z',
+    occurred_at: null,
+    mitre_technique: null,
     ...overrides,
   }
 }
@@ -70,6 +72,21 @@ export function makeAuditLog(overrides: Partial<AuditLog> = {}): AuditLog {
     ip_address: '192.0.2.44',
     message: 'Listed users with no filters',
     created_at: '2026-10-06T09:00:00Z',
+    ...overrides,
+  }
+}
+
+export function makeApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
+  return {
+    id: 3,
+    prefix: 'a1b2c3d4',
+    name: 'Corporate VPN',
+    source: 'vpn',
+    created_by_id: 1,
+    created_at: '2026-09-01T10:00:00Z',
+    expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
+    revoked_at: null,
+    last_used_at: null,
     ...overrides,
   }
 }
@@ -105,6 +122,7 @@ export const server = setupServer(
     HttpResponse.json(makeUser('user', { id: Number(params.userId) })),
   ),
   http.get('/api/admin/users/:userId/activity', () => HttpResponse.json(page([]))),
+  http.get('/api/admin/api-keys', () => HttpResponse.json([])),
 )
 
 /** The API answers as if `user` is signed in (or nobody, for null). */

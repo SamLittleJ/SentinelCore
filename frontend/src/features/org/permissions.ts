@@ -54,3 +54,9 @@ export function accountActions(
     },
   }
 }
+
+/** Only the owner issues and revokes API keys: a key writes into the
+ * detection pipeline. Other operators list them. The API still decides. */
+export function canManageApiKeys(user: User): boolean {
+  return user.role === 'owner'
+}

@@ -16,7 +16,8 @@ import type { SecurityEvent } from '@/features/org/api'
 import { useUser, useUserActivity } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
 import { LogTable } from '@/features/org/LogTable'
-import { accountLabel, accountLinks, recordFields } from '@/features/org/records'
+import { accountLabel, accountLinks } from '@/features/org/records'
+import { securityEventFields, techniqueBadge } from '@/features/org/security-event-fields'
 import type { UserPageState } from '@/features/org/user-filters'
 import { ApiError } from '@/lib/api'
 import { useFormatters } from '@/lib/format'
@@ -138,6 +139,7 @@ function AccountHeader({ account }: { account: User }) {
 
 function AccountHistory({ userId }: { userId: number }) {
   const { t } = useTranslation()
+  const format = useFormatters()
   const activity = useUserActivity(userId)
   const [selected, setSelected] = useState<SecurityEvent | null>(null)
   const describe = (event: SecurityEvent) => t(`orgEvents.types.${event.event_type}`)
@@ -157,6 +159,7 @@ function AccountHistory({ userId }: { userId: number }) {
             label={t('userDetail.activity')}
             items={items}
             describe={describe}
+            annotate={techniqueBadge}
             onSelect={setSelected}
             columns={[
               {
@@ -183,15 +186,7 @@ function AccountHistory({ userId }: { userId: number }) {
         onClose={() => setSelected(null)}
         title={selected ? describe(selected) : ''}
         badge={selected && <SeverityBadge severity={selected.severity} />}
-        fields={
-          selected
-            ? [
-                ...recordFields(selected, t),
-                { label: t('orgLog.source'), value: selected.source, mono: true },
-                { label: t('orgLog.message'), value: selected.message, mono: true },
-              ]
-            : []
-        }
+        fields={selected ? securityEventFields(selected, t, format) : []}
         actions={selected ? accountLinks(selected, t, userId) : []}
       />
     </section>

@@ -4,6 +4,7 @@ import { type ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+import { LoadFailed } from '@/components/LoadFailed'
 import { SeverityBadge } from '@/components/SeverityBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -18,7 +19,8 @@ import {
 } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
 import { LogTable } from '@/features/org/LogTable'
-import { accountLabel, accountLinks, recordFields } from '@/features/org/records'
+import { accountLabel, accountLinks } from '@/features/org/records'
+import { securityEventFields, techniqueBadge } from '@/features/org/security-event-fields'
 import { writeUserFilters } from '@/features/org/user-filters'
 import { useFormatters } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -111,18 +113,6 @@ interface SummaryQuery {
   isPending: boolean
   isError: boolean
   refetch: () => unknown
-}
-
-function LoadFailed({ onRetry }: { onRetry: () => unknown }) {
-  const { t } = useTranslation()
-  return (
-    <div role="alert" className="flex flex-col items-start gap-3 rounded-lg border px-4 py-4">
-      <p className="text-muted-foreground">{t('errors.loadFailedBody')}</p>
-      <Button variant="outline" size="sm" onClick={() => void onRetry()}>
-        {t('errors.retry')}
-      </Button>
-    </div>
-  )
 }
 
 const SEVERITY_TILES: { severity: Severity; icon: LucideIcon; iconClass: string }[] = [
@@ -234,6 +224,7 @@ interface IncidentsQuery {
 
 function RecentIncidents({ query }: { query: IncidentsQuery }) {
   const { t } = useTranslation()
+  const format = useFormatters()
   const [selected, setSelected] = useState<SecurityEvent | null>(null)
   const describe = (event: SecurityEvent) => t(`orgEvents.types.${event.event_type}`)
 
@@ -262,6 +253,7 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
           label={t('orgOverview.incidents')}
           items={items}
           describe={describe}
+          annotate={techniqueBadge}
           onSelect={setSelected}
           columns={[
             {
@@ -286,15 +278,7 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
         onClose={() => setSelected(null)}
         title={selected ? describe(selected) : ''}
         badge={selected && <SeverityBadge severity={selected.severity} />}
-        fields={
-          selected
-            ? [
-                ...recordFields(selected, t),
-                { label: t('orgLog.source'), value: selected.source, mono: true },
-                { label: t('orgLog.message'), value: selected.message, mono: true },
-              ]
-            : []
-        }
+        fields={selected ? securityEventFields(selected, t, format) : []}
         actions={selected ? accountLinks(selected, t) : []}
       />
     </div>
