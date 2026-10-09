@@ -510,3 +510,10 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - Hourly and daily windows are rolling, measured back from now, rather than calendar hours and days: no time zone to choose, and they add up to the 24-hour and 7-day totals shown beside them.
 - Alerts per technique come with their event types from the API, so the interface does not keep its own copy of the mapping.
 - The latest incidents on the overview became a timeline; each opens the same details panel as before.
+
+## Agent skills copied, not installed
+
+- Three skills from [mattpocock/skills](https://github.com/mattpocock/skills) are kept in `.claude/skills/`: `grill-me` and `grilling`, an interview in numbered rounds with a recommended answer for each question, and `tdd`, a red → green loop at seams agreed beforehand. The first is meant for the STRIDE threat model.
+- They are copied at a fixed commit, with their MIT license, rather than installed as the plugin. The plugin updates itself, so the instructions the agent follows would change without review. A copy changes only through a pull request.
+- Only these three are taken. The plugin's other 24 skills either repeat what the project already has (the learning notes, the decisions log, Claude Code's own `/code-review`) or assume an issue tracker the project does not use. Each skill's description is also loaded at the start of every session.
+- OpenSpec, a spec-driven workflow, was considered and set aside for now: it would duplicate the journals and the decisions log.
