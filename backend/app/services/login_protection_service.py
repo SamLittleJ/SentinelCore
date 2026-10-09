@@ -114,6 +114,8 @@ def lock_login(
                 ip_address=ip_address,
                 source=BACKEND_SOURCE,
                 message=message,
+                # Raised by this application's own sign-in, as it happens.
+                occurred_at=func.now(),
             ),
         ]
     )

@@ -4268,3 +4268,45 @@ A second run on the same database detected **0 of 5** sprays. The spray rule cou
 - the real backend on a temporary database: the command line run above, the key revoked afterwards, the report regenerated on a fresh database
 
 Reverse check: each of the following changes makes at least one test fail: an alert of the right type naming something else counted as detection, steps to detect off by one, time measured from the wrong step, no cause for routine alerts, alerts raised during an attack but naming something else dropped, every benign case marked as expected, the key left unrevoked, the routine without its first day, alerts from before the run counted, no `localhost` guard, routine alerts not collected, a spray without its pace, a used database not noticed, and the report without its warning (14 of 14).
+
+## Alert Event Time
+
+### 291. Purpose of the stage
+
+The attack simulator found that a second run on the same database detected 0 of 5 password sprays (§288). The cause was not the spray rule's counting but two clocks mixed in one comparison: alerts are stamped with the server's clock when they are raised (`created_at`), while ingested events carry the time they happened. The spray rule counted failures after the latest spray alert for the address, by `created_at`. Once an address had an alert, any failure reported later but dated before that alert was never counted, so a spray in a delayed or replayed log went unseen. Logs from the systems SentinelCore is meant to watch (a cluster's audit log, a runtime detector, a cloud trail) often arrive in batches, minutes or hours late, so every rule that looks at earlier alerts needs the event's time, not the server's.
+
+### 292. occurred_at on alerts
+
+`security_events.occurred_at` (nullable) holds, for alerts, the time of the event that raised them. `created_at` stays the time the alert was raised, so a new alert still appears at the top of the event log and in the overview's last 24 hours, where an analyst looks. Other events leave it empty: their `created_at` is already their own time.
+
+- `run_detection` sets it to the triggering event's `created_at` for every rule's alert.
+- The brute-force incident sets it to the database clock: it is raised by this application's own sign-in, as it happens.
+- `SecurityEventRead` returns it (`null` for events that are not alerts). The difference between the two times is the delay with which the event reached SentinelCore.
+
+### 293. The spray rule
+
+`detect_password_spray` now looks for the latest spray alert for the address **by `occurred_at`, and only up to the event's own time**. Counting starts after that alert, inside the window, as before. In consequence:
+
+- a spray reported late is detected, whether the address's other alert is about an earlier or a later spray;
+- a log delivered twice raises no second alert: the replayed failure that crossed the threshold finds the alert about itself;
+- in real time nothing changes, since both clocks agree.
+
+Brute force did not need the change: its lockout counts only this application's own sign-ins, which carry the server's time.
+
+### 294. Migrations
+
+`394273cbc522`: the `occurred_at` column. Existing alerts get their `created_at`: the triggering event's time was not kept, and for events recorded as they happened it is the same moment. Downgrade drops the column.
+
+### 295. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 371 passed
+- the migration on a temporary database: an alert and a regular event inserted before it, an upgrade (the alert gets its `created_at`, the event stays empty), `alembic check`, a downgrade (the column gone, the rows kept), then an upgrade and `alembic check` again
+
+The new tests cover a spray reported late beside an alert about an earlier and about a later spray, a replayed spray, the time kept on an alert and on the brute-force incident, and the field in the event log.
+
+Reverse check: each of the following changes makes at least one test fail: looking up the latest alert by `created_at` again, dropping the "up to the event's time" bound, no deduplication at all, alerts without `occurred_at`, the brute-force incident without it, and the API without it (6 of 6).
+
+Simulator: on a fresh database, the same results as before (25 of 25, 3 false positives; report regenerated). Two runs back to back on one database: the second now detects 5 of 5 sprays (0 of 5 before), at the fifth to seventh email instead of the tenth, because the two runs use the same attacker addresses at the same times of day and their attempts add up into one spray per address. Its brute force attempts, all from `127.0.0.1`, likewise add up with the first run's into a spray from that address. Both are correct, and the reason the simulator should still run on a fresh database.

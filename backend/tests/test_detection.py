@@ -184,6 +184,95 @@ def test_spray_thresholds_come_from_settings(
     assert "for 3 different emails within 60 minutes" in alert.message
 
 
+def ingestion_key(client: TestClient, db_session: Session) -> str:
+    response = client.post(
+        "/admin/api-keys",
+        json={"name": "Corporate VPN", "source": "vpn", "expires_in_days": 30},
+        headers={"Authorization": f"Bearer {owner_token(client, db_session)}"},
+    )
+    return response.json()["key"]
+
+
+def report_failures(
+    client: TestClient, key: str, addresses: list[str], start: datetime
+) -> None:
+    """Reports one failed sign-in per email, 30 seconds apart from `start`,
+    all from ATTACKER_IP."""
+    response = client.post(
+        "/ingest/events",
+        json={
+            "events": [
+                {
+                    "event_type": "login_failed",
+                    "occurred_at": (start + timedelta(seconds=30 * n)).isoformat(),
+                    "email": email,
+                    "ip_address": ATTACKER_IP,
+                }
+                for n, email in enumerate(addresses)
+            ]
+        },
+        headers={"Authorization": f"Bearer {key}"},
+    )
+    assert response.status_code == 202
+
+
+@pytest.mark.parametrize(
+    "earlier_alert",
+    [
+        # About a spray before this one.
+        timedelta(hours=2),
+        # About a spray after this one, reported first.
+        timedelta(minutes=30),
+    ],
+)
+def test_a_spray_reported_late_is_seen_despite_a_newer_alert(
+    client: TestClient,
+    db_session: Session,
+    earlier_alert: timedelta,
+) -> None:
+    # The address already has an alert, recorded just now, about a spray at
+    # another time; this spray, an hour ago, is only reported now as well.
+    now = datetime.now(UTC)
+    db_session.add(
+        SecurityEvent(
+            event_type=SecurityEventType.PASSWORD_SPRAY_DETECTED,
+            severity=SecuritySeverity.INCIDENT,
+            ip_address=ATTACKER_IP,
+            source="detection",
+            message="Another spray",
+            occurred_at=now - earlier_alert,
+        )
+    )
+    db_session.commit()
+    key = ingestion_key(client, db_session)
+    start = now - timedelta(hours=1)
+
+    report_failures(client, key, emails(settings.detection_spray_min_accounts), start)
+
+    found = alerts(db_session, SecurityEventType.PASSWORD_SPRAY_DETECTED)
+    assert len(found) == 2
+    late = found[1]
+    # Raised now, about a spray that happened an hour ago.
+    tenth = start + timedelta(seconds=30 * (settings.detection_spray_min_accounts - 1))
+    assert late.occurred_at == tenth
+    assert late.created_at > tenth + timedelta(minutes=50)
+
+
+def test_a_replayed_spray_raises_no_second_alert(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    key = ingestion_key(client, db_session)
+    start = datetime.now(UTC) - timedelta(hours=1)
+    sprayed = emails(settings.detection_spray_min_accounts)
+
+    report_failures(client, key, sprayed, start)
+    # The sender delivers the same log again.
+    report_failures(client, key, sprayed, start)
+
+    assert len(alerts(db_session, SecurityEventType.PASSWORD_SPRAY_DETECTED)) == 1
+
+
 # Dormant account (T1078)
 
 
@@ -312,6 +401,26 @@ def test_the_account_sees_its_dormant_sign_in(
     assert response.status_code == 200
     types = [item["event_type"] for item in response.json()["items"]]
     assert "dormant_account_login" in types
+
+
+def test_an_alert_keeps_the_time_of_the_event_that_raised_it(
+    attacker: TestClient,
+    db_session: Session,
+) -> None:
+    email = register(attacker, "sleeper")
+    make_dormant(db_session, email, settings.detection_dormant_days + 1, signed_in=True)
+
+    assert login(attacker, email) == 200
+
+    [alert] = alerts(db_session, SecurityEventType.DORMANT_ACCOUNT_LOGIN)
+    sign_in = db_session.scalar(
+        select(SecurityEvent)
+        .where(SecurityEvent.event_type == SecurityEventType.LOGIN_SUCCESS)
+        .order_by(SecurityEvent.id.desc())
+        .limit(1)
+    )
+    assert sign_in is not None
+    assert alert.occurred_at == sign_in.created_at
 
 
 # Privileged role granted (T1098)
@@ -698,3 +807,8 @@ def test_the_event_log_names_the_technique_of_each_detection(
     }
     assert techniques["password_spray_detected"] == "T1110.003"
     assert techniques["login_failed"] is None
+    times = {
+        item["event_type"]: item["occurred_at"] for item in response.json()["items"]
+    }
+    assert times["password_spray_detected"] is not None
+    assert times["login_failed"] is None

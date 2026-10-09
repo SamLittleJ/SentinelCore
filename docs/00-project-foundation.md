@@ -335,4 +335,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. The simulator also found that password spray detection ignores late-reported attempts from an address that already raised an alert. The next steps are a decision on that, then evasive attack variants (a slower spray, a copied user agent) to measure what the rules miss.
+The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. A gap it found, password sprays reported late from an address that already had an alert, is fixed: alerts now keep the time of the event that raised them. The next step is evasive attack variants (a slower spray, a copied user agent), to measure what the rules miss.

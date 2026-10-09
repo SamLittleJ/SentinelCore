@@ -84,6 +84,8 @@ def test_threshold_failure_locks_login_and_records_incident(
     assert incidents[0].severity == SecuritySeverity.INCIDENT
     assert incidents[0].email == EMAIL
     assert incidents[0].user_id is not None
+    # Raised by the failure that crossed the threshold, at the same moment.
+    assert incidents[0].occurred_at == incidents[0].created_at
 
     audit_messages = db_session.scalars(
         select(AuditLog.message).where(

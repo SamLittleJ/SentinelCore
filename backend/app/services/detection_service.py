@@ -11,7 +11,9 @@ so a false positive never locks anyone out. Brute-force protection is the
 exception: it blocks the email, and lives in login_protection_service.py.
 
 Windows are measured back from the triggering event's own time, so an event
-that arrives late is judged against the events around it.
+that arrives late is judged against the events around it. Alerts keep that
+time in `occurred_at`, and rules that look at earlier alerts compare it, never
+`created_at`, which is when an alert was raised.
 """
 
 import ipaddress
@@ -59,8 +61,11 @@ def detect_password_spray(db: Session, event: SecurityEvent) -> Alert | None:
     """T1110.003: one address failing sign-ins for many different emails.
 
     Counts the emails that failed from the event's address within the window,
-    after the latest spray alert for that address, so a continuing attack
-    raises a new alert only once enough new emails have been tried.
+    after the latest spray alert for that address up to the event, so a
+    continuing attack raises a new alert only once enough new emails have been
+    tried, and a log delivered twice raises none. Alerts are compared by the
+    time of the failure that raised them: one raised just now about an older
+    spray does not hide a later spray reported late.
     """
     if event.ip_address is None:
         return None
@@ -68,9 +73,10 @@ def detect_password_spray(db: Session, event: SecurityEvent) -> Alert | None:
     window = timedelta(minutes=settings.detection_spray_window_minutes)
     since = event.created_at - window
     latest_alert = db.scalar(
-        select(func.max(SecurityEvent.created_at)).where(
+        select(func.max(SecurityEvent.occurred_at)).where(
             SecurityEvent.event_type == SecurityEventType.PASSWORD_SPRAY_DETECTED,
             SecurityEvent.ip_address == event.ip_address,
+            SecurityEvent.occurred_at <= event.created_at,
         )
     )
     if latest_alert is not None and latest_alert > since:
@@ -287,6 +293,7 @@ def run_detection(db: Session, event: SecurityEvent) -> list[SecurityEvent]:
                         user_agent=alert.user_agent,
                         source=DETECTION_SOURCE,
                         message=alert.message,
+                        occurred_at=event.created_at,
                     )
                 )
         if not alerts:

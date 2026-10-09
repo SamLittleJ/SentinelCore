@@ -1,12 +1,12 @@
 {
   "seed": 42,
-  "started_at": "2026-10-09T08:25:53+00:00",
+  "started_at": "2026-10-09T08:46:56+00:00",
   "earlier_alerts": false,
-  "duration_seconds": 6.366279,
+  "duration_seconds": 7.737784,
   "people": 26,
   "routine_sign_ins": 753,
   "routine_failures": 43,
-  "routine_ingest_ms": 1301.8717109953286,
+  "routine_ingest_ms": 1378.6123499958194,
   "attacks": 25,
   "detected": 25,
   "detection_rate": 1.0,
@@ -21,10 +21,10 @@
       "detected": 5,
       "detection_rate": 1.0,
       "median_steps_to_detect": 5.0,
-      "median_seconds_to_detect": 0.286217,
-      "max_seconds_to_detect": 0.288663,
-      "median_latency_ms": 58.92238199885469,
-      "max_latency_ms": 60.33619699883275,
+      "median_seconds_to_detect": 0.278906,
+      "max_seconds_to_detect": 0.282345,
+      "median_latency_ms": 57.99808700248832,
+      "max_latency_ms": 61.12017900159117,
       "false_positives": 0
     },
     {
@@ -36,8 +36,8 @@
       "median_steps_to_detect": 10.0,
       "median_seconds_to_detect": 270.0,
       "max_seconds_to_detect": 270.0,
-      "median_latency_ms": 9.283252999011893,
-      "max_latency_ms": 10.46179499826394,
+      "median_latency_ms": 9.918478994222824,
+      "max_latency_ms": 11.731585997040384,
       "false_positives": 1
     },
     {
@@ -49,8 +49,8 @@
       "median_steps_to_detect": 1.0,
       "median_seconds_to_detect": 0.0,
       "max_seconds_to_detect": 0.0,
-      "median_latency_ms": 10.33475500298664,
-      "max_latency_ms": 21.950854003080167,
+      "median_latency_ms": 9.707550998427905,
+      "max_latency_ms": 16.860873001860455,
       "false_positives": 1
     },
     {
@@ -62,8 +62,8 @@
       "median_steps_to_detect": 1.0,
       "median_seconds_to_detect": 0.0,
       "max_seconds_to_detect": 0.0,
-      "median_latency_ms": 11.752716003684327,
-      "max_latency_ms": 12.768189997586887,
+      "median_latency_ms": 10.769227999844588,
+      "max_latency_ms": 11.982902004092466,
       "false_positives": 1
     },
     {
@@ -75,8 +75,8 @@
       "median_steps_to_detect": 1.0,
       "median_seconds_to_detect": 0.0,
       "max_seconds_to_detect": 0.0,
-      "median_latency_ms": 10.698669997509569,
-      "max_latency_ms": 13.644761995237786,
+      "median_latency_ms": 11.09640600043349,
+      "max_latency_ms": 13.078412994218525,
       "false_positives": 0
     }
   ],
@@ -90,7 +90,7 @@
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 10.46179499826394
+      "latency_ms": 9.964175995264668
     },
     {
       "attack": "spray-2",
@@ -101,7 +101,7 @@
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 8.78682699840283
+      "latency_ms": 8.789544997853227
     },
     {
       "attack": "spray-3",
@@ -112,7 +112,7 @@
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 8.414847005042247
+      "latency_ms": 9.918478994222824
     },
     {
       "attack": "spray-4",
@@ -123,7 +123,7 @@
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 10.042393994808663
+      "latency_ms": 9.67240400495939
     },
     {
       "attack": "spray-5",
@@ -134,7 +134,7 @@
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 9.283252999011893
+      "latency_ms": 11.731585997040384
     },
     {
       "attack": "dormant-1",
@@ -145,7 +145,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 9.896037998259999
+      "latency_ms": 10.081177002575714
     },
     {
       "attack": "dormant-2",
@@ -156,7 +156,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 21.950854003080167
+      "latency_ms": 8.737737000046764
     },
     {
       "attack": "dormant-3",
@@ -167,7 +167,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.686652003845666
+      "latency_ms": 9.707550998427905
     },
     {
       "attack": "dormant-4",
@@ -178,7 +178,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 9.215505000611302
+      "latency_ms": 9.352099004900083
     },
     {
       "attack": "dormant-5",
@@ -189,7 +189,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.33475500298664
+      "latency_ms": 16.860873001860455
     },
     {
       "attack": "unfamiliar-1",
@@ -200,7 +200,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.732047998521011
+      "latency_ms": 10.769227999844588
     },
     {
       "attack": "unfamiliar-2",
@@ -211,7 +211,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 12.40421400143532
+      "latency_ms": 11.982902004092466
     },
     {
       "attack": "unfamiliar-3",
@@ -222,7 +222,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.752716003684327
+      "latency_ms": 9.37131499813404
     },
     {
       "attack": "unfamiliar-4",
@@ -233,7 +233,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.69271300022956
+      "latency_ms": 11.29040300293127
     },
     {
       "attack": "unfamiliar-5",
@@ -244,7 +244,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 12.768189997586887
+      "latency_ms": 9.303697006544098
     },
     {
       "attack": "brute-force-1",
@@ -254,8 +254,8 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.277841,
-      "latency_ms": 57.53391700272914
+      "seconds_to_detect": 0.279483,
+      "latency_ms": 57.99808700248832
     },
     {
       "attack": "brute-force-2",
@@ -265,8 +265,8 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.278942,
-      "latency_ms": 57.905727000616025
+      "seconds_to_detect": 0.278537,
+      "latency_ms": 61.12017900159117
     },
     {
       "attack": "brute-force-3",
@@ -276,8 +276,8 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.286217,
-      "latency_ms": 58.92238199885469
+      "seconds_to_detect": 0.282345,
+      "latency_ms": 56.67263099894626
     },
     {
       "attack": "brute-force-4",
@@ -287,8 +287,8 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.288663,
-      "latency_ms": 60.33619699883275
+      "seconds_to_detect": 0.27726,
+      "latency_ms": 60.460040003817994
     },
     {
       "attack": "brute-force-5",
@@ -298,8 +298,8 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.286825,
-      "latency_ms": 60.095993998402264
+      "seconds_to_detect": 0.278906,
+      "latency_ms": 56.164961999456864
     },
     {
       "attack": "privileged-role-1",
@@ -310,7 +310,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 13.644761995237786
+      "latency_ms": 13.078412994218525
     },
     {
       "attack": "privileged-role-2",
@@ -321,7 +321,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.600069999985863
+      "latency_ms": 11.09640600043349
     },
     {
       "attack": "privileged-role-3",
@@ -332,7 +332,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.485949998837896
+      "latency_ms": 11.050439003156498
     },
     {
       "attack": "privileged-role-4",
@@ -343,7 +343,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.698669997509569
+      "latency_ms": 10.743328995886259
     },
     {
       "attack": "privileged-role-5",
@@ -354,7 +354,7 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.544140001002233
+      "latency_ms": 11.814103003416676
     }
   ],
   "false_positives": [
