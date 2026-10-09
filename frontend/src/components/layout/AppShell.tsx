@@ -1,60 +1,31 @@
-import { Suspense } from 'react'
+import { Search } from 'lucide-react'
+import { Suspense, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation } from 'react-router'
 
+import { Wordmark } from '@/components/brand/Logomark'
 import { Skeleton } from '@/components/ui/skeleton'
 import { canViewOrganization, type User } from '@/features/auth/api'
 import { useCurrentUser } from '@/features/auth/hooks'
+import { useSecuritySummary } from '@/features/org/hooks'
 import { cn } from '@/lib/utils'
 
 import { AccountMenu } from './AccountMenu'
-
-type NavKey =
-  | 'nav.overview'
-  | 'nav.mySessions'
-  | 'nav.myActivity'
-  | 'nav.securityEvents'
-  | 'nav.auditLog'
-  | 'nav.users'
-  | 'nav.apiKeys'
-
-const PERSONAL_NAV: { to: string; label: NavKey; end?: boolean }[] = [
-  { to: '/me', label: 'nav.overview', end: true },
-  { to: '/me/sessions', label: 'nav.mySessions' },
-  { to: '/me/activity', label: 'nav.myActivity' },
-]
-
-const ORGANIZATION_NAV: { to: string; label: NavKey; end?: boolean }[] = [
-  { to: '/org', label: 'nav.overview', end: true },
-  { to: '/org/events', label: 'nav.securityEvents' },
-  { to: '/org/audit', label: 'nav.auditLog' },
-  { to: '/org/users', label: 'nav.users' },
-  { to: '/org/api-keys', label: 'nav.apiKeys' },
-]
-
-function BrandMark() {
-  return (
-    <span
-      aria-hidden
-      className="grid size-7 place-items-center rounded-md bg-sidebar-primary font-mono text-xs font-semibold text-sidebar-primary-foreground"
-    >
-      SC
-    </span>
-  )
-}
+import { CommandPalette } from './CommandPalette'
+import { NAV, type NavItem, scopeOf } from './navigation'
 
 function ScopeSwitch({ inOrganization }: { inOrganization: boolean }) {
   const { t } = useTranslation()
   const option = (active: boolean) =>
     cn(
-      'rounded-[5px] px-2 py-1.5 text-center text-xs transition-colors',
+      'label-mono -mb-px border-b-2 px-2 py-2 text-center transition-colors',
       active
-        ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-        : 'text-muted-foreground hover:text-sidebar-foreground',
+        ? 'border-brand text-brand'
+        : 'border-transparent text-muted-foreground hover:text-sidebar-foreground',
     )
 
   return (
-    <nav aria-label={t('scope.label')} className="grid grid-cols-2 gap-1 rounded-lg border border-sidebar-border bg-background/40 p-1">
+    <nav aria-label={t('scope.label')} className="grid grid-cols-2 border-b border-sidebar-border">
       <NavLink to="/me" className={option(!inOrganization)} aria-current={!inOrganization ? 'page' : undefined}>
         {t('scope.personal')}
       </NavLink>
@@ -65,38 +36,82 @@ function ScopeSwitch({ inOrganization }: { inOrganization: boolean }) {
   )
 }
 
-function Sidebar({ user }: { user: User }) {
+/** The incidents of the last 24 hours, beside the events they are in. The
+ * count comes from the summary, which is not audited. */
+function IncidentBadge() {
+  const { t } = useTranslation()
+  const summary = useSecuritySummary()
+  const count = summary.data?.last_24h.incident ?? 0
+  if (count === 0) return null
+  return (
+    <span className="ml-auto shrink-0 rounded-full bg-sev-incident-bg px-1.5 font-mono text-[11px] text-sev-incident">
+      <span aria-hidden>{count}</span>
+      <span className="sr-only">{t('nav.incidentsBadge', { count })}</span>
+    </span>
+  )
+}
+
+function NavEntry({ item, badge }: { item: NavItem; badge?: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      className={({ isActive }) =>
+        cn(
+          'group flex shrink-0 items-center gap-3 rounded-md px-2.5 py-2 whitespace-nowrap transition-colors',
+          isActive
+            ? 'bg-sidebar-accent/70 font-medium text-sidebar-foreground'
+            : 'text-muted-foreground hover:bg-sidebar-accent/40 hover:text-sidebar-foreground',
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span
+            aria-hidden
+            className={cn('font-mono text-[11px]', isActive ? 'text-brand' : 'text-muted-foreground/60')}
+          >
+            {item.number}
+          </span>
+          <span className="min-w-0 truncate">{t(item.label)}</span>
+          {badge && <IncidentBadge />}
+        </>
+      )}
+    </NavLink>
+  )
+}
+
+function Sidebar({ user, onOpenPalette }: { user: User; onOpenPalette: () => void }) {
   const { t } = useTranslation()
   const location = useLocation()
-  const inOrganization = location.pathname === '/org' || location.pathname.startsWith('/org/')
-  const items = inOrganization ? ORGANIZATION_NAV : PERSONAL_NAV
+  const scope = scopeOf(location.pathname)
+  const inOrganization = scope === 'organization'
 
   return (
-    <aside className="flex shrink-0 flex-col gap-5 border-b border-sidebar-border bg-sidebar p-3 text-sidebar-foreground md:sticky md:top-0 md:h-screen md:w-60 md:border-r md:border-b-0">
-      <div className="flex items-center gap-2.5 px-2 pt-1 font-semibold tracking-tight">
-        <BrandMark />
-        {t('app.name')}
+    <aside className="flex shrink-0 flex-col gap-5 border-b border-sidebar-border bg-sidebar p-4 text-sidebar-foreground md:sticky md:top-0 md:h-screen md:w-72 md:border-r md:border-b-0">
+      <div className="flex items-center justify-between gap-2 px-1 pt-1">
+        <Wordmark />
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenPalette}
+        aria-keyshortcuts="Control+K Meta+K"
+        className="flex h-10 items-center gap-2 rounded-md border border-sidebar-border bg-background/40 px-3 text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+      >
+        <Search aria-hidden className="size-4" />
+        <span className="min-w-0 truncate">{t('palette.open')}</span>
+        <kbd className="label-mono ml-auto shrink-0 rounded border border-sidebar-border px-1.5 tracking-normal whitespace-nowrap normal-case">
+          Ctrl K
+        </kbd>
+      </button>
 
       {canViewOrganization(user) && <ScopeSwitch inOrganization={inOrganization} />}
 
-      <nav aria-label={t('nav.label')} className="flex gap-1 overflow-x-auto [scrollbar-width:thin] md:flex-col">
-        {items.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              cn(
-                'shrink-0 rounded-md px-2.5 py-1.5 whitespace-nowrap transition-colors',
-                isActive
-                  ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                  : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground',
-              )
-            }
-          >
-            {t(item.label)}
-          </NavLink>
+      <nav aria-label={t('nav.label')} className="flex gap-1 overflow-x-auto [scrollbar-width:thin] md:flex-col md:overflow-visible">
+        {NAV[scope].map((item) => (
+          <NavEntry key={item.to} item={item} badge={inOrganization && item.label === 'nav.securityEvents'} />
         ))}
       </nav>
 
@@ -121,6 +136,19 @@ function PageLoader() {
 
 export function AppShell() {
   const { data: user } = useCurrentUser()
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  // Ctrl+K, or Cmd+K on a Mac, from anywhere in the application.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((open) => !open)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   // RequireAuth renders this only once the user is loaded.
   if (user === undefined) {
@@ -129,7 +157,7 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
-      <Sidebar user={user} />
+      <Sidebar user={user} onOpenPalette={() => setPaletteOpen(true)} />
       <main className="min-w-0 flex-1 px-4 pt-8 pb-12 md:px-8 md:pt-12">
         {/* One centered column for every page, so titles keep their place
             when moving between pages and wide screens stay balanced. */}
@@ -139,6 +167,7 @@ export function AppShell() {
           </Suspense>
         </div>
       </main>
+      <CommandPalette user={user} open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   )
 }

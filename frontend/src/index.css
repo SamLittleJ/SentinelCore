@@ -116,6 +116,8 @@
 @theme inline {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Titles and headline numbers: narrow, so large figures stay compact. */
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -166,6 +168,16 @@
   --color-sev-incident-bg: var(--sev-incident-bg);
   --color-sev-ok: var(--sev-ok);
   --color-sev-ok-bg: var(--sev-ok-bg);
+}
+
+/* The console's small captions: section names, column heads, units.
+   Uppercase mono, spaced out so short words stay legible. */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 @layer base {

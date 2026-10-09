@@ -477,3 +477,47 @@ The new tests cover: the list for an admin and an analyst (states, last use, no 
 Reverse check: each of the following changes makes at least one test fail: admins allowed to manage keys, the creating mutation not reset, the mutation kept in the cache, a revoked key counted as active, reserved sources allowed, any value turned into a link, the link sending a referrer, the event time always shown, the badge not rendered, revoke offered on every key, the page letting every operator manage keys, and the source sent as typed (12 of 12).
 
 End-to-end check, with the real backend on a temporary database and Vite running: an owner and an analyst; three keys (one used through ingestion, one revoked, one expired); a password spray and a sign-in from an unfamiliar network and device reported through ingestion, the latter three hours late, and a brute-force attack through the real sign-in. Headless Firefox took eleven screenshots: the keys page as the owner (light, dark, phone width), as the analyst (phone width, dark), a key created through the page's own form and shown once (light; dark at phone width), the event log with its badges (light, dark), an alert's details (light; dark at phone width), and the overview. On each, a check run in the page confirmed the theme, the expected texts, no horizontal scrolling at phone width, the badges `T1110.001`, `T1110.003` and `T1078`, the details' "Happened at", link and `rel`, and a key of the right shape in the creation panel. The audit log recorded both keys created through the page and one `API_KEYS_VIEWED` per load of the list.
+
+## Stage 8: Visual identity
+
+### 49. Purpose of the stage
+
+The shell was shadcn/ui's sidebar as it ships: a square with initials, a plain list, the same type everywhere. Another application built with the same tools looked the same. Four directions were drawn on the real overview; the chosen one combines a threat status band, typography with a logomark, data visuals and a command palette. This stage brings the identity and the palette; the band and the data visuals need new counts from the API and come next.
+
+### 50. Logomark, type and page headers
+
+- `components/brand/Logomark.tsx`: a shield with an eye, drawn in the current text color, and the "SENTINEL core" wordmark (condensed capitals, a mono suffix). The favicon uses the same mark.
+- IBM Plex Sans Condensed (`@fontsource/ibm-plex-sans-condensed`, weights 600 and 700) for titles and headline numbers, as the `font-display` token; a `label-mono` utility in `index.css` for the small uppercase captions.
+- `PageHeader` gives every page the same title block: where the page sits ("ORGANIZAȚIA / 02 EVENIMENTE DE SECURITATE"), a condensed title, the description and the page's buttons. An account's page sits under Users.
+- The pages, their numbers and their scopes are defined once (`components/layout/navigation.ts`) and read by the sidebar, the page headers and the palette.
+- The overview's tiles and the personal overview's figures use the condensed numbers and mono captions; section titles use the display face.
+
+### 51. Sidebar
+
+- The wordmark, a search button that opens the palette, the scope switch as two mono tabs, and a numbered navigation (`01 Prezentare`).
+- Beside Security events, the number of incidents in the last 24 hours, from the summary counts (not audited), with its full meaning for screen readers. It loads only in the organization scope, so a user's personal pages do not ask for organization counts.
+- The sidebar is wider (`w-72`), so the button and the badge fit; long names are truncated instead of scrolling the menu sideways.
+
+### 52. Command palette
+
+`Ctrl+K` (or `Cmd+K`), or the sidebar button, opens `CommandPalette`: a Radix Dialog holding an ARIA combobox. Focus stays in the input; the arrow keys move through the list and wrap at the ends, `aria-activedescendant` tells screen readers which command is highlighted, Enter runs it and Escape closes.
+
+- **Pages:** the user's own pages, and the organization's for operators. Matching ignores case and diacritics, so "activitate" finds "Activitatea mea".
+- **Search (operators):** what was typed opens the user list or the event log filtered by it (the event log matches an exact email or IP).
+- **Actions:** the three themes, the two languages, signing out.
+
+The palette makes no API request of its own: the page it opens loads, and audits, the records as usual.
+
+### 53. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 181 passed
+- build -> successful, no warnings; the condensed font adds about 20 KB per weight in the Latin subset, loaded only when used
+- npm audit -> 0 vulnerabilities
+
+The new tests cover: opening the palette with Ctrl+K and from the sidebar, closing it with Escape; matching without diacritics and opening with Enter; the arrow keys and `aria-activedescendant`; a user seeing only their own pages and no organization search; an operator's searches opening the filtered user list and event log without any request while typing; changing the theme and the language; the incident badge and its screen reader text; no badge without incidents and no counts loaded on personal pages; the page headers, an account's page included.
+
+Reverse check: each of the following changes makes at least one test fail: no Ctrl+K listener, diacritics kept in matching, organization search or pages offered to a user, arrows that stop at the ends, no `aria-activedescendant`, the palette left open after a command, Enter doing nothing, the event search dropping the query, the counts loaded on every page, the badge without its screen reader text, an account's page not placed under Users, and unpadded page numbers (13 of 13).
+
+End-to-end check, with the real backend on a temporary database seeded by the attack simulator, the owner created from the command line, and Vite running: headless Firefox took screenshots of the organization overview (dark, light, dark and light at phone width), the event log with the palette open on an IP search, the personal overview (light), the palette at phone width (light), an account's page (dark) and the user list at phone width (light). A check run in each page confirmed the theme, the header's location line, the condensed font loaded, the wordmark, the badge (11 incidents), the palette's commands and no horizontal scrolling at phone width. The first round of screenshots showed the search button and the badge cut off in a 256 px sidebar; the sidebar was widened and the names truncated, and a second round confirmed the fix.

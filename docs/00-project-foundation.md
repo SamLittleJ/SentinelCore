@@ -261,14 +261,14 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - Prometheus and Grafana run locally through Docker Compose, with the `SentinelCore Overview` dashboard provisioned automatically
 
 ### Frontend
-- an "operations console" visual direction with the "Electric" palette, Tailwind CSS and shadcn/ui, React Router, TanStack Query, Romanian and English, dark and light themes
+- an "operations console" visual direction with the "Electric" palette and its own identity (a shield-and-eye logomark, the "SENTINEL core" wordmark, condensed titles and mono captions, numbered navigation), Tailwind CSS and shadcn/ui, React Router, TanStack Query, Romanian and English, dark and light themes
 - login through an httpOnly cookie and protected routes
 - two scopes:
   - **My account:** Overview (security summary and recent alerts), My sessions, My activity;
   - **Organization:** an Overview (incidents, warnings and informational events over 24 hours and 7 days, failed sign-ins and the addresses behind them, locked and deactivated accounts, the latest incidents); Security events and Audit log, with filters kept in the address and a details panel; Users, with search and filters, and a page per account with its history and the actions the operator may take; API keys, listed for every operator, issued and revoked by the owner, with a new key shown once; detections carry their MITRE ATT&CK technique, linked to its page; these pages load on demand
 
 ### Quality and delivery
-- 405 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 171 frontend tests (Vitest with a mocked API)
+- 405 backend tests, run against a separate PostgreSQL database (`sentinelcore_test`), and 181 frontend tests (Vitest with a mocked API)
 - the schema is managed with Alembic; `alembic check` confirms the models and the database match
 - the backend passes Pyright type checking with no errors
 - backend CI on GitHub Actions: Ruff (lint and format), Bandit, pytest against a PostgreSQL service, and Gitleaks over the full Git history
@@ -336,4 +336,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. Four evasive variants (a slow spray, a distributed spray, a copied user agent, an account idle for just under the dormancy threshold) all pass, 0 of 20, and the report gives the reason for each: these are the rules' known limits. API keys and MITRE ATT&CK techniques are in the interface, which closes phase A. Public sign-up was then replaced by invitations; the next step is the invitations interface, then a README demo (`make demo`) and the STRIDE threat model.
+The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. Four evasive variants (a slow spray, a distributed spray, a copied user agent, an account idle for just under the dormancy threshold) all pass, 0 of 20, and the report gives the reason for each: these are the rules' known limits. API keys and MITRE ATT&CK techniques are in the interface, which closes phase A. Public sign-up was then replaced by invitations, and the interface got its own visual identity and a command palette (Ctrl+K). The next step is the security trends on the overview (a threat status band, hourly and daily counts, alerts per technique), then the invitations interface, a README demo (`make demo`) and the STRIDE threat model.

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
+import { PageHeader } from '@/components/layout/PageHeader'
 import { PagedResults } from '@/components/PagedResults'
 import { SegmentedControl } from '@/components/SegmentedControl'
 import { ActivityTable } from '@/features/account/ActivityTable'
@@ -32,10 +33,7 @@ export function MyActivityPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">{t('nav.myActivity')}</h1>
-        <p className="max-w-prose text-muted-foreground">{t('activity.subtitle')}</p>
-      </header>
+      <PageHeader title={t('nav.myActivity')} description={t('activity.subtitle')} />
 
       <SegmentedControl
         label={t('activity.filterLabel')}

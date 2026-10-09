@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 
 import { LoadFailed } from '@/components/LoadFailed'
 import { SegmentedControl } from '@/components/SegmentedControl'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -92,19 +93,19 @@ export function OrgApiKeysPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t('nav.apiKeys')}</h1>
-          <p className="max-w-prose text-muted-foreground">{t('apiKeys.subtitle')}</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => void queryClient.resetQueries({ queryKey: apiKeysKey })}
-        >
-          <RefreshCw aria-hidden />
-          {t('orgLog.refresh')}
-        </Button>
-      </header>
+      <PageHeader
+        title={t('nav.apiKeys')}
+        description={t('apiKeys.subtitle')}
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => void queryClient.resetQueries({ queryKey: apiKeysKey })}
+          >
+            <RefreshCw aria-hidden />
+            {t('orgLog.refresh')}
+          </Button>
+        }
+      />
 
       {manages ? (
         <div className="flex flex-col gap-3">

@@ -3,6 +3,7 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Session } from '@/features/account/api'
@@ -68,24 +69,26 @@ export function MySessionsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t('nav.mySessions')}</h1>
-          <p className="max-w-prose text-muted-foreground">{t('sessions.subtitle')}</p>
-        </div>
-        {confirming !== 'others' && (
-          <Button
-            variant="outline"
-            disabled={otherCount === 0 || revokeOthers.isPending}
-            onClick={() => {
-              setNotice(null)
-              setConfirming('others')
-            }}
-          >
-            {t('sessions.revokeOthers')}
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={t('nav.mySessions')}
+        description={t('sessions.subtitle')}
+        actions={
+          <>
+            {confirming !== 'others' && (
+              <Button
+                variant="outline"
+                disabled={otherCount === 0 || revokeOthers.isPending}
+                onClick={() => {
+                  setNotice(null)
+                  setConfirming('others')
+                }}
+              >
+                {t('sessions.revokeOthers')}
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {confirming === 'others' && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sev-warn/40 bg-sev-warn-bg px-4 py-3">
