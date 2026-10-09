@@ -45,7 +45,7 @@ export function AccountMenu({ user }: { user: User }) {
       >
         <span className="flex min-w-0 flex-col">
           <span className="truncate font-medium">{user.username}</span>
-          <span className="truncate font-mono text-xs text-muted-foreground">
+          <span className="label-mono truncate text-muted-foreground">
             {t(`roles.${user.role}`)}
           </span>
         </span>

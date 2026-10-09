@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
 import { PagedResults } from '@/components/PagedResults'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { AUDIT_EVENT_TYPES, type AuditEventType, type AuditLog } from '@/features/org/api'
 import {
@@ -36,22 +37,20 @@ export function OrgAuditPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t('nav.auditLog')}</h1>
-          <p className="max-w-prose text-muted-foreground">
-            {t('audit.subtitle')} {t('audit.viewingIsAudited')}
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          // Back to the first page, with the time window measured from now.
-          onClick={() => void queryClient.resetQueries({ queryKey: auditLogsKey })}
-        >
-          <RefreshCw aria-hidden />
-          {t('orgLog.refresh')}
-        </Button>
-      </header>
+      <PageHeader
+        title={t('nav.auditLog')}
+        description={<>{t('audit.subtitle')} {t('audit.viewingIsAudited')}</>}
+        actions={
+          <Button
+            variant="outline"
+            // Back to the first page, with the time window measured from now.
+            onClick={() => void queryClient.resetQueries({ queryKey: auditLogsKey })}
+          >
+            <RefreshCw aria-hidden />
+            {t('orgLog.refresh')}
+          </Button>
+        }
+      />
 
       <LogFilterBar
         filters={filters}

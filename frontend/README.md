@@ -29,7 +29,8 @@ The app runs at `http://localhost:5173`. Vite forwards `/api/*` requests to the 
 ```text
 src/
 ├── components/
-│   ├── layout/      # app structure: sidebar, account menu
+│   ├── brand/       # the logomark and the "SENTINEL core" wordmark
+│   ├── layout/      # app structure: sidebar, page headers, command palette (Ctrl+K), account menu
 │   └── ui/          # shadcn/ui components (generated, then adjusted)
 ├── features/
 │   ├── account/     # the "My account" scope: sessions, activity
@@ -50,5 +51,7 @@ Login uses `POST /api/auth/session`. The backend puts the token in an httpOnly c
 
 ## Theme and translations
 
+- Type: IBM Plex Sans for text, IBM Plex Sans Condensed for titles and headline numbers (`font-display`), IBM Plex Mono for technical data and the small uppercase captions (`label-mono`, defined in `src/index.css`). All three are bundled with the app through Fontsource; no font is loaded from a CDN.
+- `Ctrl+K` (`Cmd+K` on a Mac), or the search button in the sidebar, opens the command palette: jump to a page, open the user list or the event log filtered by what was typed, change the theme or the language, sign out. The palette itself makes no API requests.
 - The default theme is dark; users can pick light or "match system" from the account menu. Colors are defined as CSS variables in `src/index.css`.
 - The default language is Romanian. Strings live in `src/i18n/locales/`; the English file is typed after the Romanian one, so a missing key fails the type check.

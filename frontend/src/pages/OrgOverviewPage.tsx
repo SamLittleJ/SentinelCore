@@ -6,6 +6,7 @@ import { Link } from 'react-router'
 
 import { LoadFailed } from '@/components/LoadFailed'
 import { SeverityBadge } from '@/components/SeverityBadge'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { SecurityEventType, Severity } from '@/features/account/api'
@@ -57,26 +58,26 @@ export function OrgOverviewPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t('orgOverview.title')}</h1>
-          <p className="max-w-prose text-muted-foreground">{t('orgOverview.subtitle')}</p>
-        </div>
-        <div className="flex flex-col items-start gap-1 sm:items-end">
-          <Button variant="outline" disabled={refreshing} onClick={refresh}>
-            <RefreshCw aria-hidden className={cn(refreshing && 'animate-spin')} />
-            {t('orgLog.refresh')}
-          </Button>
-          {summary.data && (
-            <p className="text-xs text-muted-foreground">
-              {t('orgOverview.updated')}{' '}
-              <time dateTime={summary.data.generated_at} title={format.dateTime(summary.data.generated_at)}>
-                {format.relative(summary.data.generated_at)}
-              </time>
-            </p>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t('orgOverview.title')}
+        description={t('orgOverview.subtitle')}
+        actions={
+          <div className="flex flex-col items-start gap-1 sm:items-end">
+            <Button variant="outline" disabled={refreshing} onClick={refresh}>
+              <RefreshCw aria-hidden className={cn(refreshing && 'animate-spin')} />
+              {t('orgLog.refresh')}
+            </Button>
+            {summary.data && (
+              <p className="text-xs text-muted-foreground">
+                {t('orgOverview.updated')}{' '}
+                <time dateTime={summary.data.generated_at} title={format.dateTime(summary.data.generated_at)}>
+                  {format.relative(summary.data.generated_at)}
+                </time>
+              </p>
+            )}
+          </div>
+        }
+      />
 
       <SummaryTiles summary={summary} />
 
@@ -100,7 +101,7 @@ export function OrgOverviewPage() {
 function SectionHeading({ id, help, children }: { id: string; help: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <h2 id={id} className="text-sm font-semibold">
+      <h2 id={id} className="font-display text-xl font-semibold">
         {children}
       </h2>
       <p className="text-sm text-muted-foreground">{help}</p>
@@ -199,14 +200,14 @@ function Tile({ to, label, icon: Icon, iconClass, value, unit, detail }: TilePro
     <li className="flex">
       <Link
         to={to}
-        className="flex w-full flex-col gap-1.5 bg-card px-4 py-4 transition-colors hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+        className="flex w-full flex-col gap-2 bg-card px-5 py-5 transition-colors hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
       >
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="label-mono flex items-center gap-1.5 text-muted-foreground">
           {Icon && <Icon aria-hidden className={cn('size-3.5', iconClass)} />}
           {label}
         </span>
-        <span className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold">{value}</span>
+        <span className="flex items-baseline gap-2">
+          <span className="font-display text-5xl leading-none font-semibold">{value}</span>
           {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
         </span>
         <span className="text-xs text-muted-foreground">{detail}</span>

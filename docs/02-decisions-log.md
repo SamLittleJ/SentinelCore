@@ -493,3 +493,12 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - Joining with `admin` or `security_analyst` raises the T1098 alert, as a role change does; otherwise an invitation would be a way around it.
 - The first owner comes from `python -m app.cli create-owner`, which reads the password from the environment or a prompt and refuses once an owner exists.
 - The simulator now invites its people as the owner and accepts on their behalf, the same path as a real account.
+
+## Visual identity
+
+- The shell looked like an unchanged shadcn/ui sidebar. Among four directions drawn on the real overview (a threat status band, typography and a logomark, a new navigation with a command palette, data visuals), the combination of the band, the typography, the data visuals and a Ctrl+K palette was chosen, keeping the sidebar navigation.
+- Built in two stages: the identity first (frontend only), then the trends, which need new aggregated data from the API.
+- IBM Plex Sans Condensed joins Plex Sans and Plex Mono, as a Fontsource package bundled with the app, like the other two.
+- The command palette is built on the Radix Dialog already used for the side panels, as an ARIA combobox with a listbox, rather than adding the `cmdk` library: one dependency fewer for about fifteen commands.
+- The palette does not search the API as one types. Searching opens the user list or the event log filtered, which loads and audits the records as usual; live results would audit a read for every pause in typing.
+- The incident badge beside Security events uses the summary counts, which are not audited, and loads only in the organization scope.

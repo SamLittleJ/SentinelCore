@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router'
 
+import { PageHeader } from '@/components/layout/PageHeader'
 import { PagedResults } from '@/components/PagedResults'
 import { SeverityBadge } from '@/components/SeverityBadge'
 import { StatusPage } from '@/components/StatusPage'
@@ -93,7 +94,7 @@ function AccountPage({ userId }: { userId: number }) {
           <AccountHeader account={account.data} />
           {actor && (
             <section aria-labelledby="account-actions" className="flex flex-col gap-3">
-              <h2 id="account-actions" className="font-semibold">
+              <h2 id="account-actions" className="font-display text-xl font-semibold">
                 {t('userDetail.actions')}
               </h2>
               <AccountActions actor={actor} account={account.data} />
@@ -119,21 +120,25 @@ function AccountHeader({ account }: { account: User }) {
   ]
 
   return (
-    <header className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold">{account.username}</h1>
-        <p className="font-mono text-sm text-muted-foreground">{account.email}</p>
-        <AccountState user={account} detailed />
-      </div>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={account.username}
+        description={
+          <span className="flex flex-col gap-1.5">
+            <span className="font-mono text-sm">{account.email}</span>
+            <AccountState user={account} detailed />
+          </span>
+        }
+      />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border bg-card px-4 py-4 text-sm sm:grid-cols-4">
         {fields.map((field) => (
           <div key={field.label} className="flex flex-col gap-0.5">
-            <dt className="text-xs text-muted-foreground">{field.label}</dt>
+            <dt className="label-mono text-muted-foreground">{field.label}</dt>
             <dd className={field.mono ? 'font-mono text-xs' : undefined}>{field.value}</dd>
           </div>
         ))}
       </dl>
-    </header>
+    </div>
   )
 }
 
@@ -147,7 +152,7 @@ function AccountHistory({ userId }: { userId: number }) {
   return (
     <section aria-labelledby="account-history" className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 id="account-history" className="font-semibold">
+        <h2 id="account-history" className="font-display text-xl font-semibold">
           {t('userDetail.activity')}
         </h2>
         <p className="max-w-prose text-sm text-muted-foreground">{t('userDetail.activityHelp')}</p>

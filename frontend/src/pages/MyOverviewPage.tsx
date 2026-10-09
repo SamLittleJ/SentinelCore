@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -38,15 +39,13 @@ export function MyOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-balance">
-        {t('overview.greeting', { name: user.username })}
-      </h1>
+      <PageHeader title={t('overview.greeting', { name: user.username })} />
 
       <SecuritySummary />
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">{t('overview.profile')}</CardTitle>
+          <CardTitle className="font-display text-lg">{t('overview.profile')}</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-[max-content_1fr]">
@@ -95,13 +94,13 @@ function SecuritySummary() {
 
   return (
     <section aria-labelledby="security-summary" className="flex flex-col gap-4">
-      <h2 id="security-summary" className="text-sm font-semibold">
+      <h2 id="security-summary" className="font-display text-xl font-semibold">
         {t('overview.security')}
       </h2>
 
       <dl className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
         <Stat label={t('overview.activeSessions')} query={sessions}>
-          <span className="text-2xl font-semibold">{sessions.data?.length}</span>
+          <span className="font-display text-4xl leading-none font-semibold">{sessions.data?.length}</span>
           <Link to="/me/sessions" className="text-xs text-brand underline-offset-4 hover:underline">
             {t('overview.manageSessions')}
           </Link>
@@ -129,7 +128,7 @@ function SecuritySummary() {
         <Stat label={t('overview.alerts')} query={alerts}>
           <span
             className={cn(
-              'text-2xl font-semibold',
+              'font-display text-4xl leading-none font-semibold',
               alertItems.length > 0 ? 'text-sev-warn' : 'text-sev-ok',
             )}
           >
@@ -140,7 +139,7 @@ function SecuritySummary() {
 
       {alerts.isSuccess && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold">{t('overview.recentAlerts')}</h3>
+          <h3 className="font-display text-lg font-semibold">{t('overview.recentAlerts')}</h3>
           {alertItems.length === 0 ? (
             <p className="rounded-lg border bg-card px-4 py-4 text-muted-foreground">
               {t('overview.noAlerts')}
@@ -169,7 +168,7 @@ function Stat({ label, query, children }: StatProps) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-1.5 bg-card px-4 py-4">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="label-mono text-muted-foreground">{label}</dt>
       <dd className="flex flex-col items-start gap-1">
         {query.isPending ? (
           <Skeleton className="h-8 w-16" />

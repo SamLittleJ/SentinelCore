@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 
 import { PagedResults } from '@/components/PagedResults'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import type { User } from '@/features/auth/api'
 import { AccountState } from '@/features/org/AccountState'
@@ -28,19 +29,19 @@ export function OrgUsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">{t('nav.users')}</h1>
-          <p className="max-w-prose text-muted-foreground">{t('users.subtitle')}</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => void queryClient.resetQueries({ queryKey: userListKey })}
-        >
-          <RefreshCw aria-hidden />
-          {t('orgLog.refresh')}
-        </Button>
-      </header>
+      <PageHeader
+        title={t('nav.users')}
+        description={t('users.subtitle')}
+        actions={
+          <Button
+            variant="outline"
+            onClick={() => void queryClient.resetQueries({ queryKey: userListKey })}
+          >
+            <RefreshCw aria-hidden />
+            {t('orgLog.refresh')}
+          </Button>
+        }
+      />
 
       <UserFilterBar
         filters={filters}
