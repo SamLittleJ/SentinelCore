@@ -31,6 +31,8 @@ class SecurityEventType(StrEnum):
     ACCOUNT_UNLOCKED = "account_unlocked"
     API_KEY_CREATED = "api_key_created"
     API_KEY_REVOKED = "api_key_revoked"
+    INVITATION_CREATED = "invitation_created"
+    INVITATION_REVOKED = "invitation_revoked"
     # Alerts raised by the detection rules (services/detection_service.py).
     # An event type, not a password.
     PASSWORD_SPRAY_DETECTED = "password_spray_detected"  # nosec B105

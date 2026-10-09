@@ -13,6 +13,7 @@ from app.core.security import csrf_token_for
 from app.main import app
 from app.models.security_event import SecurityEvent, SecurityEventType
 from app.models.user import User, UserRole
+from tests.accounts import create_account
 
 PASSWORD = "testpassword"
 
@@ -28,15 +29,7 @@ def browser(client: TestClient) -> Generator[TestClient]:
 
 
 def register(client: TestClient, username: str = "testuser") -> None:
-    response = client.post(
-        "/auth/register",
-        json={
-            "username": username,
-            "email": f"{username}@example.com",
-            "password": PASSWORD,
-        },
-    )
-    assert response.status_code == 201
+    create_account(username, password=PASSWORD)
 
 
 def browser_login(browser: TestClient, username: str = "testuser"):

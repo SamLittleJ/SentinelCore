@@ -21,6 +21,7 @@ from app.models.user import User, UserRole
 from app.models.user_session import UserSession
 from app.services import session_cleanup
 from app.services.session_service import delete_stale_sessions
+from tests.accounts import create_account
 from tests.conftest import TestingSessionLocal
 
 PASSWORD = "testpassword"
@@ -32,15 +33,7 @@ def create_user(
     username: str,
     role: UserRole = UserRole.USER,
 ) -> User:
-    response = client.post(
-        "/auth/register",
-        json={
-            "username": username,
-            "email": f"{username}@example.com",
-            "password": PASSWORD,
-        },
-    )
-    assert response.status_code == 201
+    create_account(username, password=PASSWORD)
 
     user = db_session.scalar(select(User).where(User.username == username))
     assert user is not None

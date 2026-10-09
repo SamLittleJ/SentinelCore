@@ -17,6 +17,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
+from tests.accounts import create_account
 
 PASSWORD = "testpassword"
 UA = "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0"
@@ -24,11 +25,7 @@ UA = "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0"
 
 def register(client: TestClient, username: str) -> str:
     email = f"{username}@example.com"
-    response = client.post(
-        "/auth/register",
-        json={"username": username, "email": email, "password": PASSWORD},
-    )
-    assert response.status_code == 201
+    create_account(username, password=PASSWORD)
     return email
 
 

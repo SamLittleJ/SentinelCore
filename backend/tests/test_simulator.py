@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.api_key import ApiKey
-from app.models.user import User, UserRole
+from app.schemas.user import UserCreate
+from app.services.user_service import create_owner
 from simulator.__main__ import main
 from simulator.attacks import Attack, Step
 from simulator.client import SentinelCore
@@ -29,15 +30,11 @@ NOW = datetime(2026, 10, 9, 12, 0, tzinfo=UTC)
 
 @pytest.fixture()
 def api(client: TestClient, db_session: Session) -> SentinelCore:
-    response = client.post(
-        "/auth/register",
-        json={"username": "owner", "email": OWNER_EMAIL, "password": OWNER_PASSWORD},
+    # As `python -m app.cli create-owner` does.
+    create_owner(
+        db_session,
+        UserCreate(username="owner", email=OWNER_EMAIL, password=OWNER_PASSWORD),
     )
-    assert response.status_code == 201
-    owner = db_session.scalar(select(User).where(User.email == OWNER_EMAIL))
-    assert owner is not None
-    owner.role = UserRole.OWNER
-    db_session.commit()
     api = SentinelCore(client)
     api.log_in_owner(OWNER_EMAIL, OWNER_PASSWORD)
     return api

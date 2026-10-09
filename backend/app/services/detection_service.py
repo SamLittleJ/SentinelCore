@@ -222,7 +222,8 @@ PRIVILEGED_ROLES = frozenset({UserRole.ADMIN, UserRole.SECURITY_ANALYST})
 
 
 def detect_privileged_role_granted(db: Session, event: SecurityEvent) -> Alert | None:
-    """T1098: an account given a role that reaches every other account.
+    """T1098: an account given a role that reaches every other account, by a
+    role change or by accepting an invitation with that role.
 
     The role is read from the account, which the change has already updated.
     """
@@ -260,7 +261,9 @@ RULES: tuple[Rule, ...] = (
     ),
     Rule(
         alert_type=SecurityEventType.PRIVILEGED_ROLE_GRANTED,
-        triggers=frozenset({SecurityEventType.USER_ROLE_CHANGED}),
+        triggers=frozenset(
+            {SecurityEventType.USER_ROLE_CHANGED, SecurityEventType.USER_REGISTERED}
+        ),
         evaluate=detect_privileged_role_granted,
     ),
 )

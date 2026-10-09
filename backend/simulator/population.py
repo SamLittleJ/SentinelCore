@@ -109,7 +109,7 @@ def user_agent(device: str, day: int) -> str:
 class Person:
     handle: str
     email: str
-    # Random, sent only to register the account, and never written anywhere.
+    # Random, sent only to accept the invitation, and never written anywhere.
     password: str = field(repr=False)
     # Index of the home network; every sign-in from home gets a new address in it.
     home: int

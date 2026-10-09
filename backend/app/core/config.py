@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # of this many days is flagged, once it has this many to compare with.
     detection_unfamiliar_lookback_days: int = Field(default=90, ge=1)
     detection_unfamiliar_min_sign_ins: int = Field(default=3, ge=1)
+    # How long an invitation link works before it must be issued again.
+    invitation_expire_hours: int = Field(default=72, ge=1, le=30 * 24)
     # Expired or revoked sessions are kept this long for investigations.
     session_retention_days: int = Field(default=30, ge=1)
     # How often the API deletes old sessions; 0 disables the periodic task.

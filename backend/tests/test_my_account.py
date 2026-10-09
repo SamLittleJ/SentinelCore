@@ -15,6 +15,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User
+from tests.accounts import create_account
 
 PASSWORD = "testpassword"
 
@@ -23,15 +24,7 @@ QueryParams = dict[str, str | int | list[str]]
 
 
 def register(client: TestClient, username: str = "testuser") -> None:
-    response = client.post(
-        "/auth/register",
-        json={
-            "username": username,
-            "email": f"{username}@example.com",
-            "password": PASSWORD,
-        },
-    )
-    assert response.status_code == 201
+    create_account(username, password=PASSWORD)
 
 
 def login(client: TestClient, username: str = "testuser") -> dict[str, str]:

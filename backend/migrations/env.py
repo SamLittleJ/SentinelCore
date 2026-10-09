@@ -8,6 +8,7 @@ from app.core.database import Base
 from app.models import (  # noqa: F401
     api_key,
     audit_log,
+    invitation,
     security_event,
     user,
     user_session,

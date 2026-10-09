@@ -1,7 +1,7 @@
 """Plays a simulation against a running SentinelCore and records what
 happened, without judging it (that is evaluation.py's job).
 
-1. Register the organization's people and report their thirty days of
+1. Invite the organization's people and report their thirty days of
    routine through ingestion, oldest first, then collect every alert raised.
 2. Play the attacks one at a time and one step at a time. After each step,
    collect the new alerts, so the step that raised an alert is known.
@@ -76,7 +76,7 @@ def simulate(api: SentinelCore, seed: int) -> Observations:
     key_id = api.create_api_key()
     try:
         user_ids = {
-            person.email: api.register(
+            person.email: api.add_person(
                 f"{person.handle}.{tag}", person.email, person.password
             )
             for person in organization.people

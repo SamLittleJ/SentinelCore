@@ -481,3 +481,15 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - A new key is shown once in a panel in the page, not in a dialog, like the other confirmations. It is kept only in the page's state, never in the address, browser storage or the query cache.
 - Detections show their MITRE ATT&CK technique as a badge in every event table; the details panel adds its name and a link to attack.mitre.org in a new tab without a referrer, and, for a late alert, when its event happened.
 - No filter by technique yet: it would need a new API parameter, and the type filter already selects the detections.
+
+## Invitations instead of public sign-up
+
+- An organization's accounts are not open to anyone who reaches the API. `POST /auth/register` is removed rather than turned off by a setting: less code, and nothing to leave on by mistake. It also told anyone whether an email had an account.
+- Accounts join through an invitation: an admin or the owner names an email and a role, and the person invited chooses a username and a password. A temporary password set by an operator, or a password chosen for them, was rejected: the operator would know it, and could act as that person.
+- Admins invite `user` and `security_analyst`; only the owner invites an admin; nobody invites an owner. Who may grant a role is checked again on acceptance, so deactivating or demoting an author voids their invitations.
+- The token is built like an API key (`sci_<prefix>_<secret>`, random, a SHA-256 hash stored, compared in constant time; the shared code is in `core/secret_tokens.py`), lasts 72 hours by default and works once. One open invitation per email, enforced by a partial unique index; a new one revokes the old.
+- The token travels in request bodies (`POST /auth/invitations/preview`, `/accept`), not in a path or query string, so it stays out of access logs. Every unusable token gets the same `404`. Operators are told when an email already has an account, since they can list accounts anyway.
+- Acceptance locks the invitation row, so two requests cannot both use it, and does not sign the person in.
+- Joining with `admin` or `security_analyst` raises the T1098 alert, as a role change does; otherwise an invitation would be a way around it.
+- The first owner comes from `python -m app.cli create-owner`, which reads the password from the environment or a prompt and refuses once an owner exists.
+- The simulator now invites its people as the owner and accepts on their behalf, the same path as a real account.

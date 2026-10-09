@@ -12,6 +12,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
+from tests.accounts import create_account
 
 BASE_TIME = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
@@ -26,11 +27,7 @@ def create_user(
     role: UserRole = UserRole.USER,
 ) -> User:
     email = f"{username}@example.com"
-    response = client.post(
-        "/auth/register",
-        json={"username": username, "email": email, "password": "testpassword"},
-    )
-    assert response.status_code == 201
+    create_account(username, email, "testpassword")
 
     user = db_session.scalar(select(User).where(User.email == email))
     assert user is not None

@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.logging import JsonFormatter, TextFormatter, request_id_var
 from app.main import app
 from app.models.user import User, UserRole
+from tests.accounts import create_account
 
 
 def metric_value(name: str, **labels: str) -> float:
@@ -39,15 +40,7 @@ def security_event_count(event_type: str, severity: str) -> float:
 
 
 def register(client: TestClient) -> None:
-    response = client.post(
-        "/auth/register",
-        json={
-            "username": "testuser",
-            "email": "test@example.com",
-            "password": "testpassword",
-        },
-    )
-    assert response.status_code == 201
+    create_account("testuser", "test@example.com")
 
 
 def _raise_operational_error(*args: object, **kwargs: object) -> None:
@@ -272,14 +265,7 @@ def test_user_change_security_events_are_counted(
     db_session: Session,
 ) -> None:
     for username in ("owneruser", "targetuser"):
-        client.post(
-            "/auth/register",
-            json={
-                "username": username,
-                "email": f"{username}@example.com",
-                "password": "testpassword",
-            },
-        )
+        create_account(username)
     owner = db_session.scalar(select(User).where(User.username == "owneruser"))
     target = db_session.scalar(select(User).where(User.username == "targetuser"))
     assert owner is not None and target is not None

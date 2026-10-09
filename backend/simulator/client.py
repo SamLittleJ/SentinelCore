@@ -73,12 +73,20 @@ class SentinelCore:
         check(response, "Revoking the API key")
         self.api_key = None
 
-    def register(self, username: str, email: str, password: str) -> int:
+    def add_person(self, username: str, email: str, password: str) -> int:
+        """Invite `email` as the owner, then accept as the person invited, the
+        only way an account joins the organization."""
         response = self.http.post(
-            "/auth/register",
-            json={"username": username, "email": email, "password": password},
+            "/admin/invitations",
+            json={"email": email, "role": "user"},
+            headers=self.as_owner,
         )
-        return check(response, f"Registering {email}").json()["id"]
+        token = check(response, f"Inviting {email}").json()["token"]
+        response = self.http.post(
+            "/auth/invitations/accept",
+            json={"token": token, "username": username, "password": password},
+        )
+        return check(response, f"Accepting the invitation of {email}").json()["id"]
 
     def ingest(self, events: list[dict]) -> float:
         """Report `events`, in batches; returns the time taken, in ms."""
