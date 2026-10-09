@@ -13,6 +13,7 @@ app/
 ├── services/   # business logic
 └── main.py     # application entry point
 migrations/     # Alembic migrations
+simulator/      # attack simulator and detection evaluation (not deployed)
 tests/          # pytest tests
 ```
 
@@ -78,6 +79,28 @@ curl -X POST http://localhost:8000/ingest/events \
 ```
 
 Accepted types are `login_success` and `login_failed`, up to 500 per request. Events keep the time they happened (at most a year ago), are stored with the key's source and go through the detection rules. The answer is `202 {"accepted": N}`. Revoke a key with `POST /admin/api-keys/{id}/revoke`.
+
+## Attack simulator
+
+`simulator/` measures the detection rules. It drives a running instance through its public API, as an outside system would, and writes `docs/evaluation/report.md` and `report.json`.
+
+```bash
+# a running backend on a fresh database, and an owner account
+export SENTINELCORE_OWNER_PASSWORD=...   # or leave it unset to be asked
+python -m simulator --owner-email owner@example.com [--seed 42] [--base-url http://localhost:8000]
+```
+
+What it does:
+
+1. Creates an API key with the `simulator` source, and registers 26 synthetic people.
+2. Reports 30 days of their routine through ingestion, oldest first: office sign-ins behind one address on workdays, with an occasional typo, evenings and weekends from home, a browser update, and benign cases that a rule could take for an attack (a trip with a known laptop, a new phone, a new laptop on a trip, a return from a long leave, a password change day at the office).
+3. Plays five attacks per rule, one step at a time: password sprays (T1110.003), sign-ins to dormant accounts and from an attacker's network and computer (T1078) through ingestion; brute force (T1110.001) through the real sign-in, since the lockout counts only this application's own sign-ins; admin roles granted by the owner (T1098) through the real API.
+4. After each step, reads the new alerts. An attack is detected when an alert it would raise appears; every other alert is a false positive, put down to the benign case it names.
+5. Revokes its key.
+
+Time to detect is given in attack time (from the first step to the one after which the alert appeared, and in steps) and as the latency of the request that raised the alert. What is an attack stays with the simulator; the server only sees sign-ins. The seed fixes the people and their behaviour, and passwords are random and never written anywhere.
+
+Run it on a fresh database: password spray and brute force count from their latest alert, so a second run on the same data detects less. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
 
 ## Observability
 
@@ -158,7 +181,7 @@ DATABASE_URL=postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/other
 Pylance only checks the files open in the editor. For the whole backend, with the same engine (Pyright):
 
 ```bash
-npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations
+npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations simulator
 ```
 
 ## Tests
@@ -182,7 +205,7 @@ The test database address can be changed with `TEST_DATABASE_URL`; its name must
 ```bash
 python -m ruff check .
 python -m ruff format --check .
-python -m bandit -r app -c pyproject.toml
+python -m bandit -r app simulator -c pyproject.toml
 python -m pytest -v
 ```
 

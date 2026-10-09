@@ -71,7 +71,7 @@ jobs:
             - name: Run Bandit security scan
               working-directory: backend
               run: |
-                python -m bandit -r app -c pyproject.toml
+                python -m bandit -r app simulator -c pyproject.toml
 
             - name: Run backend tests
               working-directory: backend

@@ -1,0 +1,430 @@
+{
+  "seed": 42,
+  "started_at": "2026-10-09T08:25:53+00:00",
+  "earlier_alerts": false,
+  "duration_seconds": 6.366279,
+  "people": 26,
+  "routine_sign_ins": 753,
+  "routine_failures": 43,
+  "routine_ingest_ms": 1301.8717109953286,
+  "attacks": 25,
+  "detected": 25,
+  "detection_rate": 1.0,
+  "alerts": 28,
+  "precision": 0.8928571428571429,
+  "false_positives_per_1000_sign_ins": 3.7688442211055277,
+  "rules": [
+    {
+      "alert_type": "brute_force_detected",
+      "technique": "T1110.001",
+      "attacks": 5,
+      "detected": 5,
+      "detection_rate": 1.0,
+      "median_steps_to_detect": 5.0,
+      "median_seconds_to_detect": 0.286217,
+      "max_seconds_to_detect": 0.288663,
+      "median_latency_ms": 58.92238199885469,
+      "max_latency_ms": 60.33619699883275,
+      "false_positives": 0
+    },
+    {
+      "alert_type": "password_spray_detected",
+      "technique": "T1110.003",
+      "attacks": 5,
+      "detected": 5,
+      "detection_rate": 1.0,
+      "median_steps_to_detect": 10.0,
+      "median_seconds_to_detect": 270.0,
+      "max_seconds_to_detect": 270.0,
+      "median_latency_ms": 9.283252999011893,
+      "max_latency_ms": 10.46179499826394,
+      "false_positives": 1
+    },
+    {
+      "alert_type": "dormant_account_login",
+      "technique": "T1078",
+      "attacks": 5,
+      "detected": 5,
+      "detection_rate": 1.0,
+      "median_steps_to_detect": 1.0,
+      "median_seconds_to_detect": 0.0,
+      "max_seconds_to_detect": 0.0,
+      "median_latency_ms": 10.33475500298664,
+      "max_latency_ms": 21.950854003080167,
+      "false_positives": 1
+    },
+    {
+      "alert_type": "unfamiliar_sign_in",
+      "technique": "T1078",
+      "attacks": 5,
+      "detected": 5,
+      "detection_rate": 1.0,
+      "median_steps_to_detect": 1.0,
+      "median_seconds_to_detect": 0.0,
+      "max_seconds_to_detect": 0.0,
+      "median_latency_ms": 11.752716003684327,
+      "max_latency_ms": 12.768189997586887,
+      "false_positives": 1
+    },
+    {
+      "alert_type": "privileged_role_granted",
+      "technique": "T1098",
+      "attacks": 5,
+      "detected": 5,
+      "detection_rate": 1.0,
+      "median_steps_to_detect": 1.0,
+      "median_seconds_to_detect": 0.0,
+      "max_seconds_to_detect": 0.0,
+      "median_latency_ms": 10.698669997509569,
+      "max_latency_ms": 13.644761995237786,
+      "false_positives": 0
+    }
+  ],
+  "detections": [
+    {
+      "attack": "spray-1",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "13 emails, one attempt each, every 30 seconds from 203.0.113.10",
+      "steps": 13,
+      "detected": true,
+      "steps_to_detect": 10,
+      "seconds_to_detect": 270.0,
+      "latency_ms": 10.46179499826394
+    },
+    {
+      "attack": "spray-2",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "14 emails, one attempt each, every 30 seconds from 203.0.113.11",
+      "steps": 14,
+      "detected": true,
+      "steps_to_detect": 10,
+      "seconds_to_detect": 270.0,
+      "latency_ms": 8.78682699840283
+    },
+    {
+      "attack": "spray-3",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "10 emails, one attempt each, every 30 seconds from 203.0.113.12",
+      "steps": 10,
+      "detected": true,
+      "steps_to_detect": 10,
+      "seconds_to_detect": 270.0,
+      "latency_ms": 8.414847005042247
+    },
+    {
+      "attack": "spray-4",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "13 emails, one attempt each, every 30 seconds from 203.0.113.13",
+      "steps": 13,
+      "detected": true,
+      "steps_to_detect": 10,
+      "seconds_to_detect": 270.0,
+      "latency_ms": 10.042393994808663
+    },
+    {
+      "attack": "spray-5",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "11 emails, one attempt each, every 30 seconds from 203.0.113.14",
+      "steps": 11,
+      "detected": true,
+      "steps_to_detect": 10,
+      "seconds_to_detect": 270.0,
+      "latency_ms": 9.283252999011893
+    },
+    {
+      "attack": "dormant-1",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for over 100 days",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 9.896037998259999
+    },
+    {
+      "attack": "dormant-2",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for over 100 days",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 21.950854003080167
+    },
+    {
+      "attack": "dormant-3",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for over 100 days",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 11.686652003845666
+    },
+    {
+      "attack": "dormant-4",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for over 100 days",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 9.215505000611302
+    },
+    {
+      "attack": "dormant-5",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for over 100 days",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 10.33475500298664
+    },
+    {
+      "attack": "unfamiliar-1",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network and computer",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 11.732047998521011
+    },
+    {
+      "attack": "unfamiliar-2",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network and computer",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 12.40421400143532
+    },
+    {
+      "attack": "unfamiliar-3",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network and computer",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 11.752716003684327
+    },
+    {
+      "attack": "unfamiliar-4",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network and computer",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 11.69271300022956
+    },
+    {
+      "attack": "unfamiliar-5",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network and computer",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 12.768189997586887
+    },
+    {
+      "attack": "brute-force-1",
+      "technique": "T1110.001",
+      "alert_type": "brute_force_detected",
+      "description": "Wrong passwords for one account, through the application's own sign-in",
+      "steps": 8,
+      "detected": true,
+      "steps_to_detect": 5,
+      "seconds_to_detect": 0.277841,
+      "latency_ms": 57.53391700272914
+    },
+    {
+      "attack": "brute-force-2",
+      "technique": "T1110.001",
+      "alert_type": "brute_force_detected",
+      "description": "Wrong passwords for one account, through the application's own sign-in",
+      "steps": 8,
+      "detected": true,
+      "steps_to_detect": 5,
+      "seconds_to_detect": 0.278942,
+      "latency_ms": 57.905727000616025
+    },
+    {
+      "attack": "brute-force-3",
+      "technique": "T1110.001",
+      "alert_type": "brute_force_detected",
+      "description": "Wrong passwords for one account, through the application's own sign-in",
+      "steps": 8,
+      "detected": true,
+      "steps_to_detect": 5,
+      "seconds_to_detect": 0.286217,
+      "latency_ms": 58.92238199885469
+    },
+    {
+      "attack": "brute-force-4",
+      "technique": "T1110.001",
+      "alert_type": "brute_force_detected",
+      "description": "Wrong passwords for one account, through the application's own sign-in",
+      "steps": 8,
+      "detected": true,
+      "steps_to_detect": 5,
+      "seconds_to_detect": 0.288663,
+      "latency_ms": 60.33619699883275
+    },
+    {
+      "attack": "brute-force-5",
+      "technique": "T1110.001",
+      "alert_type": "brute_force_detected",
+      "description": "Wrong passwords for one account, through the application's own sign-in",
+      "steps": 8,
+      "detected": true,
+      "steps_to_detect": 5,
+      "seconds_to_detect": 0.286825,
+      "latency_ms": 60.095993998402264
+    },
+    {
+      "attack": "privileged-role-1",
+      "technique": "T1098",
+      "alert_type": "privileged_role_granted",
+      "description": "A taken-over owner account makes an accomplice an admin",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 13.644761995237786
+    },
+    {
+      "attack": "privileged-role-2",
+      "technique": "T1098",
+      "alert_type": "privileged_role_granted",
+      "description": "A taken-over owner account makes an accomplice an admin",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 11.600069999985863
+    },
+    {
+      "attack": "privileged-role-3",
+      "technique": "T1098",
+      "alert_type": "privileged_role_granted",
+      "description": "A taken-over owner account makes an accomplice an admin",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 10.485949998837896
+    },
+    {
+      "attack": "privileged-role-4",
+      "technique": "T1098",
+      "alert_type": "privileged_role_granted",
+      "description": "A taken-over owner account makes an accomplice an admin",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 10.698669997509569
+    },
+    {
+      "attack": "privileged-role-5",
+      "technique": "T1098",
+      "alert_type": "privileged_role_granted",
+      "description": "A taken-over owner account makes an accomplice an admin",
+      "steps": 1,
+      "detected": true,
+      "steps_to_detect": 1,
+      "seconds_to_detect": 0.0,
+      "latency_ms": 10.544140001002233
+    }
+  ],
+  "false_positives": [
+    {
+      "alert_type": "unfamiliar_sign_in",
+      "technique": "T1078",
+      "cause": "new_laptop_on_a_trip",
+      "message": "Sign-in to user_id=20 from an unfamiliar network (100.64.70.0/24) and device"
+    },
+    {
+      "alert_type": "password_spray_detected",
+      "technique": "T1110.003",
+      "cause": "password_change_day",
+      "message": "Password spray from 192.0.2.10: failed sign-ins for 10 different emails within 15 minutes"
+    },
+    {
+      "alert_type": "dormant_account_login",
+      "technique": "T1078",
+      "cause": "back_from_leave",
+      "message": "Sign-in to user_id=27 107 days after the previous one"
+    }
+  ],
+  "cases": [
+    {
+      "name": "new_laptop_on_a_trip",
+      "description": "Signs in once from a conference network on a laptop bought there",
+      "expected_alert": "unfamiliar_sign_in",
+      "alerts": [
+        "unfamiliar_sign_in"
+      ],
+      "as_expected": true
+    },
+    {
+      "name": "back_from_leave",
+      "description": "Back at the office after more than 100 days away",
+      "expected_alert": "dormant_account_login",
+      "alerts": [
+        "dormant_account_login"
+      ],
+      "as_expected": true
+    },
+    {
+      "name": "password_change_day",
+      "description": "12 people type their old password once from 09:00, behind the office's single address",
+      "expected_alert": "password_spray_detected",
+      "alerts": [
+        "password_spray_detected"
+      ],
+      "as_expected": true
+    },
+    {
+      "name": "trip_with_known_laptop",
+      "description": "Two people sign in from a hotel for two days with their usual laptop",
+      "expected_alert": null,
+      "alerts": [],
+      "as_expected": true
+    },
+    {
+      "name": "new_phone",
+      "description": "Starts signing in from home on a new phone",
+      "expected_alert": null,
+      "alerts": [],
+      "as_expected": true
+    },
+    {
+      "name": "routine",
+      "description": "Office sign-ins on workdays (with an occasional typo), evenings and weekends from home, and a browser update on day 15",
+      "expected_alert": null,
+      "alerts": [],
+      "as_expected": true
+    }
+  ]
+}

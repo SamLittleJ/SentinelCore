@@ -448,3 +448,14 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - The device is the user agent without its version numbers, with no parsing library: a browser update keeps the device, and the rule stays explainable in one line.
 - The account's habits are its last 90 days of sign-ins with an address and a user agent, and it is judged only after 3 of them, so new accounts and old history without user agents stay quiet.
 - The alert is a `warn`, like the dormant account rule: a signal to investigate, not a confirmed incident.
+
+## Attack simulator
+
+- The simulator is a separate package that drives a running instance over HTTP through the public API, not a set of in-process tests: it measures the real path (authentication, ingestion, detection) and can be shown live. The tests run the same code over FastAPI's TestClient.
+- What is an attack stays with the simulator; the server receives only sign-ins, as in production.
+- Time to detect is measured in attack time and in steps, plus the latency of the request that raised the alert, rather than in wall-clock time: runs take seconds instead of hours and give the same numbers every time.
+- The report (`docs/evaluation/report.md` and `report.json`) is committed, with a fixed seed, so results can be cited and compared between versions.
+- All five rules are covered: brute force through the real sign-in, since its lockout counts only the application's own sign-ins, and privileged roles through the real API.
+- Benign cases that the rules' design cannot tell from attacks (a new laptop on a trip, a return from long leave, a password change day behind one office address) are part of the routine and expected to alert. They are reported as false positives with their cause, not left out.
+- The simulator attacks only `localhost` unless told otherwise, reads the owner's password from the environment or a prompt, and revokes its API key at the end.
+- Evasive attack variants were split into a later stage, to keep each change reviewable.
