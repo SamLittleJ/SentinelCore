@@ -12,20 +12,13 @@ from app.core.config import Settings, settings
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
+from tests.accounts import create_account
 
 PASSWORD = "testpassword"
 
 
 def register(client: TestClient, username: str = "testuser") -> None:
-    response = client.post(
-        "/auth/register",
-        json={
-            "username": username,
-            "email": f"{username}@example.com",
-            "password": PASSWORD,
-        },
-    )
-    assert response.status_code == 201
+    create_account(username, password=PASSWORD)
 
 
 def login(

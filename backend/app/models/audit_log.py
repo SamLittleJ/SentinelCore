@@ -28,6 +28,9 @@ class AuditEventType(StrEnum):
     API_KEY_CREATED = "api_key_created"
     API_KEY_REVOKED = "api_key_revoked"
     API_KEYS_VIEWED = "api_keys_viewed"
+    INVITATION_CREATED = "invitation_created"
+    INVITATION_REVOKED = "invitation_revoked"
+    INVITATIONS_VIEWED = "invitations_viewed"
 
 
 class AuditLog(Base):

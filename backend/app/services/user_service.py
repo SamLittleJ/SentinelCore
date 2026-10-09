@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from sqlalchemy import ColumnElement, func, or_, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import database_now
@@ -30,23 +29,79 @@ def get_user_by_username(db: Session, username: str) -> User | None:
     return db.scalar(statement)
 
 
-def create_user(db: Session, user_in: UserCreate) -> User:
+def stage_user(db: Session, user_in: UserCreate, role: UserRole) -> User:
+    """Add a new account to the session, unsaved; `commit_account_created`
+    saves it. The unique indexes reject a taken email or username then."""
     user = User(
         username=user_in.username,
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
-        role=UserRole.USER,
+        role=role,
     )
     db.add(user)
+    db.flush()  # Gives the account its id for the events.
+    return user
+
+
+def commit_account_created(
+    db: Session,
+    user: User,
+    message: str,
+    ip_address: str | None = None,
+) -> User:
+    """Commit a staged account together with its audit and security events,
+    so either all three are stored or none are. The account is both the
+    events' user and target, so detection sees the role it was created with."""
+    security_event = SecurityEvent(
+        event_type=SecurityEventType.USER_REGISTERED,
+        severity=SecuritySeverity.INFO,
+        user_id=user.id,
+        target_user_id=user.id,
+        email=user.email,
+        ip_address=ip_address,
+        source="backend",
+        message=message,
+    )
+    db.add_all(
+        [
+            AuditLog(
+                event_type=AuditEventType.USER_REGISTERED,
+                user_id=user.id,
+                target_user_id=user.id,
+                email=user.email,
+                ip_address=ip_address,
+                message=message,
+            ),
+            security_event,
+        ]
+    )
 
     try:
         db.commit()
-    except IntegrityError:
+    except Exception:
         db.rollback()
         raise
 
+    record_security_event(SecurityEventType.USER_REGISTERED, SecuritySeverity.INFO)
+    run_detection(db, security_event)
     db.refresh(user)
     return user
+
+
+class OwnerExistsError(Exception):
+    pass
+
+
+def create_owner(db: Session, user_in: UserCreate) -> User:
+    """Create the organization's first owner, the account every other one is
+    invited from. Refused once an owner exists, so this cannot become a
+    second way in."""
+    if db.scalar(select(User.id).where(User.role == UserRole.OWNER).limit(1)):
+        raise OwnerExistsError("The organization already has an owner")
+    user = stage_user(db, user_in, UserRole.OWNER)
+    return commit_account_created(
+        db, user, f"Owner account created from the command line: {user.email}"
+    )
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:

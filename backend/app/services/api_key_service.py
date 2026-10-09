@@ -1,14 +1,9 @@
 """API keys for the ingestion endpoint.
 
-A key reads `sck_<prefix>_<secret>`. The prefix finds the key and is safe to
-show; the secret is 32 random bytes, of which only a SHA-256 hash is stored.
-A fast hash is enough here, unlike for passwords: the secret is random and
-long, so guessing it from its hash is not feasible.
+A key reads `sck_<prefix>_<secret>` (core/secret_tokens.py): only a hash of
+the secret is stored, and the full key is shown once.
 """
 
-import hashlib
-import hmac
-import secrets
 from datetime import timedelta
 
 from sqlalchemy import select
@@ -16,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import database_now
 from app.core.metrics import record_security_event
+from app.core.secret_tokens import issue_token, secret_matches, split_token
 from app.models.api_key import ApiKey
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import (
@@ -27,10 +23,6 @@ from app.models.user import User
 from app.schemas.api_key import ApiKeyCreate
 
 KEY_SCHEME = "sck"
-
-
-def _hash_secret(secret: str) -> str:
-    return hashlib.sha256(secret.encode()).hexdigest()
 
 
 def _commit_key_change(
@@ -78,11 +70,11 @@ def create_api_key(
 ) -> tuple[ApiKey, str]:
     """Create a key and return it with its full value, which is never
     available again."""
-    prefix = secrets.token_hex(4)
-    secret = secrets.token_urlsafe(32)
+    token = issue_token(KEY_SCHEME)
+    prefix = token.prefix
     api_key = ApiKey(
         prefix=prefix,
-        secret_hash=_hash_secret(secret),
+        secret_hash=token.secret_hash,
         name=data.name,
         source=data.source,
         created_by_id=actor.id,
@@ -101,7 +93,7 @@ def create_api_key(
         ip_address,
     )
     db.refresh(api_key)
-    return api_key, f"{KEY_SCHEME}_{prefix}_{secret}"
+    return api_key, token.value
 
 
 def list_api_keys(db: Session) -> list[ApiKey]:
@@ -137,16 +129,13 @@ def revoke_api_key(
 def authenticate_api_key(db: Session, presented: str) -> ApiKey | None:
     """The key `presented` stands for, if it is valid now: known, matching,
     not revoked and not expired. Every failure looks the same to the caller."""
-    scheme, _, rest = presented.partition("_")
-    prefix, _, secret = rest.partition("_")
-    if scheme != KEY_SCHEME or not prefix or not secret:
+    parts = split_token(KEY_SCHEME, presented)
+    if parts is None:
         return None
+    prefix, secret = parts
 
     api_key = db.scalar(select(ApiKey).where(ApiKey.prefix == prefix))
-    # Compared in constant time, so the response time does not reveal how
-    # much of the secret matched.
-    expected = api_key.secret_hash if api_key else _hash_secret("")
-    matches = hmac.compare_digest(_hash_secret(secret), expected)
+    matches = secret_matches(secret, api_key.secret_hash if api_key else None)
     if api_key is None or not matches:
         return None
     if api_key.revoked_at is not None or api_key.expires_at <= database_now(db):

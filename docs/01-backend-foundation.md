@@ -4350,3 +4350,53 @@ On a fresh database (`docs/evaluation/report.md`, seed 42): 25 of 25 attacks det
 - the real backend on a temporary database: the command line run, the report regenerated
 
 Reverse check: each of the following changes makes at least one test fail: an evasion caught only by the rule it targets, evasions counted in the detection rate, a slow spray at full speed, a distributed spray from one address, a copied user agent that is not copied, an idle account past the threshold, the catching alert not recorded, and the report without evasion rows (8 of 8).
+
+## Invitations Instead of Public Sign-Up
+
+### 301. Purpose of the stage
+
+`POST /auth/register` was public: anyone who could reach the API could create an account and join the organization with the `user` role. Its answer, "Email already registered", also told an outsider which emails had accounts, the list a password spray starts from. An organization decides who joins, so accounts now come only from invitations, and the first owner from the command line.
+
+### 302. Invitations
+
+The `invitations` table (`app/models/invitation.py`) keeps the email, the role, the author, the expiry and when the invitation was accepted (and by which account) or revoked. Endpoints (`app/api/routes/invitations.py`):
+
+- `POST /admin/invitations`: admins offer `user` or `security_analyst`, the owner also `admin`; `owner` is refused by validation (`422`), anything else above the caller's reach with `403`. An email with an account gets `409`. An open invitation for the same email is revoked and replaced, and the event says so. A partial unique index on `email` where neither `accepted_at` nor `revoked_at` is set is the last guard when two operators invite the same email at once (`409`).
+- `GET /admin/invitations` for operators, audited as `invitations_viewed`; `POST /admin/invitations/{id}/revoke` for whoever could have made it.
+- `POST /auth/invitations/preview` and `/accept`, without an account. The token is in the body, never in the path, so it does not reach access logs. Acceptance takes the username and password, creates the account with the invitation's email and role, and marks the invitation used.
+
+### 303. The token
+
+A token reads `sci_<prefix>_<secret>`, built exactly like an API key. The code that issues, splits and compares them moved from `api_key_service.py` to `app/core/secret_tokens.py`, shared by both: 32 random bytes, a SHA-256 hash stored, compared in constant time, with the same work when the prefix is unknown. Invitations last `INVITATION_EXPIRE_HOURS` (72 by default, 1-720).
+
+`find_open_invitation` accepts a token only if it is known, matches, is neither used, revoked nor expired, and its author is still active and may still grant its role. Every failure gives the same `404`, "This invitation is not valid. Ask for a new one.", so a token cannot be probed for which one it is. On acceptance the row is read `FOR UPDATE`: a second request with the same token waits, then finds it used.
+
+A taken username returns `400`: only someone holding a valid invitation can ask, and sign-in is by email. An email that got an account since the invitation, caught before creating the account or by the unique index in a race, returns the same `404` as any unusable token.
+
+### 304. Accounts and the T1098 rule
+
+`create_user` became `stage_user` and `commit_account_created` (`app/services/user_service.py`): the account and its `user_registered` audit and security events are committed together. The account is now the events' target too, and the privileged role rule also watches `user_registered`: joining as `admin` or `security_analyst` raises `privileged_role_granted` (T1098), as a role change does. Without this, an invitation would be a way to create a privileged account no rule sees.
+
+### 305. The first owner
+
+`python -m app.cli create-owner --email ... --username ...` reads the password from `SENTINELCORE_OWNER_PASSWORD` or asks for it twice without echoing it, and refuses once the organization has an owner. Validation errors name only the field and the problem, never the value, which could be the password.
+
+### 306. Tests and the simulator
+
+Tests created their accounts through `/auth/register`. They now use `tests/accounts.py`, which goes through `stage_user` and `commit_account_created`, the same path an accepted invitation takes, in a database session of its own. Two tests that checked the IP address on the registration event now check it on sign-ins; the invitation tests check it on acceptance.
+
+That helper exposed a hidden problem: pytest loaded `conftest.py` as the module `conftest`, while `from tests.conftest import ...` loaded it a second time as `tests.conftest`, with a second engine. The fixture disposed of only the first engine's connections between tests, so the second kept server-side prepared statements bound to the previous test's enum types (`cache lookup failed for type`). An empty `tests/__init__.py` makes both names the same module.
+
+The simulator invites each of its people as the owner and accepts on their behalf (`add_person` in `simulator/client.py`); its test creates the owner through `create_owner`, as the command line does.
+
+### 307. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 405 passed, 51 of them in `tests/test_invitations.py`
+- the migration on a temporary database: upgrade, `alembic check`, downgrade, upgrade, `alembic check`
+- the real backend on that database: the owner created from the command line (a second attempt refused), the simulator run through invitations with the same results (25 of 25, 3 false positives), an admin invited and accepted over HTTP raising the T1098 alert, `/auth/register` answering `404`, and the token absent from the server's log
+- Gitleaks on `backend/app`, `tests`, `simulator` and `migrations` -> no leaks
+
+Reverse check: each of the following changes makes at least one test fail: an admin allowed to invite an admin, an inactive author's invitation accepted, an expired, revoked or used token accepted, the author's role not checked again, no row lock, the secret not compared, the old invitation kept open, the T1098 rule blind to new accounts, a second owner allowed, the command line echoing the input, a distinct answer for an expired token, an admin revoking an owner's admin invitation, the email race reported as a taken username, an existing account invited, the token stored as is, a used invitation revoked, and public sign-up still answering (19 of 20). The one that passes lets the analyst through the route's role check; the table of grantable roles refuses them with the same `403`, so the behaviour does not change.

@@ -15,6 +15,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from app.services import user_service
+from tests.accounts import create_account
 
 EMAIL = "testuser@example.com"
 PASSWORD = "testpassword"
@@ -22,11 +23,7 @@ LOCKED_DETAIL = "Too many failed login attempts. Try again later."
 
 
 def register(client: TestClient) -> None:
-    response = client.post(
-        "/auth/register",
-        json={"username": "testuser", "email": EMAIL, "password": PASSWORD},
-    )
-    assert response.status_code == 201
+    create_account("testuser", EMAIL, PASSWORD)
 
 
 def login(client: TestClient, password: str = PASSWORD, email: str = EMAIL):
@@ -205,14 +202,7 @@ def test_expired_lockout_does_not_count_earlier_failures_again(
 
 def test_lockout_applies_only_to_the_attacked_email(client: TestClient) -> None:
     register(client)
-    client.post(
-        "/auth/register",
-        json={
-            "username": "otheruser",
-            "email": "other@example.com",
-            "password": PASSWORD,
-        },
-    )
+    create_account("otheruser", "other@example.com", PASSWORD)
 
     fail_logins(client, settings.login_max_failed_attempts)
 
@@ -241,14 +231,27 @@ def test_events_record_client_ip(
     client: TestClient,
     db_session: Session,
 ) -> None:
+    register(client)
     # The `client` fixture installs the test database override used here too.
     with TestClient(app, client=("203.0.113.7", 50000)) as remote_client:
-        register(remote_client)
         login(remote_client)
         login(remote_client, password="wrongpassword")
 
-    audit_ips = set(db_session.scalars(select(AuditLog.ip_address)).all())
-    security_ips = set(db_session.scalars(select(SecurityEvent.ip_address)).all())
+    # Account creation is not a request here; test_invitations.py checks it.
+    audit_ips = set(
+        db_session.scalars(
+            select(AuditLog.ip_address).where(
+                AuditLog.event_type != AuditEventType.USER_REGISTERED
+            )
+        ).all()
+    )
+    security_ips = set(
+        db_session.scalars(
+            select(SecurityEvent.ip_address).where(
+                SecurityEvent.event_type != SecurityEventType.USER_REGISTERED
+            )
+        ).all()
+    )
     assert audit_ips == {"203.0.113.7"}
     assert security_ips == {"203.0.113.7"}
 
@@ -267,13 +270,13 @@ def test_security_events_api_exposes_ip_address(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    with TestClient(app, client=("2001:db8::1", 50000)) as remote_client:
-        register(remote_client)
-
+    register(client)
     user = db_session.scalar(select(User))
     assert user is not None
     user.role = UserRole.SECURITY_ANALYST
     db_session.commit()
+    with TestClient(app, client=("2001:db8::1", 50000)) as remote_client:
+        login(remote_client)
 
     token = login(client).json()["access_token"]
     response = client.get(
@@ -282,9 +285,10 @@ def test_security_events_api_exposes_ip_address(
     )
 
     assert response.status_code == 200
-    registered = [
-        event
+    sign_in_ips = [
+        event["ip_address"]
         for event in response.json()["items"]
-        if event["event_type"] == SecurityEventType.USER_REGISTERED
+        if event["event_type"] == SecurityEventType.LOGIN_SUCCESS
     ]
-    assert registered[0]["ip_address"] == "2001:db8::1"
+    # Newest first: the local sign-in has no IP address, the remote one has.
+    assert sign_in_ips == [None, "2001:db8::1"]

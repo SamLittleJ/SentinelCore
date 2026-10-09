@@ -27,10 +27,29 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 cp .env.example .env
 python -m alembic upgrade head
+python -m app.cli create-owner --email owner@example.com --username owner
 python -m uvicorn app.main:app --reload
 ```
 
+`create-owner` creates the organization's first account, the owner, and asks for its password without echoing it (or reads `SENTINELCORE_OWNER_PASSWORD`). It refuses once an owner exists. There is no public sign-up: every other account joins through an invitation.
+
 `.[dev]` also installs the development tools: pytest, httpx, Ruff and Bandit. To only run the application, `python -m pip install -e .` is enough.
+
+## Accounts and invitations
+
+An admin or the owner invites an email with a role; the response holds a token, shown only once, that the person invited uses to choose a username and a password. Nobody else ever knows that password.
+
+| Endpoint | Who | What it does |
+|----------|-----|--------------|
+| `POST /admin/invitations` | admin, owner | Invites `email` with `role`: admins offer `user` or `security_analyst`, only the owner offers `admin`, nobody offers `owner`. Replaces an open invitation for the same email; `409` if the email already has an account |
+| `GET /admin/invitations` | admin, owner, analyst | Every invitation, newest first, without tokens |
+| `POST /admin/invitations/{id}/revoke` | admin, owner | Stops an invitation the caller could have made |
+| `POST /auth/invitations/preview` | anyone with a token | The email, role and expiry an invitation offers |
+| `POST /auth/invitations/accept` | anyone with a token | Creates the account from `token`, `username` and `password`; it signs in next |
+
+A token reads `sci_<prefix>_<secret>`; only a hash of the secret is stored. It works once, for `INVITATION_EXPIRE_HOURS` (72 by default), and only while its author may still grant its role: deactivating or demoting the author voids their invitations. The token travels in the request body, never in a URL, so it stays out of access logs. An unknown, wrong, used, revoked or expired token always gets the same `404`.
+
+An account that joins with the `admin` or `security_analyst` role raises the `privileged_role_granted` alert, as a role change does.
 
 ## Brute-force protection
 
@@ -53,7 +72,7 @@ Every recorded security event goes through the detection rules in `app/services/
 | `password_spray_detected` (incident) | T1110.003 | failed sign-ins for many different emails from one address |
 | `dormant_account_login` (warn) | T1078 | a sign-in after a long time without one |
 | `unfamiliar_sign_in` (warn) | T1078 | a sign-in from a network (/24, /64) and a device the account has not used in its recent sign-ins |
-| `privileged_role_granted` (warn) | T1098 | an account given the `admin` or `security_analyst` role |
+| `privileged_role_granted` (warn) | T1098 | an account given the `admin` or `security_analyst` role, by a role change or an invitation |
 
 The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds are configurable in `.env`:
 
@@ -85,14 +104,14 @@ Accepted types are `login_success` and `login_failed`, up to 500 per request. Ev
 `simulator/` measures the detection rules. It drives a running instance through its public API, as an outside system would, and writes `docs/evaluation/report.md` and `report.json`.
 
 ```bash
-# a running backend on a fresh database, and an owner account
+# a running backend on a fresh database, and its owner (python -m app.cli create-owner)
 export SENTINELCORE_OWNER_PASSWORD=...   # or leave it unset to be asked
 python -m simulator --owner-email owner@example.com [--seed 42] [--base-url http://localhost:8000]
 ```
 
 What it does:
 
-1. Creates an API key with the `simulator` source, and registers 36 synthetic people.
+1. Creates an API key with the `simulator` source, and invites 36 synthetic people, accepting each invitation on their behalf.
 2. Reports 30 days of their routine through ingestion, oldest first: office sign-ins behind one address on workdays, with an occasional typo, evenings and weekends from home, a browser update, and benign cases that a rule could take for an attack (a trip with a known laptop, a new phone, a new laptop on a trip, a return from a long leave, a password change day at the office).
 3. Plays five of each evasive variant, built to pass under one rule: a spray slower than its window, a spray spread over many addresses, a stolen password used with the victim's own user agent, and an account left unused for 85 days, under the 90-day threshold. Any alert that names them counts as catching them; they are reported apart, with the reason each one passes.
 4. Plays five attacks per rule, one step at a time: password sprays (T1110.003), sign-ins to dormant accounts and from an attacker's network and computer (T1078) through ingestion; brute force (T1110.001) through the real sign-in, since the lockout counts only this application's own sign-ins; admin roles granted by the owner (T1098) through the real API.

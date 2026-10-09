@@ -19,6 +19,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from app.services import detection_service
+from tests.accounts import create_account
 
 PASSWORD = "testpassword"
 ATTACKER_IP = "203.0.113.9"
@@ -36,11 +37,7 @@ def attacker(db_session: Session) -> Generator[TestClient]:
 
 def register(client: TestClient, username: str) -> str:
     email = f"{username}@example.com"
-    response = client.post(
-        "/auth/register",
-        json={"username": username, "email": email, "password": PASSWORD},
-    )
-    assert response.status_code == 201
+    create_account(username, password=PASSWORD)
     return email
 
 
