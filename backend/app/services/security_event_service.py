@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
@@ -7,6 +7,8 @@ from app.core.config import settings
 from app.core.database import database_now
 from app.core.metrics import record_security_event
 from app.models.security_event import (
+    DETECTION_SOURCE,
+    MITRE_TECHNIQUES,
     SecurityEvent,
     SecurityEventType,
     SecuritySeverity,
@@ -15,9 +17,13 @@ from app.models.user import User
 from app.schemas.security_event import (
     AccountActivityFilters,
     FailedLoginSource,
+    LatestDetection,
     SecurityEventFilters,
     SecuritySummary,
+    SeverityBucket,
     SeverityCounts,
+    TechniqueCount,
+    ThreatLevel,
 )
 from app.services.detection_service import run_detection
 from app.services.event_query import event_filter_conditions, fetch_event_page
@@ -101,6 +107,97 @@ def list_user_activity(
 TOP_FAILED_LOGIN_SOURCES = 5
 
 
+def _severity_buckets(
+    db: Session, now: datetime, width: timedelta, count: int
+) -> list[SeverityBucket]:
+    """Events per severity in `count` windows of `width`, measured back from
+    `now`, oldest first."""
+    since = now - width * count
+    # 0 for the window that ends now, 1 for the one before it, and so on.
+    age = func.floor(
+        func.extract("epoch", now - SecurityEvent.created_at) / width.total_seconds()
+    ).label("age")
+    rows = db.execute(
+        select(age, SecurityEvent.severity, func.count())
+        .where(SecurityEvent.created_at >= since)
+        .group_by(age, SecurityEvent.severity)
+    ).all()
+    counts: list[dict[str, int]] = [{} for _ in range(count)]
+    for bucket_age, severity, events in rows:
+        # Clamped: an event stamped exactly at `since` belongs to the oldest
+        # window, as in the totals, and one stamped after `now` to the newest.
+        index = count - 1 - max(0, min(int(bucket_age), count - 1))
+        counts[index][severity.value] = events
+    return [
+        SeverityBucket(
+            start=since + width * index,
+            counts=SeverityCounts.model_validate(bucket),
+        )
+        for index, bucket in enumerate(counts)
+    ]
+
+
+def _techniques(db: Session, since: datetime) -> list[TechniqueCount]:
+    rows = db.execute(
+        select(SecurityEvent.event_type, func.count())
+        .where(
+            SecurityEvent.event_type.in_(MITRE_TECHNIQUES),
+            SecurityEvent.created_at >= since,
+        )
+        .group_by(SecurityEvent.event_type)
+    ).all()
+    alerts: dict[str, int] = {}
+    for event_type, events in rows:
+        technique = MITRE_TECHNIQUES[event_type]
+        alerts[technique] = alerts.get(technique, 0) + events
+    return [
+        TechniqueCount(
+            technique=technique,
+            alerts=total,
+            event_types=[
+                event_type
+                for event_type, mapped in MITRE_TECHNIQUES.items()
+                if mapped == technique
+            ],
+        )
+        for technique, total in sorted(
+            alerts.items(), key=lambda item: (-item[1], item[0])
+        )
+    ]
+
+
+def _threat_level(db: Session, since: datetime, incidents: int) -> ThreatLevel:
+    if incidents:
+        return "incident"
+    detection = db.scalar(
+        select(SecurityEvent.id)
+        .where(
+            SecurityEvent.source == DETECTION_SOURCE,
+            SecurityEvent.created_at >= since,
+        )
+        .limit(1)
+    )
+    return "warn" if detection is not None else "calm"
+
+
+def _latest_detection(db: Session, since: datetime) -> LatestDetection | None:
+    latest = db.execute(
+        select(SecurityEvent.event_type, SecurityEvent.created_at)
+        .where(
+            SecurityEvent.event_type.in_(MITRE_TECHNIQUES),
+            SecurityEvent.created_at >= since,
+        )
+        .order_by(SecurityEvent.created_at.desc(), SecurityEvent.id.desc())
+        .limit(1)
+    ).first()
+    if latest is None:
+        return None
+    event_type, created_at = latest
+    return LatestDetection(
+        technique=MITRE_TECHNIQUES[event_type], created_at=created_at
+    )
+
+
 def get_security_summary(db: Session) -> SecuritySummary:
     """Aggregate recent security activity for the organization overview.
 
@@ -175,4 +272,9 @@ def get_security_summary(db: Session) -> SecuritySummary:
         users_total=users_total,
         users_inactive=users_inactive,
         accounts_locked=accounts_locked,
+        threat_level=_threat_level(db, day_ago, last_24h.incident),
+        latest_detection=_latest_detection(db, day_ago),
+        hourly=_severity_buckets(db, now, timedelta(hours=1), 24),
+        daily=_severity_buckets(db, now, timedelta(days=1), 7),
+        techniques_7d=_techniques(db, week_ago),
     )

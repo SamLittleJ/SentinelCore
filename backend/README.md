@@ -161,7 +161,7 @@ For `admin`, `owner` and `security_analyst` (the analyst only reads):
 |----------|---------|
 | `GET /security/events` | Security events, with filters and cursor pagination |
 | `GET /admin/audit-logs` | Audit logs, with the same filters |
-| `GET /security/summary` | Counts over 24 hours and 7 days, blocked logins, the IPs with the most failures, accounts |
+| `GET /security/summary` | Counts over 24 hours and 7 days, hour by hour and day by day, alerts per MITRE ATT&CK technique, the threat level and the latest detection's technique and time, blocked logins, the IPs with the most failures, accounts |
 | `GET /admin/users` | Users; filters `q`, `role`, `is_active`, cursor pagination |
 | `GET /admin/users/{id}` | One user's details |
 | `GET /admin/users/{id}/activity` | One account's security history |

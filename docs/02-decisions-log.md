@@ -502,3 +502,11 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - The command palette is built on the Radix Dialog already used for the side panels, as an ARIA combobox with a listbox, rather than adding the `cmdk` library: one dependency fewer for about fifteen commands.
 - The palette does not search the API as one types. Searching opens the user list or the event log filtered, which loads and audits the records as usual; live results would audit a read for every pause in typing.
 - The incident badge beside Security events uses the summary counts, which are not audited, and loads only in the organization scope.
+
+## Security trends
+
+- The band's level: an incident in the last 24 hours makes it "incident", a detection alert "warn", nothing "calm". Ordinary warnings are left out, or the band would almost always warn.
+- The band names only the latest detection's technique and time, not its account or address, so the summary stays a set of counts and is not audited on every page.
+- Hourly and daily windows are rolling, measured back from now, rather than calendar hours and days: no time zone to choose, and they add up to the 24-hour and 7-day totals shown beside them.
+- Alerts per technique come with their event types from the API, so the interface does not keep its own copy of the mapping.
+- The latest incidents on the overview became a timeline; each opens the same details panel as before.

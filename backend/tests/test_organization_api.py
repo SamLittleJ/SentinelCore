@@ -2,6 +2,7 @@
 targets of admin actions and the security summary."""
 
 from datetime import datetime, timedelta
+from itertools import pairwise
 
 import pytest
 from fastapi.testclient import TestClient
@@ -70,6 +71,7 @@ def add_event(
     target_user_id: int | None = None,
     email: str | None = None,
     ip_address: str | None = None,
+    source: str = "backend",
 ) -> int:
     event = SecurityEvent(
         event_type=event_type,
@@ -78,7 +80,7 @@ def add_event(
         target_user_id=target_user_id,
         email=email,
         ip_address=ip_address,
-        source="backend",
+        source=source,
         message="seeded",
         created_at=database_now(db_session) - timedelta(minutes=minutes_ago),
     )
@@ -504,3 +506,172 @@ def test_empty_security_summary(
     assert summary["locked_logins"] == 0
     assert summary["top_failed_login_sources"] == []
     assert summary["users_total"] == 1
+
+
+def test_summary_counts_by_hour_and_by_day(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+) -> None:
+    clear_events(db_session)
+    incident = {
+        "event_type": SecurityEventType.BRUTE_FORCE_DETECTED,
+        "severity": SecuritySeverity.INCIDENT,
+    }
+    info = {
+        "event_type": SecurityEventType.LOGIN_SUCCESS,
+        "severity": SecuritySeverity.INFO,
+    }
+    add_event(db_session, minutes_ago=10, **incident)
+    add_event(db_session, minutes_ago=20)
+    add_event(db_session, minutes_ago=90)
+    add_event(db_session, minutes_ago=150, **info)
+    add_event(db_session, minutes_ago=23 * 60 + 30)
+    add_event(db_session, minutes_ago=26 * 60)
+    add_event(db_session, minutes_ago=3 * 24 * 60 + 30, **info)
+    add_event(db_session, minutes_ago=8 * 24 * 60)
+
+    summary = client.get("/security/summary", headers=analyst_headers).json()
+
+    hourly = summary["hourly"]
+    assert len(hourly) == 24
+    # Oldest first: the last window ends now.
+    assert hourly[23]["counts"] == {"info": 0, "warn": 1, "incident": 1}
+    assert hourly[22]["counts"] == {"info": 0, "warn": 1, "incident": 0}
+    assert hourly[21]["counts"] == {"info": 1, "warn": 0, "incident": 0}
+    assert hourly[0]["counts"] == {"info": 0, "warn": 1, "incident": 0}
+    assert all(
+        bucket["counts"] == {"info": 0, "warn": 0, "incident": 0}
+        for bucket in hourly[1:21]
+    )
+    generated = datetime.fromisoformat(summary["generated_at"])
+    starts = [datetime.fromisoformat(bucket["start"]) for bucket in hourly]
+    assert starts[0] == generated - timedelta(hours=24)
+    assert {later - earlier for earlier, later in pairwise(starts)} == {
+        timedelta(hours=1)
+    }
+    # The hours add up to the 24-hour totals.
+    for severity in ("info", "warn", "incident"):
+        assert (
+            sum(bucket["counts"][severity] for bucket in hourly)
+            == (summary["last_24h"][severity])
+        )
+
+    daily = summary["daily"]
+    assert len(daily) == 7
+    assert daily[6]["counts"] == summary["last_24h"]
+    assert daily[5]["counts"] == {"info": 0, "warn": 1, "incident": 0}
+    assert daily[3]["counts"] == {"info": 1, "warn": 0, "incident": 0}
+    assert datetime.fromisoformat(daily[0]["start"]) == generated - timedelta(days=7)
+    for severity in ("info", "warn", "incident"):
+        assert (
+            sum(bucket["counts"][severity] for bucket in daily)
+            == (summary["last_7d"][severity])
+        )
+
+
+def test_summary_counts_alerts_per_technique(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+) -> None:
+    clear_events(db_session)
+    for event_type, minutes_ago in [
+        (SecurityEventType.DORMANT_ACCOUNT_LOGIN, 30),
+        (SecurityEventType.DORMANT_ACCOUNT_LOGIN, 3 * 24 * 60),
+        (SecurityEventType.UNFAMILIAR_SIGN_IN, 60),
+        (SecurityEventType.PASSWORD_SPRAY_DETECTED, 90),
+        (SecurityEventType.PRIVILEGED_ROLE_GRANTED, 120),
+        (SecurityEventType.PRIVILEGED_ROLE_GRANTED, 8 * 24 * 60),
+    ]:
+        add_event(
+            db_session,
+            event_type=event_type,
+            minutes_ago=minutes_ago,
+            source="detection",
+        )
+    add_event(db_session, minutes_ago=5)  # A failed login is no technique.
+
+    summary = client.get("/security/summary", headers=analyst_headers).json()
+
+    assert summary["techniques_7d"] == [
+        {
+            "technique": "T1078",
+            "alerts": 3,
+            "event_types": ["dormant_account_login", "unfamiliar_sign_in"],
+        },
+        {
+            "technique": "T1098",
+            "alerts": 1,
+            "event_types": ["privileged_role_granted"],
+        },
+        {
+            "technique": "T1110.003",
+            "alerts": 1,
+            "event_types": ["password_spray_detected"],
+        },
+    ]
+    latest = summary["latest_detection"]
+    assert latest["technique"] == "T1078"
+    # Counts only: nothing that names an account or an address.
+    assert set(latest) == {"technique", "created_at"}
+
+
+@pytest.mark.parametrize(
+    ("events", "level"),
+    [
+        ([], "calm"),
+        # A blocked sign-in warns, but is no detection.
+        ([(SecurityEventType.LOGIN_BLOCKED, SecuritySeverity.WARN, "backend")], "calm"),
+        (
+            [
+                (
+                    SecurityEventType.UNFAMILIAR_SIGN_IN,
+                    SecuritySeverity.WARN,
+                    "detection",
+                )
+            ],
+            "warn",
+        ),
+        (
+            [
+                (
+                    SecurityEventType.BRUTE_FORCE_DETECTED,
+                    SecuritySeverity.INCIDENT,
+                    "backend",
+                )
+            ],
+            "incident",
+        ),
+    ],
+)
+def test_summary_threat_level(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+    events: list[tuple[SecurityEventType, SecuritySeverity, str]],
+    level: str,
+) -> None:
+    clear_events(db_session)
+    for event_type, severity, source in events:
+        add_event(
+            db_session,
+            event_type=event_type,
+            severity=severity,
+            minutes_ago=30,
+            source=source,
+        )
+    # Older than 24 hours: no longer sets the level.
+    add_event(
+        db_session,
+        event_type=SecurityEventType.PASSWORD_SPRAY_DETECTED,
+        severity=SecuritySeverity.INCIDENT,
+        minutes_ago=25 * 60,
+        source="detection",
+    )
+
+    summary = client.get("/security/summary", headers=analyst_headers).json()
+
+    assert summary["threat_level"] == level
+    if level == "calm":
+        assert summary["latest_detection"] is None
