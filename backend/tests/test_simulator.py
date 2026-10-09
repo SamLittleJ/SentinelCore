@@ -53,7 +53,7 @@ def test_every_attack_is_detected_and_every_false_positive_is_explained(
     evaluation = evaluate(simulate(api, seed=7))
 
     assert evaluation.attacks == 25
-    assert [d.attack for d in evaluation.detections if not d.detected] == []
+    assert evaluation.detected == 25
     expected_steps = {
         "password_spray_detected": settings.detection_spray_min_accounts,
         "brute_force_detected": settings.login_max_failed_attempts,
@@ -62,8 +62,16 @@ def test_every_attack_is_detected_and_every_false_positive_is_explained(
         "privileged_role_granted": 1,
     }
     for detection in evaluation.detections:
-        assert detection.steps_to_detect == expected_steps[detection.alert_type]
+        if detection.evasion is None:
+            assert detection.steps_to_detect == expected_steps[detection.alert_type]
     assert {rule.detected for rule in evaluation.rules} == {5}
+    # The rules' known limits: every evasive variant passes, unseen by any rule.
+    assert {(e.variant, e.attacks, e.detected) for e in evaluation.evasions} == {
+        ("slow-spray", 5, 0),
+        ("distributed-spray", 5, 0),
+        ("copied-user-agent", 5, 0),
+        ("idle-account", 5, 0),
+    }
     # Only the benign cases that the rules' design cannot tell from attacks.
     assert Counter(fp.cause for fp in evaluation.false_positives) == {
         "new_laptop_on_a_trip": 1,
@@ -190,6 +198,64 @@ def test_an_alert_that_names_something_else_does_not_count_as_detection() -> Non
     assert evaluation.detection_rate == 0
     assert [fp.cause for fp in evaluation.false_positives] == ["during spray-1"]
     assert evaluation.precision == 0
+
+
+def evasive_spray() -> Attack:
+    return Attack(
+        name="slow-spray-1",
+        technique="T1110.003",
+        alert_type="password_spray_detected",
+        description="slow spray",
+        steps=[ingest(NOW + timedelta(minutes=2 * n)) for n in range(3)],
+        ip_addresses=frozenset({"203.0.113.5"}),
+        evasion="too slow",
+    )
+
+
+def test_an_evasion_is_caught_by_any_alert_that_names_it() -> None:
+    # Not the rule it passes under, but another one that names its address.
+    other = alert(5, "unfamiliar_sign_in", ip_address="203.0.113.5")
+    run = AttackRun(
+        evasive_spray(),
+        steps=[StepResult(NOW, 10.0, []), StepResult(NOW, 10.0, [5])],
+        alerts=[other],
+    )
+
+    evaluation = evaluate(observations([run], []))
+
+    [detection] = evaluation.detections
+    assert detection.detected
+    assert detection.caught_by == "unfamiliar_sign_in"
+    assert evaluation.false_positives == []
+    [summary] = evaluation.evasions
+    assert (summary.variant, summary.detected, summary.caught_by) == (
+        "slow-spray",
+        1,
+        ["unfamiliar_sign_in"],
+    )
+
+
+def test_evasions_are_counted_apart_from_the_detection_rate() -> None:
+    caught = AttackRun(
+        spray(),
+        steps=[StepResult(NOW, 10.0, [5])],
+        alerts=[alert(5, "password_spray_detected", ip_address="203.0.113.5")],
+    )
+    missed = AttackRun(evasive_spray(), steps=[StepResult(NOW, 10.0, [])])
+
+    evaluation = evaluate(observations([caught, missed], []))
+
+    assert (evaluation.attacks, evaluation.detected) == (1, 1)
+    assert evaluation.detection_rate == 1
+    assert (evaluation.evasive_attacks, evaluation.evasive_detected) == (1, 0)
+    [rule] = [r for r in evaluation.rules if r.alert_type == "password_spray_detected"]
+    assert rule.attacks == 1
+    markdown = to_markdown(evaluation)
+    assert "**Evasive variants detected:** 0 of 1" in markdown
+    assert (
+        "| `slow-spray` | T1110.003 | Password spray | too slow | 0/1 | — |" in markdown
+    )
+    assert "| slow-spray-1 *(evasive)* |" in markdown
 
 
 def test_routine_alerts_are_false_positives_put_down_to_their_case() -> None:

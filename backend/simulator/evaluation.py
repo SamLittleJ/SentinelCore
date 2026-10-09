@@ -9,6 +9,9 @@
   the step after which the alert appeared, and in steps. The pipeline
   latency is the duration of the request that raised the alert; detection
   runs inside it, so the alert exists when the request returns.
+- Evasive variants are counted apart: the detection rate is that of the
+  attacks the rules are built for, and the evasions have their own, with the
+  reason each one passes.
 """
 
 from dataclasses import dataclass
@@ -31,6 +34,10 @@ class Detection:
     steps_to_detect: int | None = None
     seconds_to_detect: float | None = None
     latency_ms: float | None = None
+    # The alert that caught it, which for an evasion can be any rule's.
+    caught_by: str | None = None
+    variant: str = ""
+    evasion: str | None = None
 
 
 @dataclass
@@ -57,6 +64,18 @@ class RuleSummary:
 
 
 @dataclass
+class EvasionSummary:
+    variant: str
+    technique: str
+    # The alert of the rule the variant is built to pass under.
+    evades: str
+    evasion: str
+    attacks: int
+    detected: int
+    caught_by: list[str]
+
+
+@dataclass
 class CaseOutcome:
     name: str
     description: str
@@ -78,10 +97,13 @@ class Evaluation:
     attacks: int
     detected: int
     detection_rate: float
+    evasive_attacks: int
+    evasive_detected: int
     alerts: int
     precision: float
     false_positives_per_1000_sign_ins: float
     rules: list[RuleSummary]
+    evasions: list[EvasionSummary]
     detections: list[Detection]
     false_positives: list[FalsePositive]
     cases: list[CaseOutcome]
@@ -96,11 +118,19 @@ def detect(run: AttackRun) -> Detection:
         description=attack.description,
         steps=len(attack.steps),
         detected=False,
+        variant=attack.variant,
+        evasion=attack.evasion,
     )
-    caught = {alert["id"] for alert in run.alerts if attack.is_caught_by(alert)}
+    caught = {
+        alert["id"]: alert["event_type"]
+        for alert in run.alerts
+        if attack.is_caught_by(alert)
+    }
     for index, step in enumerate(run.steps):
-        if caught & set(step.alert_ids):
+        first = next((i for i in step.alert_ids if i in caught), None)
+        if first is not None:
             detection.detected = True
+            detection.caught_by = caught[first]
             detection.steps_to_detect = index + 1
             elapsed = step.occurred_at - run.steps[0].occurred_at
             detection.seconds_to_detect = elapsed.total_seconds()
@@ -125,7 +155,9 @@ def highest(values: list[float]) -> float | None:
 
 
 def evaluate(observations: Observations) -> Evaluation:
-    detections = [detect(run) for run in observations.attack_runs]
+    all_detections = [detect(run) for run in observations.attack_runs]
+    detections = [d for d in all_detections if d.evasion is None]
+    evasive = [d for d in all_detections if d.evasion is not None]
 
     false_positives = [
         FalsePositive(
@@ -178,6 +210,21 @@ def evaluate(observations: Observations) -> Evaluation:
             )
         )
 
+    evasions = []
+    for variant in dict.fromkeys(d.variant for d in evasive):
+        mine = [d for d in evasive if d.variant == variant]
+        evasions.append(
+            EvasionSummary(
+                variant=variant,
+                technique=mine[0].technique,
+                evades=mine[0].alert_type,
+                evasion=mine[0].evasion or "",
+                attacks=len(mine),
+                detected=sum(d.detected for d in mine),
+                caught_by=sorted({d.caught_by for d in mine if d.caught_by}),
+            )
+        )
+
     cases = []
     for case in observations.cases:
         raised = [
@@ -213,13 +260,16 @@ def evaluate(observations: Observations) -> Evaluation:
         attacks=len(detections),
         detected=detected,
         detection_rate=detected / len(detections) if detections else 0.0,
+        evasive_attacks=len(evasive),
+        evasive_detected=sum(d.detected for d in evasive),
         alerts=alerts,
         precision=true_alerts / alerts if alerts else 0.0,
         false_positives_per_1000_sign_ins=(
             1000 * len(false_positives) / attempts if attempts else 0.0
         ),
         rules=rules,
-        detections=detections,
+        evasions=evasions,
+        detections=all_detections,
         false_positives=false_positives,
         cases=cases,
     )

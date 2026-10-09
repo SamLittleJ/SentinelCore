@@ -1,18 +1,20 @@
 {
   "seed": 42,
-  "started_at": "2026-10-09T08:46:56+00:00",
+  "started_at": "2026-10-09T09:08:10+00:00",
   "earlier_alerts": false,
-  "duration_seconds": 7.737784,
-  "people": 26,
-  "routine_sign_ins": 753,
-  "routine_failures": 43,
-  "routine_ingest_ms": 1378.6123499958194,
+  "duration_seconds": 9.175433,
+  "people": 36,
+  "routine_sign_ins": 987,
+  "routine_failures": 53,
+  "routine_ingest_ms": 1757.3129419979523,
   "attacks": 25,
   "detected": 25,
   "detection_rate": 1.0,
+  "evasive_attacks": 20,
+  "evasive_detected": 0,
   "alerts": 28,
   "precision": 0.8928571428571429,
-  "false_positives_per_1000_sign_ins": 3.7688442211055277,
+  "false_positives_per_1000_sign_ins": 2.8846153846153846,
   "rules": [
     {
       "alert_type": "brute_force_detected",
@@ -21,10 +23,10 @@
       "detected": 5,
       "detection_rate": 1.0,
       "median_steps_to_detect": 5.0,
-      "median_seconds_to_detect": 0.278906,
-      "max_seconds_to_detect": 0.282345,
-      "median_latency_ms": 57.99808700248832,
-      "max_latency_ms": 61.12017900159117,
+      "median_seconds_to_detect": 0.275553,
+      "max_seconds_to_detect": 0.287522,
+      "median_latency_ms": 59.045374000561424,
+      "max_latency_ms": 59.7797879963764,
       "false_positives": 0
     },
     {
@@ -36,8 +38,8 @@
       "median_steps_to_detect": 10.0,
       "median_seconds_to_detect": 270.0,
       "max_seconds_to_detect": 270.0,
-      "median_latency_ms": 9.918478994222824,
-      "max_latency_ms": 11.731585997040384,
+      "median_latency_ms": 9.204311005305499,
+      "max_latency_ms": 10.28184100141516,
       "false_positives": 1
     },
     {
@@ -49,8 +51,8 @@
       "median_steps_to_detect": 1.0,
       "median_seconds_to_detect": 0.0,
       "max_seconds_to_detect": 0.0,
-      "median_latency_ms": 9.707550998427905,
-      "max_latency_ms": 16.860873001860455,
+      "median_latency_ms": 10.347435003495775,
+      "max_latency_ms": 11.483075999421999,
       "false_positives": 1
     },
     {
@@ -62,8 +64,8 @@
       "median_steps_to_detect": 1.0,
       "median_seconds_to_detect": 0.0,
       "max_seconds_to_detect": 0.0,
-      "median_latency_ms": 10.769227999844588,
-      "max_latency_ms": 11.982902004092466,
+      "median_latency_ms": 12.393492004775908,
+      "max_latency_ms": 15.315641001507174,
       "false_positives": 1
     },
     {
@@ -75,66 +77,399 @@
       "median_steps_to_detect": 1.0,
       "median_seconds_to_detect": 0.0,
       "max_seconds_to_detect": 0.0,
-      "median_latency_ms": 11.09640600043349,
-      "max_latency_ms": 13.078412994218525,
+      "median_latency_ms": 11.0632549985894,
+      "max_latency_ms": 13.451266997435596,
       "false_positives": 0
+    }
+  ],
+  "evasions": [
+    {
+      "variant": "slow-spray",
+      "technique": "T1110.003",
+      "evades": "password_spray_detected",
+      "evasion": "At most eight attempts fall in the 15-minute window, under the threshold of ten emails",
+      "attacks": 5,
+      "detected": 0,
+      "caught_by": []
+    },
+    {
+      "variant": "distributed-spray",
+      "technique": "T1110.003",
+      "evades": "password_spray_detected",
+      "evasion": "The rule counts emails per address, and each address tries one",
+      "attacks": 5,
+      "detected": 0,
+      "caught_by": []
+    },
+    {
+      "variant": "copied-user-agent",
+      "technique": "T1078",
+      "evades": "unfamiliar_sign_in",
+      "evasion": "The device looks known, and the rule needs both a new network and a new device",
+      "attacks": 5,
+      "detected": 0,
+      "caught_by": []
+    },
+    {
+      "variant": "idle-account",
+      "technique": "T1078",
+      "evades": "dormant_account_login",
+      "evasion": "85 days is under the 90-day threshold, and the account has too few recent sign-ins for the unfamiliar sign-in rule to judge it",
+      "attacks": 5,
+      "detected": 0,
+      "caught_by": []
     }
   ],
   "detections": [
     {
+      "attack": "slow-spray-1",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 2 minutes from 203.0.113.30",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "slow-spray",
+      "evasion": "At most eight attempts fall in the 15-minute window, under the threshold of ten emails"
+    },
+    {
+      "attack": "slow-spray-2",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "10 emails, one attempt every 2 minutes from 203.0.113.31",
+      "steps": 10,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "slow-spray",
+      "evasion": "At most eight attempts fall in the 15-minute window, under the threshold of ten emails"
+    },
+    {
+      "attack": "slow-spray-3",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 2 minutes from 203.0.113.32",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "slow-spray",
+      "evasion": "At most eight attempts fall in the 15-minute window, under the threshold of ten emails"
+    },
+    {
+      "attack": "slow-spray-4",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "10 emails, one attempt every 2 minutes from 203.0.113.33",
+      "steps": 10,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "slow-spray",
+      "evasion": "At most eight attempts fall in the 15-minute window, under the threshold of ten emails"
+    },
+    {
+      "attack": "slow-spray-5",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "11 emails, one attempt every 2 minutes from 203.0.113.34",
+      "steps": 11,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "slow-spray",
+      "evasion": "At most eight attempts fall in the 15-minute window, under the threshold of ten emails"
+    },
+    {
+      "attack": "distributed-spray-1",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 30 seconds, each from another address",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "distributed-spray",
+      "evasion": "The rule counts emails per address, and each address tries one"
+    },
+    {
+      "attack": "distributed-spray-2",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 30 seconds, each from another address",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "distributed-spray",
+      "evasion": "The rule counts emails per address, and each address tries one"
+    },
+    {
+      "attack": "distributed-spray-3",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 30 seconds, each from another address",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "distributed-spray",
+      "evasion": "The rule counts emails per address, and each address tries one"
+    },
+    {
+      "attack": "distributed-spray-4",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 30 seconds, each from another address",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "distributed-spray",
+      "evasion": "The rule counts emails per address, and each address tries one"
+    },
+    {
+      "attack": "distributed-spray-5",
+      "technique": "T1110.003",
+      "alert_type": "password_spray_detected",
+      "description": "12 emails, one attempt every 30 seconds, each from another address",
+      "steps": 12,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "distributed-spray",
+      "evasion": "The rule counts emails per address, and each address tries one"
+    },
+    {
+      "attack": "copied-user-agent-1",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network, sending the victim's own user agent",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "copied-user-agent",
+      "evasion": "The device looks known, and the rule needs both a new network and a new device"
+    },
+    {
+      "attack": "copied-user-agent-2",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network, sending the victim's own user agent",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "copied-user-agent",
+      "evasion": "The device looks known, and the rule needs both a new network and a new device"
+    },
+    {
+      "attack": "copied-user-agent-3",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network, sending the victim's own user agent",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "copied-user-agent",
+      "evasion": "The device looks known, and the rule needs both a new network and a new device"
+    },
+    {
+      "attack": "copied-user-agent-4",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network, sending the victim's own user agent",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "copied-user-agent",
+      "evasion": "The device looks known, and the rule needs both a new network and a new device"
+    },
+    {
+      "attack": "copied-user-agent-5",
+      "technique": "T1078",
+      "alert_type": "unfamiliar_sign_in",
+      "description": "A sign-in with the stolen password of an active account, from the attacker's network, sending the victim's own user agent",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "copied-user-agent",
+      "evasion": "The device looks known, and the rule needs both a new network and a new device"
+    },
+    {
+      "attack": "idle-account-1",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for 85 days, from the attacker's network and computer",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "idle-account",
+      "evasion": "85 days is under the 90-day threshold, and the account has too few recent sign-ins for the unfamiliar sign-in rule to judge it"
+    },
+    {
+      "attack": "idle-account-2",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for 85 days, from the attacker's network and computer",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "idle-account",
+      "evasion": "85 days is under the 90-day threshold, and the account has too few recent sign-ins for the unfamiliar sign-in rule to judge it"
+    },
+    {
+      "attack": "idle-account-3",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for 85 days, from the attacker's network and computer",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "idle-account",
+      "evasion": "85 days is under the 90-day threshold, and the account has too few recent sign-ins for the unfamiliar sign-in rule to judge it"
+    },
+    {
+      "attack": "idle-account-4",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for 85 days, from the attacker's network and computer",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "idle-account",
+      "evasion": "85 days is under the 90-day threshold, and the account has too few recent sign-ins for the unfamiliar sign-in rule to judge it"
+    },
+    {
+      "attack": "idle-account-5",
+      "technique": "T1078",
+      "alert_type": "dormant_account_login",
+      "description": "A sign-in with the stolen password of an account unused for 85 days, from the attacker's network and computer",
+      "steps": 1,
+      "detected": false,
+      "steps_to_detect": null,
+      "seconds_to_detect": null,
+      "latency_ms": null,
+      "caught_by": null,
+      "variant": "idle-account",
+      "evasion": "85 days is under the 90-day threshold, and the account has too few recent sign-ins for the unfamiliar sign-in rule to judge it"
+    },
+    {
       "attack": "spray-1",
       "technique": "T1110.003",
       "alert_type": "password_spray_detected",
-      "description": "13 emails, one attempt each, every 30 seconds from 203.0.113.10",
-      "steps": 13,
+      "description": "12 emails, one attempt each, every 30 seconds from 203.0.113.10",
+      "steps": 12,
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 9.964175995264668
+      "latency_ms": 9.066040998732205,
+      "caught_by": "password_spray_detected",
+      "variant": "spray",
+      "evasion": null
     },
     {
       "attack": "spray-2",
       "technique": "T1110.003",
       "alert_type": "password_spray_detected",
-      "description": "14 emails, one attempt each, every 30 seconds from 203.0.113.11",
-      "steps": 14,
+      "description": "11 emails, one attempt each, every 30 seconds from 203.0.113.11",
+      "steps": 11,
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 8.789544997853227
+      "latency_ms": 8.304103001137264,
+      "caught_by": "password_spray_detected",
+      "variant": "spray",
+      "evasion": null
     },
     {
       "attack": "spray-3",
       "technique": "T1110.003",
       "alert_type": "password_spray_detected",
-      "description": "10 emails, one attempt each, every 30 seconds from 203.0.113.12",
-      "steps": 10,
+      "description": "11 emails, one attempt each, every 30 seconds from 203.0.113.12",
+      "steps": 11,
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 9.918478994222824
+      "latency_ms": 9.204311005305499,
+      "caught_by": "password_spray_detected",
+      "variant": "spray",
+      "evasion": null
     },
     {
       "attack": "spray-4",
       "technique": "T1110.003",
       "alert_type": "password_spray_detected",
-      "description": "13 emails, one attempt each, every 30 seconds from 203.0.113.13",
-      "steps": 13,
+      "description": "12 emails, one attempt each, every 30 seconds from 203.0.113.13",
+      "steps": 12,
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 9.67240400495939
+      "latency_ms": 9.357288996397983,
+      "caught_by": "password_spray_detected",
+      "variant": "spray",
+      "evasion": null
     },
     {
       "attack": "spray-5",
       "technique": "T1110.003",
       "alert_type": "password_spray_detected",
-      "description": "11 emails, one attempt each, every 30 seconds from 203.0.113.14",
-      "steps": 11,
+      "description": "10 emails, one attempt each, every 30 seconds from 203.0.113.14",
+      "steps": 10,
       "detected": true,
       "steps_to_detect": 10,
       "seconds_to_detect": 270.0,
-      "latency_ms": 11.731585997040384
+      "latency_ms": 10.28184100141516,
+      "caught_by": "password_spray_detected",
+      "variant": "spray",
+      "evasion": null
     },
     {
       "attack": "dormant-1",
@@ -145,7 +480,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.081177002575714
+      "latency_ms": 10.936035003396682,
+      "caught_by": "dormant_account_login",
+      "variant": "dormant",
+      "evasion": null
     },
     {
       "attack": "dormant-2",
@@ -156,7 +494,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 8.737737000046764
+      "latency_ms": 11.483075999421999,
+      "caught_by": "dormant_account_login",
+      "variant": "dormant",
+      "evasion": null
     },
     {
       "attack": "dormant-3",
@@ -167,7 +508,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 9.707550998427905
+      "latency_ms": 9.912114997860044,
+      "caught_by": "dormant_account_login",
+      "variant": "dormant",
+      "evasion": null
     },
     {
       "attack": "dormant-4",
@@ -178,7 +522,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 9.352099004900083
+      "latency_ms": 10.2024320003693,
+      "caught_by": "dormant_account_login",
+      "variant": "dormant",
+      "evasion": null
     },
     {
       "attack": "dormant-5",
@@ -189,7 +536,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 16.860873001860455
+      "latency_ms": 10.347435003495775,
+      "caught_by": "dormant_account_login",
+      "variant": "dormant",
+      "evasion": null
     },
     {
       "attack": "unfamiliar-1",
@@ -200,7 +550,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.769227999844588
+      "latency_ms": 15.315641001507174,
+      "caught_by": "unfamiliar_sign_in",
+      "variant": "unfamiliar",
+      "evasion": null
     },
     {
       "attack": "unfamiliar-2",
@@ -211,7 +564,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.982902004092466
+      "latency_ms": 11.65080200007651,
+      "caught_by": "unfamiliar_sign_in",
+      "variant": "unfamiliar",
+      "evasion": null
     },
     {
       "attack": "unfamiliar-3",
@@ -222,7 +578,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 9.37131499813404
+      "latency_ms": 13.227485003881156,
+      "caught_by": "unfamiliar_sign_in",
+      "variant": "unfamiliar",
+      "evasion": null
     },
     {
       "attack": "unfamiliar-4",
@@ -233,7 +592,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.29040300293127
+      "latency_ms": 12.04341199627379,
+      "caught_by": "unfamiliar_sign_in",
+      "variant": "unfamiliar",
+      "evasion": null
     },
     {
       "attack": "unfamiliar-5",
@@ -244,7 +606,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 9.303697006544098
+      "latency_ms": 12.393492004775908,
+      "caught_by": "unfamiliar_sign_in",
+      "variant": "unfamiliar",
+      "evasion": null
     },
     {
       "attack": "brute-force-1",
@@ -254,8 +619,11 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.279483,
-      "latency_ms": 57.99808700248832
+      "seconds_to_detect": 0.278913,
+      "latency_ms": 59.61630000092555,
+      "caught_by": "brute_force_detected",
+      "variant": "brute-force",
+      "evasion": null
     },
     {
       "attack": "brute-force-2",
@@ -265,8 +633,11 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.278537,
-      "latency_ms": 61.12017900159117
+      "seconds_to_detect": 0.275208,
+      "latency_ms": 57.821817994408775,
+      "caught_by": "brute_force_detected",
+      "variant": "brute-force",
+      "evasion": null
     },
     {
       "attack": "brute-force-3",
@@ -276,8 +647,11 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.282345,
-      "latency_ms": 56.67263099894626
+      "seconds_to_detect": 0.272294,
+      "latency_ms": 59.7797879963764,
+      "caught_by": "brute_force_detected",
+      "variant": "brute-force",
+      "evasion": null
     },
     {
       "attack": "brute-force-4",
@@ -287,8 +661,11 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.27726,
-      "latency_ms": 60.460040003817994
+      "seconds_to_detect": 0.275553,
+      "latency_ms": 59.045374000561424,
+      "caught_by": "brute_force_detected",
+      "variant": "brute-force",
+      "evasion": null
     },
     {
       "attack": "brute-force-5",
@@ -298,8 +675,11 @@
       "steps": 8,
       "detected": true,
       "steps_to_detect": 5,
-      "seconds_to_detect": 0.278906,
-      "latency_ms": 56.164961999456864
+      "seconds_to_detect": 0.287522,
+      "latency_ms": 58.3298650017241,
+      "caught_by": "brute_force_detected",
+      "variant": "brute-force",
+      "evasion": null
     },
     {
       "attack": "privileged-role-1",
@@ -310,7 +690,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 13.078412994218525
+      "latency_ms": 13.451266997435596,
+      "caught_by": "privileged_role_granted",
+      "variant": "privileged-role",
+      "evasion": null
     },
     {
       "attack": "privileged-role-2",
@@ -321,7 +704,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.09640600043349
+      "latency_ms": 9.96365199534921,
+      "caught_by": "privileged_role_granted",
+      "variant": "privileged-role",
+      "evasion": null
     },
     {
       "attack": "privileged-role-3",
@@ -332,7 +718,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.050439003156498
+      "latency_ms": 9.774234997166786,
+      "caught_by": "privileged_role_granted",
+      "variant": "privileged-role",
+      "evasion": null
     },
     {
       "attack": "privileged-role-4",
@@ -343,7 +732,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 10.743328995886259
+      "latency_ms": 11.0632549985894,
+      "caught_by": "privileged_role_granted",
+      "variant": "privileged-role",
+      "evasion": null
     },
     {
       "attack": "privileged-role-5",
@@ -354,7 +746,10 @@
       "detected": true,
       "steps_to_detect": 1,
       "seconds_to_detect": 0.0,
-      "latency_ms": 11.814103003416676
+      "latency_ms": 11.202506997506134,
+      "caught_by": "privileged_role_granted",
+      "variant": "privileged-role",
+      "evasion": null
     }
   ],
   "false_positives": [
@@ -374,7 +769,7 @@
       "alert_type": "dormant_account_login",
       "technique": "T1078",
       "cause": "back_from_leave",
-      "message": "Sign-in to user_id=27 107 days after the previous one"
+      "message": "Sign-in to user_id=37 107 days after the previous one"
     }
   ],
   "cases": [

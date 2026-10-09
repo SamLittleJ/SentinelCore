@@ -4310,3 +4310,43 @@ The new tests cover a spray reported late beside an alert about an earlier and a
 Reverse check: each of the following changes makes at least one test fail: looking up the latest alert by `created_at` again, dropping the "up to the event's time" bound, no deduplication at all, alerts without `occurred_at`, the brute-force incident without it, and the API without it (6 of 6).
 
 Simulator: on a fresh database, the same results as before (25 of 25, 3 false positives; report regenerated). Two runs back to back on one database: the second now detects 5 of 5 sprays (0 of 5 before), at the fifth to seventh email instead of the tenth, because the two runs use the same attacker addresses at the same times of day and their attempts add up into one spray per address. Its brute force attempts, all from `127.0.0.1`, likewise add up with the first run's into a spray from that address. Both are correct, and the reason the simulator should still run on a fresh database.
+
+## Attack Simulator - Evasive Variants
+
+### 296. Purpose of the stage
+
+The first evaluation played each attack the way its rule expects it, and all 25 were caught. That measures whether the rules work, not where they stop working. This stage adds attacks built to pass under one rule each, the way a careful attacker would, so the report also shows what the rules miss and why.
+
+### 297. The variants
+
+`plan_evasions` in `simulator/attacks.py`, five of each, played before the other attacks and dated between four hours and 75 minutes before the run:
+
+| Variant | Technique | Passes under | How |
+| --- | --- | --- | --- |
+| `slow-spray` | T1110.003 | Password spray | 10-14 emails from one address, one attempt every 2 minutes: at most eight fall in the 15-minute window |
+| `distributed-spray` | T1110.003 | Password spray | 12 emails, each from another address (a botnet or residential proxies): the rule counts per address |
+| `copied-user-agent` | T1078 | Unfamiliar network and device | a stolen password used from the attacker's network with the victim's own user agent, which a phishing page can record |
+| `idle-account` | T1078 | Dormant account | an account unused for 85 days, under the 90-day threshold, with too few recent sign-ins for the unfamiliar sign-in rule to judge it |
+
+The organization grew to 36 people: five more active ones, whose user agents are copied, and five idle accounts. Why each variant passes assumes the default thresholds.
+
+Slow brute force is not simulated: its lockout counts only this application's own sign-ins, in real time, so it cannot be replayed in seconds through ingestion. Waiting out the window for real would make a run take hours.
+
+### 298. Counting them
+
+An `Attack` with an `evasion` (the reason it passes) is evasive. It counts as caught by **any** alert that names its addresses or emails, whichever rule raised it: defence in depth would count. Evasions are reported apart from the detection rate, in their own table (variant, technique, the rule it passes under, why, how many were caught and by which alert), and marked in the list of attacks. The detection rate stays that of the attacks the rules are built for; mixing the two would blur "the rule works" with "the rule has a limit by design".
+
+### 299. Results
+
+On a fresh database (`docs/evaluation/report.md`, seed 42): 25 of 25 attacks detected, **0 of 20 evasive variants**, and the same 3 explained false positives, now over 1,040 routine sign-in attempts (2.9 per 1,000). No rule catches any variant indirectly. These are limits to state, not bugs to fix here: lowering the spray threshold or widening its window trades them for more false positives on a busy office address, counting across addresses needs another signal (many emails failing at once, whatever the address), and a user agent is chosen by the client. They are the starting points for future rules.
+
+### 300. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 373 passed; the in-process simulation now also requires every evasive variant to pass unseen, so a rule that starts catching one shows up as a changed result
+- the same outcome on six seeds (1, 2, 3, 42, 99, 1234), checked once
+- the real backend on a temporary database: the command line run, the report regenerated
+
+Reverse check: each of the following changes makes at least one test fail: an evasion caught only by the rule it targets, evasions counted in the detection rate, a slow spray at full speed, a distributed spray from one address, a copied user agent that is not copied, an idle account past the threshold, the catching alert not recorded, and the report without evasion rows (8 of 8).
