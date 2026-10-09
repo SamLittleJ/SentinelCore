@@ -8,7 +8,7 @@ An API-first platform for identity and access management, audit logging and secu
 .
 ├── backend/              # FastAPI API, SQLAlchemy models, Alembic migrations, tests
 ├── frontend/             # web app (React, TypeScript, Vite, Tailwind CSS, shadcn/ui)
-├── docs/                 # project documentation, by stage
+├── docs/                 # project documentation, by stage, and the detection evaluation
 ├── infra/                # Prometheus and Grafana configuration
 ├── .github/workflows/    # backend CI (Ruff, Bandit, pytest, Gitleaks) and frontend CI
 └── docker-compose.yml    # PostgreSQL, Prometheus and Grafana for local development
@@ -66,6 +66,7 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [01 - Backend Foundation](docs/01-backend-foundation.md): the technical journal of every backend stage
 - [02 - Decisions Log](docs/02-decisions-log.md): the technical decisions made along the way
 - [03 - Frontend Foundation](docs/03-frontend-foundation.md): the technical journal of the frontend
+- [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 
 ## License
 

@@ -4198,3 +4198,73 @@ The new tests (`tests/test_detection.py`) sign in from any address and user agen
 Reverse check: each of the following changes makes at least one test fail: "or" instead of "and", no version stripping, /32 instead of /24, /128 instead of /64, no learning period, no lookback, no upper time bound, counting sign-ins without a user agent, judging a sign-in without one, dropping the alert's user agent, `incident` instead of `warn`, and the rule left out of `RULES` (12 of 12).
 
 End-to-end check, with the real backend on a temporary database and Vite running, through the proxy: the owner created a key and sent seven sign-ins for one account through ingestion (three from a home network with Firefox, then a Firefox update, a known Firefox on a new network, and two Chrome sign-ins from a new network). Exactly one `unfamiliar_sign_in` alert was raised, for the first Chrome sign-in, naming `203.0.113.0/24`; the response said only `accepted: 7`. The account's real sign-in through the browser, from a new network with its known Firefox, raised nothing. Headless Firefox, signed in as the owner and as the account, loaded the organization's event log (light, dark, phone width) and the account's own activity (light, dark at phone width); each page's event request returned `200` and was audited.
+
+## Attack Simulator and Detection Evaluation
+
+### 284. Purpose of the stage
+
+The detection rules were tested one by one, each against the case it was written for. That says they work, not how well: how many attacks they catch, how often they alarm on ordinary behaviour, and how long an attack runs before it is seen. The attack simulator measures exactly that, and its report is the evaluation of the detection part of the project.
+
+### 285. How it runs
+
+`backend/simulator/` is a separate package, not part of the deployed application, run with `python -m simulator`. It talks to a running instance over HTTP through the public API, as an outside system would: an owner account signs in, creates an API key with the `simulator` source, and revokes it at the end, even after a failure. The same code runs in the tests over FastAPI's `TestClient`, which is an httpx client.
+
+- `population.py`: 26 synthetic people (20 active, 5 dormant, 1 back from leave), their devices (user agents) and 30 days of routine sign-ins, all from one seeded random generator.
+- `attacks.py`: the attacks, five per rule, and the alert that would mean each was caught.
+- `client.py`: the API calls.
+- `runner.py`: plays the routine, then the attacks step by step, and records the alerts after each step.
+- `evaluation.py`: turns the observations into metrics; it makes no requests, so it is tested directly.
+- `report.py`: the Markdown and JSON report.
+
+The simulator only attacks `localhost` unless `--allow-remote` is given. The owner's password comes from `SENTINELCORE_OWNER_PASSWORD` or a prompt, never the command line. The synthetic people's passwords are random, kept out of `repr`, and never written.
+
+### 286. The routine and the benign cases
+
+Thirty days, oldest first, through ingestion: office sign-ins on workdays from one shared address (`192.0.2.10`, an office behind NAT), with a typo now and then; evening and weekend sign-ins from home, each from a new address in the person's home network (/24, or /64 for a quarter of them on IPv6), on a phone or the laptop; every browser updated on day 15. On the first day everyone signs in from both the office and home: the organization is older than the window, and that day stands for the months before it. Without it, every person's first evening at home would be a new network and a new device.
+
+Benign cases are routine that a rule could take for an attack. Three must stay quiet: a trip with a known laptop, a new phone at home, and the routine itself. Three are known limits of the rules' design and are expected to alert: a new laptop bought on a trip (unfamiliar network and device), a return after more than 100 days of leave (dormant account), and a password change day on which twelve people type their old password once behind the office's single address (password spray).
+
+### 287. The attacks and the metrics
+
+| Attack | Technique | How it is played | Alert |
+| --- | --- | --- | --- |
+| Password spray | T1110.003 | 10-14 emails (real ones and guesses), one failed attempt each, 30 seconds apart, from one address, through ingestion | `password_spray_detected` |
+| Dormant account | T1078 | a sign-in to an account unused for over 100 days, from the attacker's network and computer, through ingestion | `dormant_account_login` |
+| Unfamiliar network and device | T1078 | a sign-in to an active account from the attacker's network and computer, through ingestion | `unfamiliar_sign_in` |
+| Brute force | T1110.001 | eight wrong passwords for one account through the real `POST /auth/login`, since the lockout counts only this application's own sign-ins | `brute_force_detected` |
+| Privileged role | T1098 | the owner makes an account an admin through the real API | `privileged_role_granted` |
+
+Each attack targets people of its own. Ingested attack steps are dated in the hour before the run, so they keep a real attack's pace; brute force and role changes happen when they are sent.
+
+After every step the simulator reads the alerts newer than the last one it saw. An attack is detected when an alert it would raise appears (right type, naming its address, email or account); every other alert is a false positive. Routine alerts are put down to the benign case whose emails or addresses they name. The metrics:
+
+- **detection rate**, per rule and overall;
+- **false positives**, with their cause, per 1,000 routine sign-in attempts, and **precision** (the share of alerts that point at an attack);
+- **time to detect** in attack time, from the attack's first step to the one after which the alert appeared, and in steps;
+- **pipeline latency**, the duration of the request that raised the alert. Detection runs inside that request, so the alert exists when it returns.
+
+Reading alerts is a read of individual events and is audited: a run leaves about 120 `SECURITY_EVENTS_VIEWED` entries, the trace of an operator watching the alerts.
+
+### 288. Results, and what the simulator found
+
+On a fresh database (`docs/evaluation/report.md`, seed 42): 25 of 25 attacks detected; 3 false positives over 796 routine sign-in attempts (3.8 per 1,000), exactly the three benign cases expected to alert; 89% precision. A spray is seen at its tenth email, 4.5 minutes into it; brute force at the fifth wrong password; the others at their first step. Every alert exists within about 10 ms of the request that raised it (60 ms for brute force, which includes password hashing).
+
+A second run on the same database detected **0 of 5** sprays. The spray rule counts failures after the latest spray alert for the address (§267), and alerts are stamped with the server's clock when they are raised, while ingested failures carry the time they happened. Once an address has an alert, failures reported later but dated before that alert are never counted. With real-time ingestion the two clocks agree and nothing is lost; with a delayed or replayed log, a spray from an address that already raised an alert goes unseen. The same run showed a correct side effect: two runs' brute force attempts, all from `127.0.0.1`, failed for ten different emails within 15 minutes, which is a spray from that address. The report therefore warns when the database already held alerts, and the simulator should be run on a fresh one.
+
+### 289. Limits of the evaluation
+
+- The attacks are played the way the rules expect them. Evasive variants (a spray slower than the window, a copied user agent) come next, to measure what the rules miss.
+- Five attacks per rule against one synthetic organization: the rates describe this scenario, not real attacks in general.
+- The seed fixes the people, devices and behaviour; the calendar follows the day of the run (workdays, weekends), so counts can differ slightly between days.
+- The accounts are registered at the start of the run, after their ingested history; the rules do not read creation dates except for an account that never signed in, so this does not change the results.
+
+### 290. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified; CI now scans `simulator` too
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 367 passed; `tests/test_simulator.py` runs the whole simulation in-process and requires every attack detected and exactly the three expected false positives
+- the same outcome on six seeds (1, 2, 3, 42, 99, 1234), checked once
+- the real backend on a temporary database: the command line run above, the key revoked afterwards, the report regenerated on a fresh database
+
+Reverse check: each of the following changes makes at least one test fail: an alert of the right type naming something else counted as detection, steps to detect off by one, time measured from the wrong step, no cause for routine alerts, alerts raised during an attack but naming something else dropped, every benign case marked as expected, the key left unrevoked, the routine without its first day, alerts from before the run counted, no `localhost` guard, routine alerts not collected, a spray without its pace, a used database not noticed, and the report without its warning (14 of 14).

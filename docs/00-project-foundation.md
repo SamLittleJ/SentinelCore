@@ -251,6 +251,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - a detection engine runs rules mapped to MITRE ATT&CK on every recorded event, and only alerts: password spray (T1110.003, failed sign-ins for many emails from one address), a sign-in to a dormant account (T1078), a sign-in from a network and a device the account has not used (T1078) and a privileged role granted (T1098); every detection names its technique
 - a security summary (24 hours and 7 days, blocked logins, top failing IPs, accounts) feeds the organization overview
 - other systems send sign-ins through `POST /ingest/events` with an API key issued by the owner; keys expire, can be revoked, and are stored only as hashes; ingested events keep the time they happened and go through the same detection rules, but never lock anyone out of this application
+- an attack simulator (`backend/simulator/`) plays a synthetic organization's routine and five attacks per rule against a running instance, and reports detection rate, false positives and time to detect in `docs/evaluation/`
 
 ### Observability
 - Prometheus metrics for HTTP and security events at `/metrics`, optionally behind a token
@@ -334,4 +335,4 @@ The standard it aims for:
 
 ## 15. Immediate Next Step
 
-Ingestion and the four detection rules are in place. The next step is the attack simulator, which sends normal traffic and attacks through ingestion and measures detection: detection rate, false positives and time to detect.
+The attack simulator measures the detection rules (`docs/evaluation/report.md`): on its synthetic organization, 25 of 25 attacks detected and 3 false positives, each a benign case the rules' design cannot tell from an attack. The simulator also found that password spray detection ignores late-reported attempts from an address that already raised an alert. The next steps are a decision on that, then evasive attack variants (a slower spray, a copied user agent) to measure what the rules miss.
