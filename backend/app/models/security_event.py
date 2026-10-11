@@ -33,6 +33,10 @@ class SecurityEventType(StrEnum):
     API_KEY_REVOKED = "api_key_revoked"
     INVITATION_CREATED = "invitation_created"
     INVITATION_REVOKED = "invitation_revoked"
+    ORGANIZATION_CREATED = "organization_created"
+    ORGANIZATION_RENAMED = "organization_renamed"
+    ORGANIZATION_SUSPENDED = "organization_suspended"
+    ORGANIZATION_REACTIVATED = "organization_reactivated"
     # Alerts raised by the detection rules (services/detection_service.py).
     # An event type, not a password.
     PASSWORD_SPRAY_DETECTED = "password_spray_detected"  # nosec B105
@@ -116,6 +120,13 @@ class SecurityEvent(Base):
         ForeignKey("users.id"),
         nullable=True,
         index=True,
+    )
+
+    # The organization the event belongs to; empty for the platform's own,
+    # such as the owner signing in or a failed sign-in naming no account.
+    # See services/tenancy.py.
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id"), nullable=True, index=True
     )
 
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)

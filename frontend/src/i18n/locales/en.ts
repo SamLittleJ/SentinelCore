@@ -495,6 +495,13 @@ const en: typeof ro = {
       network: 'The server is not responding. Check your connection and try again.',
     },
   },
+  organizationField: {
+    label: 'Organization',
+    choose: 'Choose the organization',
+    help: 'The account or key will belong to this organization.',
+    none: 'There is no active organization.',
+    failed: 'The organizations could not be loaded. Reload the page.',
+  },
   apiKeys: {
     subtitle:
       'The keys other systems (the VPN, the identity provider, the cluster) send security events with. Viewing them is recorded in the audit log.',

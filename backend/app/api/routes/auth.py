@@ -37,6 +37,7 @@ from app.services.session_service import (
 from app.services.user_service import (
     authenticate_user,
     is_account_locked,
+    may_sign_in,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -86,11 +87,13 @@ def _log_in(
         raise too_many_login_attempts(lockout_seconds)
 
     user = authenticate_user(db, email, user_in.password)
-    if user is None or not user.is_active:
+    if user is None or not may_sign_in(db, user):
         if user is None:
             message = f"Failed login attempt for email: {email}"
-        else:
+        elif not user.is_active:
             message = f"Login attempt for inactive user: {email}"
+        else:
+            message = f"Login attempt for a member of a suspended organization: {email}"
 
         create_audit_log(
             db=db,

@@ -35,10 +35,17 @@ def ingest_events(db: Session, api_key: ApiKey, events: list[IngestedEvent]) -> 
     in the order they happened, and return how many were stored."""
     # Successful sign-ins name the account they opened; a failed one names
     # only an email, as for the application's own sign-ins.
+    # Only the key's own organization's accounts: a key never links an event
+    # to another organization's account.
     emails = {event.email for event in events if event.event_type == "login_success"}
     user_ids: dict[str, int] = {}
     if emails:
-        rows = db.execute(select(User.email, User.id).where(User.email.in_(emails)))
+        rows = db.execute(
+            select(User.email, User.id).where(
+                User.email.in_(emails),
+                User.organization_id == api_key.organization_id,
+            )
+        )
         user_ids = {email: user_id for email, user_id in rows}
 
     stored = []
@@ -53,6 +60,7 @@ def ingest_events(db: Session, api_key: ApiKey, events: list[IngestedEvent]) -> 
                     if event_type == SecurityEventType.LOGIN_SUCCESS
                     else None
                 ),
+                organization_id=api_key.organization_id,
                 email=event.email,
                 ip_address=str(event.ip_address) if event.ip_address else None,
                 user_agent=event.user_agent,

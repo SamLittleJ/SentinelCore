@@ -26,6 +26,7 @@ import {
   validKeyName,
 } from '@/features/org/api-keys'
 import { apiKeysKey, useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/features/org/hooks'
+import { OrganizationField } from '@/features/org/OrganizationField'
 import { canManageApiKeys } from '@/features/org/permissions'
 import { ApiError } from '@/lib/api'
 import { useFormatters } from '@/lib/format'
@@ -185,6 +186,7 @@ function CreateKeyForm({
   const [name, setName] = useState('')
   const [source, setSource] = useState('')
   const [lifetime, setLifetime] = useState<KeyLifetime>(90)
+  const [organizationId, setOrganizationId] = useState<number | null>(null)
 
   const problem = sourceProblem(source)
   // A problem shows once something is typed, not on an empty field.
@@ -194,7 +196,7 @@ function CreateKeyForm({
       : problem === 'reserved'
         ? t('apiKeys.sourceReserved')
         : t('apiKeys.sourceFormat')
-  const valid = validKeyName(name) && problem === null
+  const valid = validKeyName(name) && problem === null && organizationId !== null
 
   return (
     <ActionForm
@@ -203,14 +205,17 @@ function CreateKeyForm({
       confirmDisabled={!valid}
       pending={pending}
       onCancel={onCancel}
-      onSubmit={() =>
+      onSubmit={() => {
+        if (organizationId === null) return
         onSubmit({
           name: name.trim(),
           source: source.trim().toLowerCase(),
           expiresInDays: lifetime,
+          organizationId,
         })
-      }
+      }}
     >
+      <OrganizationField value={organizationId} onChange={setOrganizationId} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor={nameId} className="text-sm font-medium">
           {t('apiKeys.name')}

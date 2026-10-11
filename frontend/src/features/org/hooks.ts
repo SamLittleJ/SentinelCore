@@ -11,6 +11,7 @@ import {
   fetchApiKeys,
   fetchAuditLogs,
   fetchInvitations,
+  fetchOrganizations,
   fetchSecurityEvents,
   fetchSecuritySummary,
   fetchUser,
@@ -36,6 +37,7 @@ const userActivityKey = (userId: number) => [...usersKey, 'activity', userId] as
 export const securitySummaryKey = [...orgKey, 'security-summary'] as const
 export const apiKeysKey = [...orgKey, 'api-keys'] as const
 export const invitationsKey = [...orgKey, 'invitations'] as const
+export const organizationsKey = [...orgKey, 'organizations'] as const
 // Under the events key, so whatever refreshes the event log refreshes it too.
 export const recentIncidentsKey = [...securityEventsKey, 'recent-incidents'] as const
 
@@ -260,4 +262,15 @@ export function useCreateInvitation() {
 export function useRevokeInvitation() {
   const afterChange = useAfterInvitationChange()
   return useMutation({ mutationFn: revokeInvitation, onSettled: afterChange })
+}
+
+/** The platform's organizations, for the owner's forms. Listing them is
+ * audited, so they load once per page and on request. */
+export function useOrganizations(enabled: boolean) {
+  return useQuery({
+    queryKey: organizationsKey,
+    queryFn: ({ signal }) => fetchOrganizations(signal),
+    enabled,
+    refetchOnWindowFocus: false,
+  })
 }

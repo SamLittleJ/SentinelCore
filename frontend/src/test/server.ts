@@ -7,6 +7,7 @@ import type {
   ApiKey,
   AuditLog,
   Invitation,
+  Organization,
   SecurityEvent,
   SecuritySummary,
   SeverityBucket,
@@ -89,6 +90,7 @@ export function makeApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     prefix: 'a1b2c3d4',
     name: 'Corporate VPN',
     source: 'vpn',
+    organization_id: 1,
     created_by_id: 1,
     created_at: '2026-09-01T10:00:00Z',
     expires_at: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(),
@@ -104,12 +106,25 @@ export function makeInvitation(overrides: Partial<Invitation> = {}): Invitation 
     prefix: 'f0e1d2c3',
     email: 'dana.ilie@example.com',
     role: 'user',
+    organization_id: 1,
     created_by_id: 1,
     created_at: new Date(Date.now() - 3600_000).toISOString(),
     expires_at: new Date(Date.now() + 71 * 3600_000).toISOString(),
     accepted_at: null,
     accepted_user_id: null,
     revoked_at: null,
+    ...overrides,
+  }
+}
+
+export function makeOrganization(overrides: Partial<Organization> = {}): Organization {
+  return {
+    id: 1,
+    name: 'Acme',
+    slug: 'acme',
+    created_at: '2026-09-01T10:00:00Z',
+    suspended_at: null,
+    members: 12,
     ...overrides,
   }
 }
@@ -163,6 +178,7 @@ export const server = setupServer(
   http.get('/api/admin/users/:userId/activity', () => HttpResponse.json(page([]))),
   http.get('/api/admin/api-keys', () => HttpResponse.json([])),
   http.get('/api/admin/invitations', () => HttpResponse.json([])),
+  http.get('/api/admin/organizations', () => HttpResponse.json([makeOrganization()])),
 )
 
 /** The API answers as if `user` is signed in (or nobody, for null). */

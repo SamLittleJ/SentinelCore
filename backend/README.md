@@ -35,13 +35,27 @@ python -m uvicorn app.main:app --reload
 
 `.[dev]` also installs the development tools: pytest, httpx, Ruff and Bandit. To only run the application, `python -m pip install -e .` is enough.
 
+## Organizations
+
+SentinelCore keeps several organizations apart. The platform owner, created from the command line, belongs to none and manages them all; every other account belongs to exactly one, set by its invitation and never changed.
+
+| Endpoint | Who | What it does |
+|----------|-----|--------------|
+| `GET /admin/organizations` | owner | Every organization with its member count |
+| `POST /admin/organizations` | owner | Creates one from `name` and `slug` (2-40 characters: lowercase letters, digits, inner hyphens); `409` if either is taken |
+| `PATCH /admin/organizations/{id}` | owner | Renames it; the slug never changes |
+| `POST /admin/organizations/{id}/suspend` | owner | Closes every member's sessions; while suspended, members are refused as deactivated accounts are, its API keys as unknown keys are, and its invitations as invalid ones are |
+| `POST /admin/organizations/{id}/reactivate` | owner | Lifts the suspension |
+
+Organizations are never deleted, so their audit trail stays. Every security event and audit record belongs to an organization, or to the platform for the owner's own sign-ins and for failed sign-ins naming an email no account has (`app/services/tenancy.py`). Reads are not limited to one organization yet: that comes in the next stage, with tests for each endpoint.
+
 ## Accounts and invitations
 
 An admin or the owner invites an email with a role; the response holds a token, shown only once, that the person invited uses to choose a username and a password. Nobody else ever knows that password.
 
 | Endpoint | Who | What it does |
 |----------|-----|--------------|
-| `POST /admin/invitations` | admin, owner | Invites `email` with `role`: admins offer `user` or `security_analyst`, only the owner offers `admin`, nobody offers `owner`. Replaces an open invitation for the same email; `409` if the email already has an account |
+| `POST /admin/invitations` | admin, owner | Invites `email` with `role` into an organization: the owner names it with `organization_id` (`422` without, `404` unknown, `409` suspended); an admin invites into their own and gets `403` for naming one. Admins offer `user` or `security_analyst`, only the owner offers `admin`, nobody offers `owner`. Replaces an open invitation for the same email; `409` if the email already has an account, in any organization |
 | `GET /admin/invitations` | admin, owner, analyst | Every invitation, newest first, without tokens |
 | `POST /admin/invitations/{id}/revoke` | admin, owner | Stops an invitation the caller could have made |
 | `POST /auth/invitations/preview` | anyone with a token | The email, role and expiry an invitation offers |
@@ -87,7 +101,7 @@ DETECTION_UNFAMILIAR_MIN_SIGN_INS=3
 
 ## Event ingestion
 
-Other systems report sign-ins with an API key. The owner creates one (`POST /admin/api-keys`, with a name, a `source` label and a lifetime of 30, 90 or 365 days); the response holds the full key, shown only once. Then:
+Other systems report sign-ins with an API key. The owner creates one for an organization (`POST /admin/api-keys`, with a name, a `source` label, a lifetime of 30, 90 or 365 days and the `organization_id`); the response holds the full key, shown only once. Every event the key sends, and every alert raised from it, belongs to that organization, and a successful sign-in is linked only to an account of that organization. Then:
 
 ```bash
 curl -X POST http://localhost:8000/ingest/events \

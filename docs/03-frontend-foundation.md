@@ -588,3 +588,23 @@ The new tests cover: the invitation states and who may offer and revoke each rol
 Reverse check: each of the following changes makes at least one test fail: the token in the link's query string, the mutation not reset, no `gcTime: 0`, an admin offered or revoking the admin role, acceptance ignored when an invitation has also expired, the fragment left in the address, the token in the preview's URL, the repeated password not compared, short passwords allowed, passwords counted in UTF-16 units, the username pattern dropped, a failed acceptance not shown as invalid, the email passed to `/login` in the address, the login page ignoring it, used invitations listed as open, the email not normalized, no message for an existing account, and the invite button shown to analysts (19 of 19).
 
 End-to-end check, with the real backend on a temporary database, the owner created from the command line and invitations created, accepted and revoked through the API: headless Firefox took the Users page with the history open (dark and light, and dark at phone width), the invite form (dark), the link panel after inviting (light), the public page (dark, and light at phone width), an invalid token, the sign-in page after accepting, and the same link opened again. Checks in the page confirmed the theme, the fragment cleared from the address, the "not valid" message for both the invalid and the used token, `/login` with the success message after accepting, and no horizontal scrolling at phone width.
+
+## Stage 11: Organization field
+
+### 61. Choosing the organization
+
+Since the backend gave every account and API key an organization, the owner names one when inviting or creating a key. `OrganizationField` (`features/org/OrganizationField.tsx`) is a native select of the organizations that are not suspended, read from `GET /admin/organizations`; with only one, it is chosen already. It appears in the API key form and, for the owner only, in the invitation form; an admin invites into their own organization and never sees it. Confirming waits for a choice. The organizations page, filters and columns come with the frontend stage of this work.
+
+### 62. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 210 passed
+- build -> successful, no warnings
+- npm audit -> 0 vulnerabilities
+
+The tests cover the only organization chosen already and sent, the choice among several with suspended ones left out and confirmation waiting for it, the owner's invitation sending the organization, and the admin's form without the field.
+
+Reverse check: each of the following changes makes at least one test fail: no automatic choice, suspended organizations offered, a key form valid without an organization, the owner's invitation or the key request without it, and the field shown to admins (6 of 6).
+
+End-to-end check: on the demo, headless Firefox took the API key form (dark) and the invitation form (light, and dark at phone width) with "Acme" chosen; no horizontal scrolling at phone width.

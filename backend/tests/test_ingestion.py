@@ -17,7 +17,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, org_id_for_tests, set_role
 
 PASSWORD = "testpassword"
 UA = "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0"
@@ -35,14 +35,19 @@ def key(client: TestClient, db_session: Session) -> str:
     email = register(client, "owneruser")
     owner = db_session.scalar(select(User).where(User.email == email))
     assert owner is not None
-    owner.role = UserRole.OWNER
+    set_role(owner, UserRole.OWNER)
     db_session.commit()
     token = client.post(
         "/auth/login", json={"email": email, "password": PASSWORD}
     ).json()["access_token"]
     response = client.post(
         "/admin/api-keys",
-        json={"name": "Corporate VPN", "source": "vpn", "expires_in_days": 30},
+        json={
+            "name": "Corporate VPN",
+            "source": "vpn",
+            "expires_in_days": 30,
+            "organization_id": org_id_for_tests(),
+        },
         headers={"Authorization": f"Bearer {token}"},
     )
     return response.json()["key"]

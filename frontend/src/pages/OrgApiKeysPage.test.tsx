@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import type { Role } from '@/features/auth/api'
 import type { ApiKey } from '@/features/org/api'
 import { renderApp } from '@/test/render'
-import { makeApiKey, makeUser, server, signedInAs } from '@/test/server'
+import { makeApiKey, makeOrganization, makeUser, server, signedInAs } from '@/test/server'
 
 const DAY = 24 * 3600_000
 // Not a real key: the shape the API answers with.
@@ -104,7 +104,10 @@ describe('organization API keys page', () => {
     await user.click(within(form).getByRole('button', { name: 'Confirmă' }))
 
     const panel = await screen.findByRole('region', { name: 'Cheia „Okta” a fost creată' })
-    expect(bodies).toEqual([{ name: 'Okta', source: 'okta', expires_in_days: 365 }])
+    // The only organization is chosen already.
+    expect(bodies).toEqual([
+      { name: 'Okta', source: 'okta', expires_in_days: 365, organization_id: 1 },
+    ])
     expect(panel).toHaveTextContent(FULL_KEY)
     expect(panel).toHaveTextContent('Nu va mai fi afișată')
 
@@ -227,5 +230,50 @@ describe('organization API keys page', () => {
 
     expect(await screen.findByText('Nu există încă nicio cheie.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cheie nouă' })).toBeInTheDocument()
+  })
+
+  it('makes the owner choose among the organizations that are not suspended', async () => {
+    const user = userEvent.setup()
+    serveKeys(() => [vpn])
+    server.use(
+      http.get('/api/admin/organizations', () =>
+        HttpResponse.json([
+          makeOrganization({ id: 1, name: 'Acme', slug: 'acme' }),
+          makeOrganization({ id: 2, name: 'Globex', slug: 'globex' }),
+          makeOrganization({
+            id: 3,
+            name: 'Initech',
+            slug: 'initech',
+            suspended_at: '2026-10-01T10:00:00Z',
+          }),
+        ]),
+      ),
+    )
+    const bodies: unknown[] = []
+    server.use(
+      http.post('/api/admin/api-keys', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json({ api_key: makeApiKey({ id: 9 }), key: FULL_KEY }, { status: 201 })
+      }),
+    )
+    await openKeys('owner')
+
+    await user.click(screen.getByRole('button', { name: 'Cheie nouă' }))
+    const form = screen.getByRole('form', { name: 'Creează o cheie API' })
+    await user.type(within(form).getByLabelText('Nume'), 'Okta')
+    await user.type(within(form).getByLabelText('Sursă'), 'okta')
+    const confirm = within(form).getByRole('button', { name: 'Confirmă' })
+    expect(confirm).toBeDisabled()
+
+    const field = within(form).getByLabelText('Organizație')
+    const offered = within(field).getAllByRole('option').map((option) => option.textContent)
+    expect(offered).toEqual(['Alege organizația', 'Acme (acme)', 'Globex (globex)'])
+    await user.selectOptions(field, 'Globex (globex)')
+    await user.click(confirm)
+
+    await screen.findByRole('region', { name: /a fost creată/ })
+    expect(bodies).toEqual([
+      { name: 'Okta', source: 'okta', expires_in_days: 90, organization_id: 2 },
+    ])
   })
 })

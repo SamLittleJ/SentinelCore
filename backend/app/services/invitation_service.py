@@ -29,6 +29,7 @@ from app.models.security_event import (
 from app.models.user import User, UserRole
 from app.schemas.invitation import InvitationCreate
 from app.schemas.user import UserCreate
+from app.services.organization_service import is_suspended
 from app.services.user_service import commit_account_created, stage_user
 
 INVITATION_SCHEME = "sci"
@@ -53,6 +54,7 @@ def _role_name(actor: User) -> str:
 
 def _commit_invitation_change(
     db: Session,
+    invitation: Invitation,
     actor: User,
     audit_event_type: AuditEventType,
     security_event_type: SecurityEventType,
@@ -60,12 +62,14 @@ def _commit_invitation_change(
     ip_address: str | None,
 ) -> None:
     """Commit a staged change to an invitation together with its audit and
-    security events, so either all three are stored or none are."""
+    security events, so either all three are stored or none are. They belong
+    to the organization the invitation is for."""
     db.add_all(
         [
             AuditLog(
                 event_type=audit_event_type,
                 user_id=actor.id,
+                organization_id=invitation.organization_id,
                 email=actor.email,
                 ip_address=ip_address,
                 message=message,
@@ -74,6 +78,7 @@ def _commit_invitation_change(
                 event_type=security_event_type,
                 severity=SecuritySeverity.INFO,
                 user_id=actor.id,
+                organization_id=invitation.organization_id,
                 email=actor.email,
                 ip_address=ip_address,
                 source="backend",
@@ -92,13 +97,14 @@ def _commit_invitation_change(
 def create_invitation(
     db: Session,
     data: InvitationCreate,
+    organization_id: int,
     actor: User,
     ip_address: str | None = None,
 ) -> tuple[Invitation, str]:
-    """Invite `data.email` with `data.role`, replacing any open invitation
-    for that email, and return it with its full token, which is never
-    available again. The caller checks `may_invite` and that no account has
-    the email."""
+    """Invite `data.email` with `data.role` into `organization_id`, replacing
+    any open invitation for that email, and return it with its full token,
+    which is never available again. The caller checks `may_invite`, the
+    organization, and that no account has the email."""
     now = database_now(db)
     replaced = db.scalars(
         update(Invitation)
@@ -116,6 +122,7 @@ def create_invitation(
         secret_hash=token.secret_hash,
         email=data.email,
         role=data.role,
+        organization_id=organization_id,
         created_by_id=actor.id,
         expires_at=now + timedelta(hours=settings.invitation_expire_hours),
     )
@@ -127,8 +134,10 @@ def create_invitation(
     )
     if replaced:
         message += f"; replaced {len(replaced)} earlier invitation(s)"
+    db.flush()
     _commit_invitation_change(
         db,
+        invitation,
         actor,
         AuditEventType.INVITATION_CREATED,
         SecurityEventType.INVITATION_CREATED,
@@ -159,6 +168,7 @@ def revoke_invitation(
     invitation.revoked_at = database_now(db)
     _commit_invitation_change(
         db,
+        invitation,
         actor,
         AuditEventType.INVITATION_REVOKED,
         SecurityEventType.INVITATION_REVOKED,
@@ -176,8 +186,9 @@ def find_open_invitation(
     db: Session, presented: str, *, for_update: bool = False
 ) -> Invitation | None:
     """The invitation `presented` stands for, if it can still be accepted:
-    known, matching, neither used, revoked nor expired, and its author may
-    still grant its role. Every failure looks the same to the caller.
+    known, matching, neither used, revoked nor expired, for an organization
+    that is not suspended, and its author may still grant its role. Every
+    failure looks the same to the caller.
 
     `for_update` locks the row until the transaction ends, so two requests
     with the same token cannot both use it."""
@@ -198,6 +209,8 @@ def find_open_invitation(
         or invitation.revoked_at is not None
         or invitation.expires_at <= database_now(db)
     ):
+        return None
+    if is_suspended(db, invitation.organization_id):
         return None
     author = db.get(User, invitation.created_by_id)
     if author is None or not may_invite(author, invitation.role):
@@ -220,7 +233,7 @@ def accept_invitation(
     """
     user_in = UserCreate(username=username, email=invitation.email, password=password)
     try:
-        user = stage_user(db, user_in, invitation.role)
+        user = stage_user(db, user_in, invitation.role, invitation.organization_id)
     except Exception:
         db.rollback()
         raise

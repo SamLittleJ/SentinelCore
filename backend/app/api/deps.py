@@ -15,7 +15,7 @@ from app.core.security import csrf_token_for, decode_access_token
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
 from app.services.session_service import get_active_session
-from app.services.user_service import is_account_locked
+from app.services.user_service import is_account_locked, may_sign_in
 
 # /auth/token accepts the OAuth2 password form, so Swagger UI can log in.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
@@ -92,8 +92,9 @@ def get_current_session(
         raise credentials_exception
 
     # Checked before the session, so a deactivated user gets a clear answer
-    # even though deactivation also revokes their sessions.
-    if not user.is_active:
+    # even though deactivation also revokes their sessions. A member of a
+    # suspended organization gets the same one.
+    if not may_sign_in(db, user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user",

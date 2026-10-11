@@ -6,12 +6,29 @@ accepted invitation uses, with the same events, in a database session of
 their own.
 """
 
-from app.models.user import UserRole
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.organization import Organization
+from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 from app.services.user_service import commit_account_created, stage_user
 from tests.conftest import TestingSessionLocal
 
 PASSWORD = "testpassword"
+# The organization test accounts join unless a test names another.
+TEST_ORGANIZATION = "test"
+
+
+def organization_id(db: Session, slug: str = TEST_ORGANIZATION) -> int:
+    """The id of the organization `slug`, created on first use."""
+    found = db.scalar(select(Organization.id).where(Organization.slug == slug))
+    if found is not None:
+        return found
+    organization = Organization(name=slug.capitalize(), slug=slug)
+    db.add(organization)
+    db.commit()
+    return organization.id
 
 
 def create_account(
@@ -19,15 +36,33 @@ def create_account(
     email: str | None = None,
     password: str = PASSWORD,
     role: UserRole = UserRole.USER,
+    organization: str = TEST_ORGANIZATION,
 ) -> int:
     """Create an account, `<username>@example.com` unless `email` is given,
-    and return its id."""
+    in `organization` (the owner in none), and return its id."""
     user_in = UserCreate(
         username=username,
         email=email or f"{username}@example.com",
         password=password,
     )
     with TestingSessionLocal() as db:
-        user = stage_user(db, user_in, role)
+        in_organization = (
+            None if role == UserRole.OWNER else organization_id(db, organization)
+        )
+        user = stage_user(db, user_in, role, in_organization)
         commit_account_created(db, user, f"Account created for a test: {user.email}")
         return user.id
+
+
+def set_role(user: User, role: UserRole) -> None:
+    """Give `user` `role`, as tests do straight in the database. The platform
+    owner belongs to no organization, which the database enforces."""
+    user.role = role
+    if role == UserRole.OWNER:
+        user.organization_id = None
+
+
+def org_id_for_tests() -> int:
+    """The organization test accounts join, created on first use."""
+    with TestingSessionLocal() as db:
+        return organization_id(db)

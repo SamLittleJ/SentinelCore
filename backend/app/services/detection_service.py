@@ -291,6 +291,8 @@ def run_detection(db: Session, event: SecurityEvent) -> list[SecurityEvent]:
                         severity=alert.severity,
                         user_id=alert.user_id,
                         target_user_id=alert.target_user_id,
+                        # The organization of the event that raised it.
+                        organization_id=event.organization_id,
                         email=alert.email,
                         ip_address=alert.ip_address,
                         user_agent=alert.user_agent,

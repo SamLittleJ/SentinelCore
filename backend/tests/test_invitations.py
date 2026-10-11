@@ -14,7 +14,7 @@ from app.models.invitation import Invitation
 from app.models.security_event import SecurityEvent, SecurityEventType
 from app.models.user import User, UserRole
 from app.services.invitation_service import accept_invitation, find_open_invitation
-from tests.accounts import PASSWORD, create_account
+from tests.accounts import PASSWORD, create_account, org_id_for_tests
 from tests.conftest import TestingSessionLocal
 
 NEW_PASSWORD = "a-new-password"  # nosec B105
@@ -35,6 +35,16 @@ def operator(client: TestClient, role: UserRole) -> dict[str, str]:
     return headers_for(client, username)
 
 
+def invitation_body(
+    client: TestClient, headers: dict[str, str], email: str, role: str
+) -> dict:
+    """The owner names the organization; an admin invites into their own."""
+    body: dict = {"email": email, "role": role}
+    if client.get("/users/me", headers=headers).json()["role"] == "owner":
+        body["organization_id"] = org_id_for_tests()
+    return body
+
+
 def invite(
     client: TestClient,
     headers: dict[str, str],
@@ -42,7 +52,9 @@ def invite(
     role: str = "user",
 ) -> str:
     response = client.post(
-        "/admin/invitations", json={"email": email, "role": role}, headers=headers
+        "/admin/invitations",
+        json=invitation_body(client, headers, email, role),
+        headers=headers,
     )
     assert response.status_code == 201, response.text
     return response.json()["token"]
@@ -73,7 +85,7 @@ def test_the_owner_invites_and_the_token_is_shown_once(
 
     response = client.post(
         "/admin/invitations",
-        json={"email": "New.Person@Example.COM", "role": "admin"},
+        json=invitation_body(client, owner, "New.Person@Example.COM", "admin"),
         headers=owner,
     )
 
@@ -146,7 +158,7 @@ def test_who_may_offer_which_role(
 
     response = client.post(
         "/admin/invitations",
-        json={"email": "new.person@example.com", "role": role},
+        json=invitation_body(client, headers, "new.person@example.com", role),
         headers=headers,
     )
 
@@ -178,7 +190,7 @@ def test_an_email_that_has_an_account_is_not_invited(
 
     response = client.post(
         "/admin/invitations",
-        json={"email": "EXISTING@example.com", "role": "user"},
+        json=invitation_body(client, owner, "EXISTING@example.com", "user"),
         headers=owner,
     )
 

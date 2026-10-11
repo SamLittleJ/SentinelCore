@@ -28,6 +28,7 @@ from app.schemas.security_event import (
 from app.services.detection_service import run_detection
 from app.services.event_query import event_filter_conditions, fetch_event_page
 from app.services.session_service import USER_AGENT_MAX_LENGTH
+from app.services.tenancy import organization_of
 
 
 def create_security_event(
@@ -45,6 +46,7 @@ def create_security_event(
         event_type=event_type,
         severity=severity,
         user_id=user.id if user else None,
+        organization_id=organization_of(db, user, email=email),
         email=email if email else (user.email if user else None),
         ip_address=ip_address,
         user_agent=user_agent[:USER_AGENT_MAX_LENGTH] if user_agent else None,

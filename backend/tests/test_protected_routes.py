@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import SecurityEvent, SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 
 def register_user(
@@ -262,7 +262,7 @@ def set_user_role(
 
     assert user is not None
 
-    user.role = role
+    set_role(user, role)
     db_session.commit()
 
 

@@ -73,11 +73,15 @@ def simulate(api: SentinelCore, seed: int) -> Observations:
     last_id = api.latest_alert_id()
     earlier_alerts = last_id > 0
 
-    key_id = api.create_api_key()
+    organization_id = api.create_organization(f"Simulation {tag}", f"sim-{tag}")
+    key_id = api.create_api_key(organization_id)
     try:
         user_ids = {
             person.email: api.add_person(
-                f"{person.handle}.{tag}", person.email, person.password
+                f"{person.handle}.{tag}",
+                person.email,
+                person.password,
+                organization_id=organization_id,
             )
             for person in organization.people
         }

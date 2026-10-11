@@ -19,7 +19,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from app.services import detection_service
-from tests.accounts import create_account
+from tests.accounts import create_account, org_id_for_tests, set_role
 
 PASSWORD = "testpassword"
 ATTACKER_IP = "203.0.113.9"
@@ -81,7 +81,7 @@ def user_by_email(db_session: Session, email: str) -> User:
 
 def owner_token(client: TestClient, db_session: Session) -> str:
     email = register(client, "owneruser")
-    user_by_email(db_session, email).role = UserRole.OWNER
+    set_role(user_by_email(db_session, email), UserRole.OWNER)
     db_session.commit()
     response = client.post("/auth/login", json={"email": email, "password": PASSWORD})
     return response.json()["access_token"]
@@ -184,7 +184,12 @@ def test_spray_thresholds_come_from_settings(
 def ingestion_key(client: TestClient, db_session: Session) -> str:
     response = client.post(
         "/admin/api-keys",
-        json={"name": "Corporate VPN", "source": "vpn", "expires_in_days": 30},
+        json={
+            "name": "Corporate VPN",
+            "source": "vpn",
+            "expires_in_days": 30,
+            "organization_id": org_id_for_tests(),
+        },
         headers={"Authorization": f"Bearer {owner_token(client, db_session)}"},
     )
     return response.json()["key"]
@@ -698,7 +703,12 @@ def test_ingested_sign_ins_are_judged_at_their_own_time(
     add_sign_ins(db_session, email, days_ago=10)
     key = client.post(
         "/admin/api-keys",
-        json={"name": "Corporate VPN", "source": "vpn", "expires_in_days": 30},
+        json={
+            "name": "Corporate VPN",
+            "source": "vpn",
+            "expires_in_days": 30,
+            "organization_id": org_id_for_tests(),
+        },
         headers={"Authorization": f"Bearer {owner_token(client, db_session)}"},
     ).json()["key"]
     now = datetime.now(UTC)

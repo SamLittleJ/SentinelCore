@@ -21,12 +21,14 @@ from app.models.security_event import (
 )
 from app.models.user import User
 from app.schemas.api_key import ApiKeyCreate
+from app.services.organization_service import is_suspended
 
 KEY_SCHEME = "sck"
 
 
 def _commit_key_change(
     db: Session,
+    api_key: ApiKey,
     actor: User,
     audit_event_type: AuditEventType,
     security_event_type: SecurityEventType,
@@ -34,12 +36,14 @@ def _commit_key_change(
     ip_address: str | None,
 ) -> None:
     """Commit a staged change to a key together with its audit and security
-    events, so either all three are stored or none are."""
+    events, so either all three are stored or none are. They belong to the
+    key's organization."""
     db.add_all(
         [
             AuditLog(
                 event_type=audit_event_type,
                 user_id=actor.id,
+                organization_id=api_key.organization_id,
                 email=actor.email,
                 ip_address=ip_address,
                 message=message,
@@ -48,6 +52,7 @@ def _commit_key_change(
                 event_type=security_event_type,
                 severity=SecuritySeverity.INFO,
                 user_id=actor.id,
+                organization_id=api_key.organization_id,
                 email=actor.email,
                 ip_address=ip_address,
                 message=message,
@@ -77,12 +82,14 @@ def create_api_key(
         secret_hash=token.secret_hash,
         name=data.name,
         source=data.source,
+        organization_id=data.organization_id,
         created_by_id=actor.id,
         expires_at=database_now(db) + timedelta(days=data.expires_in_days),
     )
     db.add(api_key)
     _commit_key_change(
         db,
+        api_key,
         actor,
         AuditEventType.API_KEY_CREATED,
         SecurityEventType.API_KEY_CREATED,
@@ -116,6 +123,7 @@ def revoke_api_key(
     api_key.revoked_at = database_now(db)
     _commit_key_change(
         db,
+        api_key,
         actor,
         AuditEventType.API_KEY_REVOKED,
         SecurityEventType.API_KEY_REVOKED,
@@ -128,7 +136,8 @@ def revoke_api_key(
 
 def authenticate_api_key(db: Session, presented: str) -> ApiKey | None:
     """The key `presented` stands for, if it is valid now: known, matching,
-    not revoked and not expired. Every failure looks the same to the caller."""
+    not revoked, not expired, and of an organization that is not suspended.
+    Every failure looks the same to the caller."""
     parts = split_token(KEY_SCHEME, presented)
     if parts is None:
         return None
@@ -139,5 +148,7 @@ def authenticate_api_key(db: Session, presented: str) -> ApiKey | None:
     if api_key is None or not matches:
         return None
     if api_key.revoked_at is not None or api_key.expires_at <= database_now(db):
+        return None
+    if is_suspended(db, api_key.organization_id):
         return None
     return api_key

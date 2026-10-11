@@ -9,6 +9,7 @@ from app.models import (  # noqa: F401
     api_key,
     audit_log,
     invitation,
+    organization,
     security_event,
     user,
     user_session,

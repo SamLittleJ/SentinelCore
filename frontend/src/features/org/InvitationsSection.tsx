@@ -13,6 +13,7 @@ import { invitationLink } from '@/features/auth/invitation-link'
 import { ActionForm, ActionNotice, ConfirmForm, type Notice } from '@/features/org/ActionForm'
 import type { AssignableRole, Invitation, NewInvitation } from '@/features/org/api'
 import { useCreateInvitation, useInvitations, useRevokeInvitation } from '@/features/org/hooks'
+import { OrganizationField } from '@/features/org/OrganizationField'
 import {
   canRevokeInvitation,
   invitableRoles,
@@ -114,6 +115,7 @@ export function InvitationsSection({ me }: { me: User }) {
             <NewInvitationPanel created={created} onDone={() => setCreated(null)} />
           ) : inviting ? (
             <InviteForm
+              namesOrganization={me.role === 'owner'}
               roles={roles}
               pending={pending}
               onCancel={() => setInviting(false)}
@@ -188,11 +190,14 @@ export function InvitationsSection({ me }: { me: User }) {
 }
 
 function InviteForm({
+  namesOrganization,
   roles,
   pending,
   onCancel,
   onSubmit,
 }: {
+  // The platform owner invites into any organization; an admin into their own.
+  namesOrganization: boolean
   roles: readonly AssignableRole[]
   pending: boolean
   onCancel: () => void
@@ -203,17 +208,30 @@ function InviteForm({
   const emailHelpId = useId()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<AssignableRole>('user')
+  const [organizationId, setOrganizationId] = useState<number | null>(null)
   const normalized = email.trim().toLowerCase()
+  const organizationChosen = !namesOrganization || organizationId !== null
 
   return (
     <ActionForm
       title={t('invitations.formTitle')}
       help={t('invitations.formHelp')}
-      confirmDisabled={!EMAIL_SHAPE.test(normalized)}
+      confirmDisabled={!EMAIL_SHAPE.test(normalized) || !organizationChosen}
       pending={pending}
       onCancel={onCancel}
-      onSubmit={() => onSubmit({ email: normalized, role })}
+      onSubmit={() =>
+        onSubmit({
+          email: normalized,
+          role,
+          ...(namesOrganization && organizationId !== null
+            ? { organization_id: organizationId }
+            : {}),
+        })
+      }
     >
+      {namesOrganization && (
+        <OrganizationField value={organizationId} onChange={setOrganizationId} />
+      )}
       <div className="flex flex-col gap-1.5">
         <label htmlFor={emailId} className="text-sm font-medium">
           {t('invitations.email')}
