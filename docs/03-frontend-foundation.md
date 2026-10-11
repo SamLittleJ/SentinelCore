@@ -548,3 +548,43 @@ The new tests cover: the band's level, its screen reader totals, the color of ea
 Reverse check: each of the following changes makes at least one test fail: the band shown on personal pages, warnings drawn over incidents, the band's link without the technique's types, the wrong color for a warning, bars not scaled to the busiest day, a technique's link without its types, and timeline entries that open nothing (7 of 7).
 
 End-to-end check, with the real backend on a temporary database seeded by the attack simulator: headless Firefox took the overview (dark and light, desktop and phone width) and the event log (dark, and light at phone width). Checks in the page confirmed the band on both pages (level, 24 cells, the latest detection linked to its alerts), 21 bars on the tiles, four techniques, five timeline entries and no horizontal scrolling at phone width. The light screenshots showed empty cells and days nearly invisible against the background; they now use the border color, and a second round confirmed it.
+
+## Stage 10: Invitations
+
+### 57. Invitations on the Users page
+
+The Users page opens with an "Invitații" section above the accounts, which now have their own "Conturi" heading.
+
+- **Open invitations** are listed in a table: email, token prefix (`sci_<prefix>_…`), role, state and when the invitation expires. The used, revoked and expired ones are folded into a "History" section with their count; an accepted invitation links to the new account.
+- **Inviting** follows the API keys page: an in-page form (email and role, as a segmented control), then a panel with the link, shown once, a copy button and "Am trimis link-ul". The link lives in the page's state only. The mutation is reset and kept with `gcTime: 0`, so the token is not left in the address, browser storage or the query and mutation caches.
+- **Roles** mirror the API (`features/org/invitations.ts`): an admin offers `user` and `security_analyst`, the owner `admin` too, and an analyst only reads the list. Revoking is offered on open invitations whose role the reader may offer, after a confirmation step.
+- States are computed as of the list's last load (`dataUpdatedAt`), so they hold still between renders. The Refresh button reloads both the accounts and the invitations.
+- Listing invitations is audited by the API, so the list reloads only on request, like the API keys.
+
+### 58. The public invitation page
+
+`/invite` (`pages/AcceptInvitationPage.tsx`) is public, beside `/login`, and shares its frame (`components/layout/PublicShell.tsx`).
+
+- The link carries the token in the fragment (`/invite#sci_…`, `features/auth/invitation-link.ts`). Browsers never send the fragment to a server. The page reads it once, then replaces the history entry without it, so it leaves the address bar and the back history.
+- The token goes to `POST /auth/invitations/preview` in the request body. The query is not keyed by the token and is dropped when the page closes. Every unusable token, missing, wrong, used, revoked or expired, gets the same message.
+- The form shows the email, role and expiry, then asks for a username, a password and the password again. The username and password rules mirror the API's (3 to 50 characters from `A-Z a-z 0-9 _ . -`; 12 to 128 characters, counted by code point as Python counts them). A hidden field holds the email with `autocomplete="username"`, so a password manager files the new password under the email used to sign in, not under the username.
+- After `POST /auth/invitations/accept`, the page opens `/login` with the email in the router's state, not in the address. The login page shows "Contul a fost creat" and fills in the email. The API does not sign the person in, so the first sign-in goes through the usual checks.
+- A taken username asks for another; an invitation that stopped working meanwhile shows the same "not valid" message.
+
+### 59. Event types
+
+The interface now names `invitation_created` and `invitation_revoked` (security events, personal and organization views) and `invitations_viewed` (audit log), added by the backend with invitations.
+
+### 60. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 209 passed
+- build -> successful, no warnings
+- npm audit -> 0 vulnerabilities
+
+The new tests cover: the invitation states and who may offer and revoke each role; links with the token in the fragment only; the username and password rules, emoji included; an analyst's read-only view with the history folded and the accepted account linked; an admin inviting with a normalized email and an everyday role, the link shown once and kept nowhere else; the owner offered the admin role; an email that already has an account; revoking only what one may offer; a link without a token not reaching the API; the same answer for every invalid token; the token sent in the body and cleared from the address; a short or mismatched password refused; the account created and sign-in opened with the email filled in and the password focused; a taken username; an invitation that stopped working before acceptance.
+
+Reverse check: each of the following changes makes at least one test fail: the token in the link's query string, the mutation not reset, no `gcTime: 0`, an admin offered or revoking the admin role, acceptance ignored when an invitation has also expired, the fragment left in the address, the token in the preview's URL, the repeated password not compared, short passwords allowed, passwords counted in UTF-16 units, the username pattern dropped, a failed acceptance not shown as invalid, the email passed to `/login` in the address, the login page ignoring it, used invitations listed as open, the email not normalized, no message for an existing account, and the invite button shown to analysts (19 of 19).
+
+End-to-end check, with the real backend on a temporary database, the owner created from the command line and invitations created, accepted and revoked through the API: headless Firefox took the Users page with the history open (dark and light, and dark at phone width), the invite form (dark), the link panel after inviting (light), the public page (dark, and light at phone width), an invalid token, the sign-in page after accepting, and the same link opened again. Checks in the page confirmed the theme, the fragment cleared from the address, the "not valid" message for both the invalid and the used token, `/login` with the success message after accepting, and no horizontal scrolling at phone width.

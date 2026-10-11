@@ -25,6 +25,8 @@ export const SECURITY_EVENT_TYPES = [
   'account_unlocked',
   'api_key_created',
   'api_key_revoked',
+  'invitation_created',
+  'invitation_revoked',
   // Alerts raised by the backend's detection rules.
   'password_spray_detected',
   'dormant_account_login',

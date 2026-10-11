@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
-import { useMemo, type MouseEvent } from 'react'
+import { useId, useMemo, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 
@@ -8,8 +8,10 @@ import { PagedResults } from '@/components/PagedResults'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import type { User } from '@/features/auth/api'
+import { useCurrentUser } from '@/features/auth/hooks'
 import { AccountState } from '@/features/org/AccountState'
-import { userListKey, useUsers } from '@/features/org/hooks'
+import { invitationsKey, userListKey, useUsers } from '@/features/org/hooks'
+import { InvitationsSection } from '@/features/org/InvitationsSection'
 import { UserFilterBar } from '@/features/org/UserFilterBar'
 import {
   hasUserFilters,
@@ -26,6 +28,8 @@ export function OrgUsersPage() {
   const [params, setParams] = useSearchParams()
   const filters = useMemo(() => readUserFilters(params), [params])
   const users = useUsers(filters)
+  const { data: me } = useCurrentUser()
+  const accountsId = useId()
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,7 +39,12 @@ export function OrgUsersPage() {
         actions={
           <Button
             variant="outline"
-            onClick={() => void queryClient.resetQueries({ queryKey: userListKey })}
+            onClick={() => {
+              // An accepted invitation shows on both lists.
+              for (const queryKey of [userListKey, invitationsKey]) {
+                void queryClient.resetQueries({ queryKey })
+              }
+            }}
           >
             <RefreshCw aria-hidden />
             {t('orgLog.refresh')}
@@ -43,18 +52,24 @@ export function OrgUsersPage() {
         }
       />
 
-      <UserFilterBar
-        filters={filters}
-        onChange={(next: UserFilters) => setParams(writeUserFilters(next))}
-      />
+      {me && <InvitationsSection me={me} />}
 
-      <PagedResults
-        query={users}
-        empty={hasUserFilters(filters) ? t('users.emptyFiltered') : t('users.empty')}
-        end={t('users.end')}
-      >
-        {(items) => <UsersTable users={items} />}
-      </PagedResults>
+      <section aria-labelledby={accountsId} className="flex flex-col gap-3">
+        <h2 id={accountsId} className="font-medium">
+          {t('users.accounts')}
+        </h2>
+        <UserFilterBar
+          filters={filters}
+          onChange={(next: UserFilters) => setParams(writeUserFilters(next))}
+        />
+        <PagedResults
+          query={users}
+          empty={hasUserFilters(filters) ? t('users.emptyFiltered') : t('users.empty')}
+          end={t('users.end')}
+        >
+          {(items) => <UsersTable users={items} />}
+        </PagedResults>
+      </section>
     </div>
   )
 }

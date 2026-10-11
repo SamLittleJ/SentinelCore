@@ -511,6 +511,14 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - Alerts per technique come with their event types from the API, so the interface does not keep its own copy of the mapping.
 - The latest incidents on the overview became a timeline; each opens the same details panel as before.
 
+## Invitations interface
+
+- Invitations sit on the Users page rather than a page of their own: they are accounts about to exist. Open invitations are listed; used, revoked and expired ones are folded into a history, so the list stays short without losing who joined.
+- The link is shown once, like an API key, and kept only in the page's state. Its token sits in the URL fragment, which browsers do not send to servers, and the public page clears it from the address once read.
+- After acceptance the person is sent to sign-in with the email filled in, rather than signed in automatically: the API does not open a session on acceptance, so the first sign-in goes through the same checks as every other.
+- The new account's email reaches the sign-in page through the router's state, not a query string, so it stays out of the address and the browser history.
+- The password is asked twice. There is no password reset yet, so a typo would lock the person out until an operator stepped in.
+
 ## Agent skills copied, not installed
 
 - Three skills from [mattpocock/skills](https://github.com/mattpocock/skills) are kept in `.claude/skills/`: `grill-me` and `grilling`, an interview in numbered rounds with a recommended answer for each question, and `tdd`, a red → green loop at seams agreed beforehand. The first is meant for the STRIDE threat model.

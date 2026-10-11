@@ -2,6 +2,8 @@ import { Navigate, type RouteObject } from 'react-router'
 
 import { AppShell } from '@/components/layout/AppShell'
 import { RequireAuth, RequireOrganizationAccess } from '@/features/auth/guards'
+import { INVITE_PATH } from '@/features/auth/invitation-link'
+import { AcceptInvitationPage } from '@/pages/AcceptInvitationPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MyActivityPage } from '@/pages/MyActivityPage'
 import { MyOverviewPage } from '@/pages/MyOverviewPage'
@@ -19,6 +21,7 @@ import {
 // Shared by the browser router (main.tsx) and the memory router in tests.
 export const appRoutes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
+  { path: INVITE_PATH, element: <AcceptInvitationPage /> },
   {
     element: <RequireAuth />,
     children: [
