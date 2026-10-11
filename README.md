@@ -50,6 +50,30 @@ The web app runs at `http://localhost:5173`. Details: [frontend/README.md](front
 
 In Swagger UI, the **Authorize** button takes the email in the `username` field, plus the password.
 
+## Demo
+
+One command shows SentinelCore with ninety days of a synthetic organization behind it:
+
+```bash
+make demo
+```
+
+It needs the Quick start done once (Docker, `backend/.venv` with `backend/.env`, `npm install` in `frontend/`), the `make` tool, and ports 8000 and 5173 free. It then:
+
+1. starts PostgreSQL and recreates a separate `sentinelcore_demo` database, leaving the development one alone;
+2. creates the owner `owner@sim.example.com` with a random password, written only to `.demo/owner.txt` (readable by you alone, ignored by git) and never printed;
+3. fills ninety days, ending now, through the API: 36 people joining by invitation, an admin and an analyst, their routine sign-ins reported by a VPN key, and the attack simulator's attacks spread across the days at random hours (password sprays, stolen passwords used on dormant accounts and from unknown places, and the evasive variants the rules miss);
+4. plays today's events live: brute force against two accounts, an admin role granted, and the operators' response (sessions closed, an account locked, the dormant accounts deactivated, a promotion, new invitations, a retired API key);
+5. runs the backend and the frontend until Ctrl+C. Open `http://localhost:5173` and sign in with the details in `.demo/owner.txt`.
+
+Each run starts from scratch with the same seed, so the organization and its history are the same, shifted to end at the time of the run. `make demo-clean` removes the database and `.demo/`.
+
+What to know about the data:
+
+- Everything is synthetic, made by `backend/simulator` from one seed. Email addresses use `sim.example.com`, and network addresses come from documentation ranges.
+- Accounts, invitations and operator actions go through the API at the time of the run, so the accounts show today as their joining date and today's log holds them all. Their sign-ins go back ninety days.
+- Alerts raised from the history are moved, in the demo database only, to the time of the event that raised them plus a few seconds, as if SentinelCore had watched the ninety days live. Without this, every one of them would carry the time of the run. The application itself always keeps the detection time.
+
 ## Monitoring
 
 ```bash

@@ -4426,3 +4426,39 @@ The interface gained a threat status band above every organization page and seve
 The new tests place events in their hour and day, check the window starts and that the windows add up to the totals, merge the two T1078 alert types and order the techniques, keep the latest detection free of accounts and addresses, and set the threat level for no events, a blocked sign-in, a detection alert, an incident, and an alert older than a day.
 
 Reverse check: each of the following changes makes at least one test fail: windows listed newest first, the level ignoring detection alerts, warnings from any source raising it, techniques counted per event type, techniques least frequent first, and the latest detection taken from all time (6 of 6).
+
+## Demo Data
+
+### 311. Purpose of the stage
+
+`make demo` shows the application with a history behind it: ninety days of a synthetic organization, built in one run on a separate `sentinelcore_demo` database, then served until Ctrl+C. It reuses the attack simulator rather than a second generator, so the demo's people, routine and attacks are the ones the evaluation measures.
+
+### 312. How the history is built
+
+`simulator/demo.py`, run by `scripts/demo.sh`:
+
+- `build_organization` takes the number of days (90 here, 30 for the evaluation, unchanged) and can run the routine up to the current moment, so the demo shows this morning's sign-ins. People's emails drop the run tag when none is given.
+- `plan_attacks` is reused as is. `place_in_history` then moves each attack that goes through ingestion to a random moment of a day in its window: any day for sprays; after the first two weeks for a stolen password used from an unknown place, which needs the victim's habits; the last ten days for dormant accounts, last used 100 days before the run; the last eight for the idle accounts, which must stay under three sign-ins in the 90 days before the attack. Each gap within a burst is stretched or shrunk by up to 30 %.
+- Routine and attacks are reported together, oldest first, in batches of 500. Detection judges each event against the events before its own time, so the alerts are those the evaluation would raise.
+- Brute force and admin role grants cannot be backdated, so two and one of them happen live. Operators then respond through the API: the analyst closes a brute-forced account's sessions and locks the account used from an unknown place, the admin deactivates two dormant accounts and invites three people, revoking a fourth invitation, and the owner promotes someone to analyst and retires an old API key.
+- The simulator's client now signs in as any operator and covers invitations, status, locks and session revocation.
+
+### 313. Alerts at their event's time
+
+Lists, time ranges, the summary and the threat band order and count alerts by `created_at`, the detection time, as an alert queue should: a late-reported attack must still reach the top. In a history built in one run, every alert would carry the time of the run. `place_alerts_at_event_time` therefore sets each alert raised from the history to its `occurred_at` plus 2 to 40 seconds, the latency of a log shipper and the pipeline. It is the only step that writes to the database directly, and it runs only when the database is `sentinelcore_demo`. Alerts raised live keep their time.
+
+The module loads every model, as `migrations/env.py` does: run on its own, it must resolve the foreign keys of the alerts it updates. A real run caught this; a test now runs the check in a fresh interpreter.
+
+### 314. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 420 passed
+- shellcheck on `scripts/demo.sh` -> no issues
+
+The new tests place every attack in its window and before midnight, keep each burst's drift within bounds, spread the attacks over the history, give the same history for a seed and a different one for another, run the routine up to the moment of the run only when asked, and run the whole demo in-process: every planned alert raised, each historical alert moved to seconds after its event and before the day of the run, the live attacks and role grants of the day, the morning's routine, the operators' response, both API keys, and the refusal of other databases and remote hosts.
+
+Reverse check: 15 of 19 changes make at least one test fail: windows ignored or widened, no drift or too much, no morning routine in the demo or in the population, routine kept past the moment of the run, the fix-up skipped, without delay or moving the day's alerts, no database or host guard, the operators' lock, revocation or key retirement left out. The other four change nothing observable: reporting the attacks after the routine (rules compare event times, not arrival order), dropping the alert source from the fix-up (only alerts have `occurred_at`), a different number of live brute force attacks (the test reads the same setting), and loading the user model alone (the invitation model loads it).
+
+End-to-end check: `scripts/demo.sh` on this machine created the database, migrated it, created the owner, seeded 2,959 sign-ins and 38 attacks, moved 18 alerts and served the app; stopping the frontend stopped the backend too. Headless Firefox took the overview (dark, light at phone width), the alerts over all time (light) and the audit log (dark). The first run showed an empty day before the run's own actions; the routine now reaches the moment of the run.

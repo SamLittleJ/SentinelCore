@@ -525,3 +525,12 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 - They are copied at a fixed commit, with their MIT license, rather than installed as the plugin. The plugin updates itself, so the instructions the agent follows would change without review. A copy changes only through a pull request.
 - Only these three are taken. The plugin's other 24 skills either repeat what the project already has (the learning notes, the decisions log, Claude Code's own `/code-review`) or assume an issue tracker the project does not use. Each skill's description is also loaded at the start of every session.
 - OpenSpec, a spec-driven workflow, was considered and set aside for now: it would duplicate the journals and the decisions log.
+
+## Demo data
+
+- `make demo` builds the history once and serves it, rather than a job adding activity every day: the demo is the same at every run, shifted to end at that moment, needs no machine left running, and leaves no gaps in the trends.
+- The demo reuses the attack simulator's organization and attacks, so what the demo shows is what the evaluation measures. It runs on its own `sentinelcore_demo` database.
+- Attacks are spread over ninety days at random hours, each within the days where it is still an attack (dormant accounts only once unused for 90 days), and each burst keeps its pace, with some drift. Scattering a burst's attempts would turn it into an evasive variant.
+- Accounts and operator actions go through the API at the time of the run, so they all fall on that day. Writing them into the past directly would mean forging audit records.
+- Alerts keep the detection time as `created_at` in the application, and lists and counts use it, as alert queues do. Showing the event time in tables instead was considered and dropped: rows ordered by one time and labelled with another look out of order. For the demo only, a final step moves each alert raised from the history to its event's time plus a few seconds, as if it had been watched live. It writes to the database directly, so it refuses any database but the demo's.
+- The owner's password is random and written only to `.demo/owner.txt`, mode 600 and ignored by git, never to the terminal.
