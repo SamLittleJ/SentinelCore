@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     with httpx.Client(base_url=args.base_url, timeout=30) as http:
         api = SentinelCore(http)
         try:
-            api.log_in_owner(args.owner_email, password)
+            api.log_in(args.owner_email, password)
             observations = simulate(api, args.seed)
         except (SimulatorError, httpx.HTTPError) as error:
             print(error, file=sys.stderr)

@@ -122,6 +122,14 @@ Time to detect is given in attack time (from the first step to the one after whi
 
 Run it on a fresh database. A second run reuses the same attacker addresses at the same times of day, so its sprays overlap the first run's and are caught sooner; its brute force attempts, all from `127.0.0.1`, add up with the first run's into a spray from that address. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
 
+## Demo data
+
+`python -m simulator.demo` fills the `sentinelcore_demo` database with ninety days of the simulator's organization; `make demo` at the repository root runs it, with a fresh database and the servers (see the main README). It uses the same people, routine and attacks as the simulator, with three differences:
+
+- The routine covers 90 days and runs up to the moment of the run, not to the previous midnight.
+- Attacks are spread across the history (`WINDOWS` in `simulator/demo.py`): sprays on any day, stolen passwords from unknown places after a few weeks of the victim's habits, sign-ins to dormant accounts only in the last ten days, when those accounts have been unused for over 90 days. Each burst keeps its shape, every gap stretched or shrunk by up to 30 %. Brute force and role grants happen live, two and one of them.
+- Afterwards, every alert raised from the history gets the time of its event plus 2 to 40 seconds as its `created_at`, written directly to the database. Lists, ranges and the summary order and count alerts by detection time; without this step they would all fall on the day of the run. It refuses any database but `sentinelcore_demo`, and any host but `localhost`.
+
 ## Observability
 
 - `GET /health`: the process is running

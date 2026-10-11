@@ -1,4 +1,5 @@
-"""A synthetic organization and thirty days of its routine sign-ins.
+"""A synthetic organization and its routine sign-ins: thirty days by
+default, longer for the demo.
 
 Everything is drawn from one seeded random generator, so a seed always gives
 the same people, devices and sign-ins. Times are relative to `now`, the start
@@ -175,16 +176,18 @@ class Organization:
 
 
 def make_people(rng: random.Random, tag: str) -> list[Person]:
-    """Distinct people; `tag` keeps their emails apart from earlier runs."""
+    """Distinct people; `tag`, when given, keeps their emails apart from
+    earlier runs on the same database."""
     names = [(first, last) for first in FIRST_NAMES for last in LAST_NAMES]
     chosen = rng.sample(names, ACTIVE_PEOPLE + DORMANT_PEOPLE + IDLE_PEOPLE + 1)
     people = []
     for home, (first, last) in enumerate(chosen):
         handle = f"{first}.{last}"
+        local_part = f"{handle}.{tag}" if tag else handle
         people.append(
             Person(
                 handle=handle,
-                email=f"{handle}.{tag}@sim.example.com",
+                email=f"{local_part}@sim.example.com",
                 password=secrets.token_urlsafe(18),
                 home=home,
                 laptop=rng.choice(LAPTOPS),
@@ -212,7 +215,16 @@ def sign_in_with_typos(
     return [*attempts, SignIn(when, True, person.email, ip, agent)]
 
 
-def build_organization(rng: random.Random, now: datetime, tag: str) -> Organization:
+def build_organization(
+    rng: random.Random,
+    now: datetime,
+    tag: str,
+    history_days: int = HISTORY_DAYS,
+    through_now: bool = False,
+) -> Organization:
+    """The organization and `history_days` of its routine, ending the day
+    before `now`, or at `now` itself when `through_now`: the demo shows this
+    morning too."""
     people = make_people(rng, tag)
     active = people[:ACTIVE_PEOPLE]
     dormant = people[ACTIVE_PEOPLE : ACTIVE_PEOPLE + DORMANT_PEOPLE]
@@ -232,7 +244,7 @@ def build_organization(rng: random.Random, now: datetime, tag: str) -> Organizat
     rotating = rng.sample(range(ACTIVE_PEOPLE), PASSWORD_CHANGE_PEOPLE)
 
     sign_ins: list[SignIn] = []
-    for day in range(HISTORY_DAYS, 0, -1):
+    for day in range(history_days, -1 if through_now else 0, -1):
         day_start = midnight - timedelta(days=day)
         workday = day_start.weekday() < 5
         for index, person in enumerate(active):
@@ -253,7 +265,7 @@ def build_organization(rng: random.Random, now: datetime, tag: str) -> Organizat
                 continue
             if person is new_phone and day <= NEW_PHONE_DAY:
                 phone = user_agent(next(d for d in PHONES if d != person.phone), day)
-            if day == HISTORY_DAYS:
+            if day == history_days:
                 # The organization is older than the window: everyone has used
                 # the office and home before, which the first day stands for.
                 sign_ins.append(
@@ -358,5 +370,7 @@ def build_organization(rng: random.Random, now: datetime, tag: str) -> Organizat
             emails=frozenset(person.email for person in people),
         ),
     ]
+    if through_now:
+        sign_ins = [sign_in for sign_in in sign_ins if sign_in.occurred_at < now]
     sign_ins.sort(key=lambda sign_in: sign_in.occurred_at)
     return Organization(active, dormant, idle, returning, sign_ins, cases)

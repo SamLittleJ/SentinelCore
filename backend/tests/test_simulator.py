@@ -36,7 +36,7 @@ def api(client: TestClient, db_session: Session) -> SentinelCore:
         UserCreate(username="owner", email=OWNER_EMAIL, password=OWNER_PASSWORD),
     )
     api = SentinelCore(client)
-    api.log_in_owner(OWNER_EMAIL, OWNER_PASSWORD)
+    api.log_in(OWNER_EMAIL, OWNER_PASSWORD)
     return api
 
 

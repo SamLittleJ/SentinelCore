@@ -35,32 +35,40 @@ def check(response: httpx.Response, action: str) -> httpx.Response:
 
 
 class SentinelCore:
+    """The API as one signed-in operator: the owner, or for the demo an
+    admin or an analyst too."""
+
     def __init__(self, http: httpx.Client) -> None:
         self.http = http
-        self.owner_token: str | None = None
+        self.operator_token: str | None = None
         self.api_key: str | None = None
 
     @property
-    def as_owner(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self.owner_token}"}
+    def as_operator(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.operator_token}"}
 
-    def log_in_owner(self, email: str, password: str) -> None:
+    def log_in(self, email: str, password: str) -> None:
         response = self.http.post(
             "/auth/login", json={"email": email, "password": password}
         )
-        self.owner_token = check(response, "Signing in as the owner").json()[
+        self.operator_token = check(response, f"Signing in as {email}").json()[
             "access_token"
         ]
 
-    def create_api_key(self) -> int:
+    def create_api_key(
+        self,
+        name: str = "Attack simulator",
+        source: str = "simulator",
+        expires_in_days: int = 30,
+    ) -> int:
         response = self.http.post(
             "/admin/api-keys",
             json={
-                "name": "Attack simulator",
-                "source": "simulator",
-                "expires_in_days": 30,
+                "name": name,
+                "source": source,
+                "expires_in_days": expires_in_days,
             },
-            headers=self.as_owner,
+            headers=self.as_operator,
         )
         created = check(response, "Creating the API key").json()
         self.api_key = created["key"]
@@ -68,20 +76,33 @@ class SentinelCore:
 
     def revoke_api_key(self, key_id: int) -> None:
         response = self.http.post(
-            f"/admin/api-keys/{key_id}/revoke", headers=self.as_owner
+            f"/admin/api-keys/{key_id}/revoke", headers=self.as_operator
         )
         check(response, "Revoking the API key")
         self.api_key = None
 
-    def add_person(self, username: str, email: str, password: str) -> int:
-        """Invite `email` as the owner, then accept as the person invited, the
-        only way an account joins the organization."""
+    def invite(self, email: str, role: str = "user") -> tuple[int, str]:
+        """The new invitation's id and its token, shown only now."""
         response = self.http.post(
             "/admin/invitations",
-            json={"email": email, "role": "user"},
-            headers=self.as_owner,
+            json={"email": email, "role": role},
+            headers=self.as_operator,
         )
-        token = check(response, f"Inviting {email}").json()["token"]
+        created = check(response, f"Inviting {email}").json()
+        return created["invitation"]["id"], created["token"]
+
+    def revoke_invitation(self, invitation_id: int) -> None:
+        response = self.http.post(
+            f"/admin/invitations/{invitation_id}/revoke", headers=self.as_operator
+        )
+        check(response, "Revoking an invitation")
+
+    def add_person(
+        self, username: str, email: str, password: str, role: str = "user"
+    ) -> int:
+        """Invite `email`, then accept as the person invited, the only way an
+        account joins the organization."""
+        _, token = self.invite(email, role)
         response = self.http.post(
             "/auth/invitations/accept",
             json={"token": token, "username": username, "password": password},
@@ -114,10 +135,42 @@ class SentinelCore:
         response = self.http.patch(
             f"/admin/users/{user_id}/role",
             json={"role": "admin"},
-            headers=self.as_owner,
+            headers=self.as_operator,
         )
         check(response, f"Granting admin to user_id={user_id}")
         return (time.perf_counter() - started) * 1000
+
+    def change_role(self, user_id: int, role: str) -> None:
+        response = self.http.patch(
+            f"/admin/users/{user_id}/role",
+            json={"role": role},
+            headers=self.as_operator,
+        )
+        check(response, f"Changing the role of user_id={user_id}")
+
+    def deactivate(self, user_id: int) -> None:
+        response = self.http.patch(
+            f"/admin/users/{user_id}/status",
+            json={"is_active": False},
+            headers=self.as_operator,
+        )
+        check(response, f"Deactivating user_id={user_id}")
+
+    def lock(self, user_id: int, hours: int, reason: str) -> None:
+        response = self.http.post(
+            f"/admin/users/{user_id}/lock",
+            json={"duration_hours": hours, "reason": reason},
+            headers=self.as_operator,
+        )
+        check(response, f"Locking user_id={user_id}")
+
+    def revoke_sessions(self, user_id: int, reason: str) -> None:
+        response = self.http.post(
+            f"/admin/users/{user_id}/revoke-sessions",
+            json={"reason": reason},
+            headers=self.as_operator,
+        )
+        check(response, f"Revoking the sessions of user_id={user_id}")
 
     def alerts_after(self, last_id: int) -> list[dict]:
         """Alerts with an id above `last_id`, oldest first.
@@ -133,7 +186,7 @@ class SentinelCore:
             if before_id is not None:
                 params["before_id"] = before_id
             response = self.http.get(
-                "/security/events", params=params, headers=self.as_owner
+                "/security/events", params=params, headers=self.as_operator
             )
             page = check(response, "Reading alerts").json()
             newer = [alert for alert in page["items"] if alert["id"] > last_id]
@@ -147,7 +200,7 @@ class SentinelCore:
         response = self.http.get(
             "/security/events",
             params={"event_type": list(ALERT_TYPES), "limit": 1},
-            headers=self.as_owner,
+            headers=self.as_operator,
         )
         items = check(response, "Reading alerts").json()["items"]
         return items[0]["id"] if items else 0
