@@ -23,6 +23,9 @@ export const AUDIT_EVENT_TYPES = [
   'api_key_created',
   'api_key_revoked',
   'api_keys_viewed',
+  'invitation_created',
+  'invitation_revoked',
+  'invitations_viewed',
 ] as const
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number]
 
@@ -301,4 +304,41 @@ export function createApiKey(input: NewApiKey): Promise<CreatedApiKey> {
 
 export function revokeApiKey(keyId: number): Promise<ApiKey> {
   return apiRequest<ApiKey>(`/admin/api-keys/${keyId}/revoke`, { method: 'POST' })
+}
+
+export interface Invitation {
+  id: number
+  prefix: string
+  email: string
+  role: Role
+  created_by_id: number
+  created_at: string
+  expires_at: string
+  accepted_at: string | null
+  accepted_user_id: number | null
+  revoked_at: string | null
+}
+
+export interface CreatedInvitation {
+  invitation: Invitation
+  token: string
+}
+
+export interface NewInvitation {
+  email: string
+  // The owner is created once, from the command line, never invited.
+  role: AssignableRole
+}
+
+/** Every invitation, newest first. Listing them is audited. */
+export function fetchInvitations(signal?: AbortSignal): Promise<Invitation[]> {
+  return apiRequest<Invitation[]>('/admin/invitations', { signal })
+}
+
+export function createInvitation(input: NewInvitation): Promise<CreatedInvitation> {
+  return apiRequest<CreatedInvitation>('/admin/invitations', { method: 'POST', body: input })
+}
+
+export function revokeInvitation(invitationId: number): Promise<Invitation> {
+  return apiRequest<Invitation>(`/admin/invitations/${invitationId}/revoke`, { method: 'POST' })
 }

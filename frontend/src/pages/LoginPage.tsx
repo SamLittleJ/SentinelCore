@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import { Navigate, useNavigate, useSearchParams } from 'react-router'
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router'
 
+import { PublicShell } from '@/components/layout/PublicShell'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,14 +33,22 @@ function loginErrorMessage(error: unknown, t: TFunction): string {
   }
 }
 
+/** Router state left by the invitation page, so the new account's email
+ * never goes through the address. */
+export interface LoginState {
+  registeredEmail?: string
+}
+
 export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const [params] = useSearchParams()
   const next = safeNextPath(params.get('next'))
   const currentUser = useCurrentUser()
   const logIn = useLogIn()
-  const [email, setEmail] = useState('')
+  const registeredEmail = (location.state as LoginState | null)?.registeredEmail
+  const [email, setEmail] = useState(registeredEmail ?? '')
   const [password, setPassword] = useState('')
 
   if (currentUser.isSuccess) {
@@ -64,58 +73,50 @@ export function LoginPage() {
         : null
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="flex w-full max-w-sm flex-col gap-6">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2.5 font-semibold tracking-tight">
-            <span
-              aria-hidden
-              className="grid size-7 place-items-center rounded-md bg-primary font-mono text-xs font-semibold text-primary-foreground"
-            >
-              SC
-            </span>
-            {t('app.name')}
-          </div>
-          <h1 className="mt-4 text-2xl font-semibold text-balance">{t('login.title')}</h1>
-          <p className="text-muted-foreground">{t('login.subtitle')}</p>
+    <PublicShell title={t('login.title')} subtitle={t('login.subtitle')}>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+        {error ? (
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : (
+          registeredEmail && (
+            <Alert role="status">
+              <AlertDescription>{t('login.registered')}</AlertDescription>
+            </Alert>
+          )
+        )}
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="login-email">{t('login.email')}</Label>
+          <Input
+            id="login-email"
+            type="email"
+            autoComplete="username"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </div>
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-          {error && (
-            <Alert variant="destructive" role="alert">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="login-password">{t('login.password')}</Label>
+          <Input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            // The new account's email is filled in; its password is next.
+            autoFocus={registeredEmail !== undefined}
+          />
+        </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="login-email">{t('login.email')}</Label>
-            <Input
-              id="login-email"
-              type="email"
-              autoComplete="username"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="login-password">{t('login.password')}</Label>
-            <Input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </div>
-
-          <Button type="submit" disabled={logIn.isPending} className="mt-2">
-            {logIn.isPending ? t('login.submitting') : t('login.submit')}
-          </Button>
-        </form>
-      </div>
-    </main>
+        <Button type="submit" disabled={logIn.isPending} className="mt-2">
+          {logIn.isPending ? t('login.submitting') : t('login.submit')}
+        </Button>
+      </form>
+    </PublicShell>
   )
 }

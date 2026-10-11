@@ -6,6 +6,7 @@ import type { Role, User } from '@/features/auth/api'
 import type {
   ApiKey,
   AuditLog,
+  Invitation,
   SecurityEvent,
   SecuritySummary,
   SeverityBucket,
@@ -97,6 +98,22 @@ export function makeApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
   }
 }
 
+export function makeInvitation(overrides: Partial<Invitation> = {}): Invitation {
+  return {
+    id: 11,
+    prefix: 'f0e1d2c3',
+    email: 'dana.ilie@example.com',
+    role: 'user',
+    created_by_id: 1,
+    created_at: new Date(Date.now() - 3600_000).toISOString(),
+    expires_at: new Date(Date.now() + 71 * 3600_000).toISOString(),
+    accepted_at: null,
+    accepted_user_id: null,
+    revoked_at: null,
+    ...overrides,
+  }
+}
+
 const HOUR_MS = 3600_000
 
 /** `count` empty windows of `width` ms, oldest first, ending now. */
@@ -145,6 +162,7 @@ export const server = setupServer(
   ),
   http.get('/api/admin/users/:userId/activity', () => HttpResponse.json(page([]))),
   http.get('/api/admin/api-keys', () => HttpResponse.json([])),
+  http.get('/api/admin/invitations', () => HttpResponse.json([])),
 )
 
 /** The API answers as if `user` is signed in (or nobody, for null). */

@@ -7,8 +7,10 @@ import {
   type AuditEventType,
   type AuditLog,
   createApiKey,
+  createInvitation,
   fetchApiKeys,
   fetchAuditLogs,
+  fetchInvitations,
   fetchSecurityEvents,
   fetchSecuritySummary,
   fetchUser,
@@ -16,6 +18,7 @@ import {
   fetchUsers,
   type LogQuery,
   revokeApiKey,
+  revokeInvitation,
   revokeUserSessions,
   type SecurityEvent,
 } from './api'
@@ -32,6 +35,7 @@ const userKey = (userId: number) => [...usersKey, 'detail', userId] as const
 const userActivityKey = (userId: number) => [...usersKey, 'activity', userId] as const
 export const securitySummaryKey = [...orgKey, 'security-summary'] as const
 export const apiKeysKey = [...orgKey, 'api-keys'] as const
+export const invitationsKey = [...orgKey, 'invitations'] as const
 // Under the events key, so whatever refreshes the event log refreshes it too.
 export const recentIncidentsKey = [...securityEventsKey, 'recent-incidents'] as const
 
@@ -224,4 +228,36 @@ export function useCreateApiKey() {
 export function useRevokeApiKey() {
   const afterChange = useAfterKeyChange()
   return useMutation({ mutationFn: revokeApiKey, onSettled: afterChange })
+}
+
+/** Every invitation. Listing them is audited, so they reload only on request. */
+export function useInvitations() {
+  return useQuery({
+    queryKey: invitationsKey,
+    queryFn: ({ signal }) => fetchInvitations(signal),
+    refetchOnWindowFocus: false,
+  })
+}
+
+/** Inviting or revoking changes the list and adds to both logs. */
+function useAfterInvitationChange() {
+  const queryClient = useQueryClient()
+  return () => {
+    for (const queryKey of [invitationsKey, securityEventsKey, auditLogsKey]) {
+      void queryClient.invalidateQueries({ queryKey })
+    }
+  }
+}
+
+/** Issues an invitation. Its token, like a new API key, must not outlive the
+ * moment the link is shown: the page keeps it in its own state and resets
+ * this mutation, and `gcTime: 0` then drops it from the mutation cache. */
+export function useCreateInvitation() {
+  const afterChange = useAfterInvitationChange()
+  return useMutation({ mutationFn: createInvitation, gcTime: 0, onSettled: afterChange })
+}
+
+export function useRevokeInvitation() {
+  const afterChange = useAfterInvitationChange()
+  return useMutation({ mutationFn: revokeInvitation, onSettled: afterChange })
 }

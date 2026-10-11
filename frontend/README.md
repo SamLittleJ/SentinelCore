@@ -30,12 +30,12 @@ The app runs at `http://localhost:5173`. Vite forwards `/api/*` requests to the 
 src/
 ├── components/
 │   ├── brand/       # the logomark and the "SENTINEL core" wordmark
-│   ├── layout/      # app structure: sidebar, page headers, command palette (Ctrl+K), account menu
+│   ├── layout/      # app structure: sidebar, page headers, command palette (Ctrl+K), account menu, the frame of the public pages
 │   └── ui/          # shadcn/ui components (generated, then adjusted)
 ├── features/
 │   ├── account/     # the "My account" scope: sessions, activity
-│   ├── auth/        # authentication API client, hooks, route protection
-│   ├── org/         # the "Organization" scope: overview, logs, users, API keys, MITRE ATT&CK, filters, actions
+│   ├── auth/        # authentication API client, hooks, route protection, invitation links
+│   ├── org/         # the "Organization" scope: overview, logs, users, invitations, API keys, MITRE ATT&CK, filters, actions
 │   └── theme/       # dark / light theme
 ├── i18n/            # Romanian and English translations
 ├── lib/             # API client, TanStack Query setup, utilities
@@ -48,6 +48,8 @@ src/
 ## Authentication
 
 Login uses `POST /api/auth/session`. The backend puts the token in an httpOnly cookie that frontend code cannot read. For requests that change data, the API client (`src/lib/api.ts`) reads the `sentinelcore_csrf` cookie and sends it in the `X-CSRF-Token` header.
+
+New accounts come from invitations. An admin or the owner creates one on the Users page and gets a link of the form `/invite#sci_…`, shown once. The token sits in the fragment, which the browser never sends to a server; the public `/invite` page reads it, clears it from the address bar, and sends it to the API in a request body. After the account is created, the page opens `/login` with the email filled in.
 
 ## Theme and translations
 
