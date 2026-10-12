@@ -772,12 +772,7 @@ def test_change_user_status_updates_target_and_records_events(
             UserRole.OWNER,
             "Users cannot change their own status",
         ),
-        (
-            UserRole.ADMIN,
-            False,
-            UserRole.OWNER,
-            "Cannot change the status of an owner",
-        ),
+        # A member naming the owner gets a 404: test_tenant_isolation.py.
         (
             UserRole.OWNER,
             False,

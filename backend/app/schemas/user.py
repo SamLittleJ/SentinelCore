@@ -55,6 +55,8 @@ class UserRead(BaseModel):
     username: str
     email: EmailStr
     role: str
+    # None for the platform owner.
+    organization_id: int | None
     is_active: bool
     # Set while an operator's lock is in force or after it expired; compare
     # with the current time to know whether the account is locked now.
@@ -135,3 +137,5 @@ class UserFilters(CursorPageFilters):
     is_active: bool | None = None
     # Whether an operator's lock is in force now.
     locked: bool | None = None
+    # The platform owner's alone: one organization instead of all of them.
+    organization_id: int | None = None

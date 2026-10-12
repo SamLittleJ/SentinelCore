@@ -198,12 +198,7 @@ def test_lock_signs_the_account_out_and_refuses_logins(
             "Users cannot lock their own account",
         ),
         (UserRole.ADMIN, True, UserRole.ADMIN, "Users cannot lock their own account"),
-        (
-            UserRole.SECURITY_ANALYST,
-            False,
-            UserRole.OWNER,
-            "Cannot lock an owner",
-        ),
+        # A member naming the owner gets a 404: test_tenant_isolation.py.
         (UserRole.OWNER, False, UserRole.OWNER, "Cannot lock an owner"),
     ],
 )
@@ -375,8 +370,9 @@ def test_unlock_restrictions(
 
     assert own.status_code == 403
     assert own.json()["detail"] == "Users cannot unlock their own account"
-    assert of_owner.status_code == 403
-    assert of_owner.json()["detail"] == "Owners cannot be locked"
+    # The owner is no account of the admin's organization.
+    assert of_owner.status_code == 404
+    assert of_owner.json()["detail"] == "User not found"
 
 
 def test_a_session_created_during_a_lock_is_refused(

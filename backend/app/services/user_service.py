@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.database import database_now
@@ -18,6 +18,7 @@ from app.services.detection_service import run_detection
 from app.services.organization_service import is_suspended
 from app.services.pagination import fetch_page
 from app.services.session_service import stage_revoke_all_sessions
+from app.services.tenancy import Scope
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
@@ -134,9 +135,11 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 def list_users(
     db: Session,
     filters: UserFilters,
+    scope: Scope,
 ) -> tuple[list[User], int | None]:
-    """One page of users, newest first, and the cursor for the next."""
-    conditions: list[ColumnElement[bool]] = []
+    """One page of the users in `scope`, newest first, and the cursor for the
+    next."""
+    conditions = scope.conditions(User.organization_id)
     if filters.q is not None:
         # autoescape keeps % and _ in the search text literal.
         conditions.append(

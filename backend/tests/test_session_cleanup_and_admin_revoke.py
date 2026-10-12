@@ -361,18 +361,7 @@ def test_revoke_user_sessions_requires_a_reason(
             UserRole.OWNER,
             "Use /auth/logout-all to revoke your own sessions",
         ),
-        (
-            UserRole.ADMIN,
-            False,
-            UserRole.OWNER,
-            "Cannot revoke the sessions of an owner",
-        ),
-        (
-            UserRole.SECURITY_ANALYST,
-            False,
-            UserRole.OWNER,
-            "Cannot revoke the sessions of an owner",
-        ),
+        # A member naming the owner gets a 404: test_tenant_isolation.py.
         (
             UserRole.OWNER,
             False,

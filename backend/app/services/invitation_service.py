@@ -30,6 +30,7 @@ from app.models.user import User, UserRole
 from app.schemas.invitation import InvitationCreate
 from app.schemas.user import UserCreate
 from app.services.organization_service import is_suspended
+from app.services.tenancy import Scope
 from app.services.user_service import commit_account_created, stage_user
 
 INVITATION_SCHEME = "sci"
@@ -148,8 +149,14 @@ def create_invitation(
     return invitation, token.value
 
 
-def list_invitations(db: Session) -> list[Invitation]:
-    return list(db.scalars(select(Invitation).order_by(Invitation.id.desc())).all())
+def list_invitations(db: Session, scope: Scope) -> list[Invitation]:
+    return list(
+        db.scalars(
+            select(Invitation)
+            .where(*scope.conditions(Invitation.organization_id))
+            .order_by(Invitation.id.desc())
+        ).all()
+    )
 
 
 def get_invitation(db: Session, invitation_id: int) -> Invitation | None:

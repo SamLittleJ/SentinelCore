@@ -33,3 +33,5 @@ class EventFilters(EventPageFilters):
         None
     )
     ip_address: IPvAnyAddress | None = None
+    # The platform owner's alone: one organization instead of all of them.
+    organization_id: int | None = None

@@ -10,6 +10,10 @@ Rules only alert. Responding stays with the operators, through containment,
 so a false positive never locks anyone out. Brute-force protection is the
 exception: it blocks the email, and lives in login_protection_service.py.
 
+Rules look within one organization. The account rules do so by their nature:
+an account belongs to one organization, and its events to that one. The
+spray rule, keyed on an address, names the organization in its queries.
+
 Windows are measured back from the triggering event's own time, so an event
 that arrives late is judged against the events around it. Alerts keep that
 time in `occurred_at`, and rules that look at earlier alerts compare it, never
@@ -66,14 +70,22 @@ def detect_password_spray(db: Session, event: SecurityEvent) -> Alert | None:
     tried, and a log delivered twice raises none. Alerts are compared by the
     time of the failure that raised them: one raised just now about an older
     spray does not hide a later spray reported late.
+
+    Failures and alerts count within the event's organization, or, for
+    failures on emails no account has, within the platform's own events: one
+    organization's sign-ins never add to another's spray.
     """
     if event.ip_address is None:
         return None
 
+    same_scope = SecurityEvent.organization_id.is_not_distinct_from(
+        event.organization_id
+    )
     window = timedelta(minutes=settings.detection_spray_window_minutes)
     since = event.created_at - window
     latest_alert = db.scalar(
         select(func.max(SecurityEvent.occurred_at)).where(
+            same_scope,
             SecurityEvent.event_type == SecurityEventType.PASSWORD_SPRAY_DETECTED,
             SecurityEvent.ip_address == event.ip_address,
             SecurityEvent.occurred_at <= event.created_at,
@@ -84,6 +96,7 @@ def detect_password_spray(db: Session, event: SecurityEvent) -> Alert | None:
 
     accounts = db.scalar(
         select(func.count(func.distinct(SecurityEvent.email))).where(
+            same_scope,
             SecurityEvent.ip_address == event.ip_address,
             SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
             SecurityEvent.created_at > since,

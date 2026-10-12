@@ -14,7 +14,9 @@ from app.core.database import SessionLocal
 from app.core.security import csrf_token_for, decode_access_token
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
+from app.services.organization_service import get_organization
 from app.services.session_service import get_active_session
+from app.services.tenancy import Scope, scope_of
 from app.services.user_service import is_account_locked, may_sign_in
 
 # /auth/token accepts the OAuth2 password form, so Swagger UI can log in.
@@ -152,3 +154,22 @@ def require_role(*allowed_roles: UserRole) -> Callable:
         return current_user
 
     return role_checker
+
+
+def read_scope(db: Session, user: User, organization_id: int | None) -> Scope:
+    """What a listing by `user` covers. Only the owner may name an
+    organization, to narrow their view to it; anyone else naming one, even
+    their own, gets the answer of a missing role."""
+    if organization_id is None:
+        return scope_of(user)
+    if user.role != UserRole.OWNER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+    if get_organization(db, organization_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found",
+        )
+    return Scope(organization_id=organization_id)

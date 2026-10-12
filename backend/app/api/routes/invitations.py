@@ -5,7 +5,7 @@ from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_client_ip, get_db, require_role
+from app.api.deps import get_client_ip, get_db, read_scope, require_role
 from app.api.routes.organizations import require_open_organization
 from app.models.audit_log import AuditEventType
 from app.models.invitation import Invitation
@@ -19,7 +19,7 @@ from app.schemas.invitation import (
     InvitationRead,
 )
 from app.schemas.user import UserRead
-from app.services.audit_service import create_audit_log
+from app.services.audit_service import audit_read
 from app.services.invitation_service import (
     accept_invitation,
     create_invitation,
@@ -29,6 +29,7 @@ from app.services.invitation_service import (
     may_invite,
     revoke_invitation,
 )
+from app.services.tenancy import scope_of
 from app.services.user_service import get_user_by_email
 
 router = APIRouter(prefix="/admin/invitations", tags=["invitations"])
@@ -75,9 +76,11 @@ def _invitation_organization(
     return actor.organization_id
 
 
-def _get_invitation_or_404(db: Session, invitation_id: int) -> Invitation:
+def _get_invitation_or_404(db: Session, invitation_id: int, actor: User) -> Invitation:
+    """The invitation `invitation_id`, if `actor` may see it; one of another
+    organization answers exactly as a missing one."""
     invitation = get_invitation(db, invitation_id)
-    if invitation is None:
+    if invitation is None or not scope_of(actor).includes(invitation.organization_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invitation not found",
@@ -90,14 +93,18 @@ def read_invitations(
     db: Annotated[Session, Depends(get_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
+    organization_id: int | None = None,
 ) -> list[Invitation]:
-    invitations = list_invitations(db)
-    create_audit_log(
+    scope = read_scope(db, current_user, organization_id)
+    invitations = list_invitations(db, scope)
+    audit_read(
         db=db,
         event_type=AuditEventType.INVITATIONS_VIEWED,
-        user=current_user,
-        ip_address=client_ip,
         message="Listed invitations",
+        user=current_user,
+        scope=scope,
+        shown=(invitation.organization_id for invitation in invitations),
+        ip_address=client_ip,
     )
     return invitations
 
@@ -149,7 +156,7 @@ def revoke(
 ) -> Invitation:
     """Stop an invitation from working. Revoking a used or revoked one
     changes nothing."""
-    invitation = _get_invitation_or_404(db, invitation_id)
+    invitation = _get_invitation_or_404(db, invitation_id, current_user)
     if not may_invite(current_user, invitation.role):
         raise ROLE_NOT_GRANTABLE
     return revoke_invitation(db, invitation, current_user, client_ip)
