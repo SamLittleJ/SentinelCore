@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_system_db
+from app.core.row_security import restrict_rows
 from app.models.api_key import ApiKey
 from app.schemas.ingest import IngestRequest, IngestResult
 from app.services.api_key_service import authenticate_api_key
 from app.services.ingestion_service import ingest_events
+from app.services.tenancy import Scope
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -20,13 +22,14 @@ api_key_scheme = HTTPBearer(
 
 
 def get_ingestion_key(
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_system_db)],
     credentials: Annotated[
         HTTPAuthorizationCredentials | None, Depends(api_key_scheme)
     ],
 ) -> ApiKey:
     """The API key of the request. A missing, unknown, revoked or expired key
-    gets the same answer, so a caller cannot tell them apart."""
+    gets the same answer, so a caller cannot tell them apart. The rest of the
+    request sees the key's organization only."""
     api_key = authenticate_api_key(db, credentials.credentials) if credentials else None
     if api_key is None:
         raise HTTPException(
@@ -34,6 +37,7 @@ def get_ingestion_key(
             detail="Invalid API key",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    restrict_rows(db, Scope(organization_id=api_key.organization_id))
     return api_key
 
 

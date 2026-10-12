@@ -13,6 +13,7 @@ from app.api.deps import (
     get_current_session,
     get_current_user,
     get_db,
+    get_system_db,
     get_user_agent,
 )
 from app.core.config import settings
@@ -198,7 +199,7 @@ def _log_in(
 @router.post("/login", response_model=Token)
 def login_user(
     user_in: UserLogin,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_system_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     user_agent: Annotated[str | None, Depends(get_user_agent)],
 ) -> Token:
@@ -210,7 +211,7 @@ def login_user(
 def create_browser_session(
     user_in: UserLogin,
     response: Response,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_system_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     user_agent: Annotated[str | None, Depends(get_user_agent)],
 ) -> None:
@@ -227,7 +228,7 @@ def create_browser_session(
 @router.post("/token", response_model=Token)
 def login_for_access_token(
     form: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_system_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     user_agent: Annotated[str | None, Depends(get_user_agent)],
 ) -> Token:

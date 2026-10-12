@@ -5,7 +5,13 @@ from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_client_ip, get_db, read_scope, require_role
+from app.api.deps import (
+    get_client_ip,
+    get_db,
+    get_system_db,
+    read_scope,
+    require_role,
+)
 from app.api.routes.organizations import require_open_organization
 from app.models.audit_log import AuditEventType
 from app.models.invitation import Invitation
@@ -122,9 +128,9 @@ def invite(
     if not may_invite(current_user, invitation_in.role):
         raise ROLE_NOT_GRANTABLE
     organization_id = _invitation_organization(db, invitation_in, current_user)
-    # Emails are unique across the platform, so this tells an admin that an
-    # address has an account, possibly in another organization: a known
-    # limit of one account per email.
+    # Only the accounts the inviter sees: an admin learns nothing of another
+    # organization's. An email taken there makes the invitation fail when it
+    # is accepted.
     if get_user_by_email(db, invitation_in.email) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -165,7 +171,7 @@ def revoke(
 @public_router.post("/preview", response_model=InvitationPreview)
 def preview_invitation(
     lookup: InvitationLookup,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_system_db)],
 ) -> Invitation:
     """The email and role an invitation offers, before it is accepted."""
     invitation = find_open_invitation(db, lookup.token)
@@ -179,7 +185,7 @@ def preview_invitation(
 )
 def accept(
     acceptance: InvitationAccept,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(get_system_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
 ) -> User:
     """Create the invited account with the username and password its owner

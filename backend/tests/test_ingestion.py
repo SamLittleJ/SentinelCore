@@ -18,6 +18,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from tests.accounts import create_account, org_id_for_tests, set_role
+from tests.conftest import serve_requests_from
 
 PASSWORD = "testpassword"
 UA = "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0"
@@ -291,7 +292,7 @@ def test_ingested_events_are_counted_by_source(client: TestClient, key: str) -> 
 
 @pytest.fixture()
 def browser_client(db_session: Session) -> Generator[TestClient]:
-    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_db] = serve_requests_from(db_session)
     with TestClient(app, headers={"User-Agent": UA}) as test_client:
         yield test_client
     app.dependency_overrides.clear()

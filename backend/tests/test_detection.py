@@ -20,6 +20,7 @@ from app.models.security_event import (
 from app.models.user import User, UserRole
 from app.services import detection_service
 from tests.accounts import create_account, org_id_for_tests, set_role
+from tests.conftest import rewriting_history, serve_requests_from
 
 PASSWORD = "testpassword"
 ATTACKER_IP = "203.0.113.9"
@@ -29,7 +30,7 @@ ATTACKER_IP = "203.0.113.9"
 def attacker(db_session: Session) -> Generator[TestClient]:
     """A client whose requests come from ATTACKER_IP. The default test client
     has no IP address, so rules keyed on addresses never fire for it."""
-    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_db] = serve_requests_from(db_session)
     with TestClient(app, client=(ATTACKER_IP, 50000)) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -67,10 +68,10 @@ def alerts(db_session: Session, alert_type: SecurityEventType) -> list[SecurityE
 
 
 def shift_events_back(db_session: Session, delta: timedelta) -> None:
-    db_session.execute(
-        update(SecurityEvent).values(created_at=SecurityEvent.created_at - delta)
-    )
-    db_session.commit()
+    with rewriting_history(db_session) as owner:
+        owner.execute(
+            update(SecurityEvent).values(created_at=SecurityEvent.created_at - delta)
+        )
 
 
 def user_by_email(db_session: Session, email: str) -> User:
@@ -490,7 +491,7 @@ CHROME = (
 @pytest.fixture()
 def sign_in(db_session: Session) -> Generator[Callable[..., int]]:
     """Signs in from any address and browser."""
-    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_db] = serve_requests_from(db_session)
 
     def sign_in(email: str, ip: str, user_agent: str | None) -> int:
         test_client = TestClient(app, client=(ip, 50000))
@@ -522,6 +523,7 @@ def add_sign_ins(
                 event_type=SecurityEventType.LOGIN_SUCCESS,
                 severity=SecuritySeverity.INFO,
                 user_id=user.id,
+                organization_id=user.organization_id,
                 email=email,
                 ip_address=ip,
                 user_agent=user_agent,

@@ -3,7 +3,7 @@
 Accounts join through invitations, which need an inviter. Most tests are about
 something else, so they create accounts straight through the service an
 accepted invitation uses, with the same events, in a database session of
-their own.
+their own that sees every organization.
 """
 
 from sqlalchemy import select
@@ -13,7 +13,7 @@ from app.models.organization import Organization
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate
 from app.services.user_service import commit_account_created, stage_user
-from tests.conftest import TestingSessionLocal
+from tests.conftest import system_session
 
 PASSWORD = "testpassword"
 # The organization test accounts join unless a test names another.
@@ -45,7 +45,7 @@ def create_account(
         email=email or f"{username}@example.com",
         password=password,
     )
-    with TestingSessionLocal() as db:
+    with system_session() as db:
         in_organization = (
             None if role == UserRole.OWNER else organization_id(db, organization)
         )
@@ -64,5 +64,5 @@ def set_role(user: User, role: UserRole) -> None:
 
 def org_id_for_tests() -> int:
     """The organization test accounts join, created on first use."""
-    with TestingSessionLocal() as db:
+    with system_session() as db:
         return organization_id(db)

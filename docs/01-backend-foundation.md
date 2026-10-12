@@ -4547,3 +4547,47 @@ The second of the five stages: every read is now limited to the caller's organiz
 Seeded records in older tests now belong to the test organization, and the rows where a member targets the owner moved from the `403` tables to the isolation tests, where they answer `404`.
 
 Reverse check: each of the following changes makes at least one test fail: a scope with no condition, a scope including everything, a member naming an organization, an unknown organization accepted, the owner's filter ignored, the owner's reads recorded only on the platform, an empty read not recorded, a filtered read recorded on the platform, the spray counting or restarting across organizations, an account's history showing other organizations' reports, each of the eight summary queries without its scope, each of the five listings without its scope, the account and invitation lookups without the scope, and the cursor looked up outside the page's conditions (27 of 27).
+
+## Row-level security
+
+### 326. Purpose of the stage
+
+The third of the five stages: PostgreSQL holds the organization boundary itself, behind the application's filters. A query that forgets its `WHERE` clause, or a new endpoint written without one, still gets one organization's rows only.
+
+### 327. Two database roles
+
+- The migrations sign in as the owner of the tables (`MIGRATIONS_DATABASE_URL`; without it, `DATABASE_URL`). The API signs in as `sentinelcore_app`, which migration `5d1a3c7e9b20` creates without the right to sign in. `python -m app.cli grant-api-login` then lets it sign in with the password in `DATABASE_URL`, and refuses a role that is a superuser or has `BYPASSRLS`. Roles belong to the whole server, so the development, test and demo databases share it, with the same public development password.
+- Superusers and the owner of a table bypass its policies, so the API must never sign in as either. `/health/ready` answers `503` with `"database": "unsafe role"` when it does, and logs why.
+- The API gets only what it uses: `SELECT, INSERT, UPDATE` on organizations, users, API keys and invitations, `DELETE` on sessions as well, and only `SELECT, INSERT` on `security_events` and `audit_logs`, so it cannot rewrite history. The demo moves its alerts' times as the owner of the tables.
+
+### 328. Policies and the transaction's scope
+
+- One policy, `organization_boundary`, on `organizations`, `users`, `user_sessions`, `security_events`, `audit_logs`, `api_keys` and `invitations`. A row is visible when the transaction names everything (`sentinelcore.everything = 'on'`) or the row's organization (`sentinelcore.organization_id`). A session row is visible when its account is. Without a `WITH CHECK` clause the same condition applies to written rows, so an organization cannot add or move rows into another one or onto the platform.
+- `restrict_rows(db, scope)` (`app/core/row_security.py`) stores the scope on the SQLAlchemy session, and a listener on `after_begin` writes both settings with `set_config(..., true)` at the start of every transaction. They last until the end of the transaction, which keeps them out of pooled connections. A request commits more than once, so each new transaction writes them again.
+- Fail closed: a session given no scope names nothing and sees no rows. `get_db` starts there. `get_current_session` looks the account and session up with everything visible (`SYSTEM`), then narrows to `scope_of(user)`: one organization for members, everything for the owner. The owner's `organization_id` filter narrows the listing only, not what the database shows, since the owner may act in any organization. Sign-in, invitation previews and acceptance use `get_system_db`. An ingestion request finds its key with everything visible, then sees the key's organization only. The session cleanup and the command line ask for everything themselves.
+
+### 329. Invitations within one organization
+
+- An admin's check that an invited email has no account now sees only their own organization's accounts, so the `409` no longer tells them that an address has an account at another organization. That invitation fails when it is accepted, with the answer an invalid invitation gets. The owner still gets `409`.
+- The partial unique index on open invitations is now per organization (`organization_id, email`). Before, an admin's invitation revoked another organization's open invitation for the same email: a write across the boundary, which the policy now refuses. Each organization keeps its own, and the first one accepted takes the email. The downgrade revokes all but the newest open invitation of each email before restoring the platform-wide index.
+
+### 330. Tests on the migrated schema
+
+- `tests/conftest.py` builds the test schema once per run with the migrations, signed in as the owner, and empties the tables before each test, so the tests see the policies and privileges production has. The application's sessions sign in as the owner and take `sentinelcore_app` at once (`options=-c role=...`), so the tests need no second password; as with `SET ROLE`, the policies and privileges of that role apply.
+- A request served by the test client starts with no scope, as with a fresh session in production (`serve_requests_from`); test code that seeds or inspects sees everything (`system_session`), and code that moves events in time does it as the owner (`rewriting_history`).
+- Older tests changed where the database now disagrees with them: events seeded without an organization now carry their account's, two concurrency tests on invitations use sessions that see everything, and the open-invitation index test names the organization.
+
+### 331. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 544 passed
+- Gitleaks on `backend` and `docs` -> no leaks found
+- migration on a temporary database: upgrade, `alembic check` (no changes), downgrade with two organizations holding open invitations for one email (the older revoked, policies and privileges gone), upgrade again; the database was dropped after
+
+`tests/test_row_level_security.py` (18 tests, 44 cases) covers, directly against the database: a session naming no one sees no row of any of the seven tables; an organization sees only its own rows in each, and everything shows every row; the scope survives commits; an organization can neither insert rows of another organization or of the platform, nor change another's rows, nor move its own into another; the API's role cannot update or delete security events or audit records, is no superuser, has no `BYPASSRLS` and cannot read `alembic_version`. Through the API: with the application's listing filter removed on purpose, a member still sees only their organization in each listing; with the single-record check removed, another organization's account still answers `404`; the database is told the member's organization, the owner's everything (also when filtering), sign-in everything, and ingestion the key's organization. Also: an admin inviting an email of another organization's account learns nothing and the acceptance fails; an invitation leaves another organization's open invitation alone; readiness fails on a role that bypasses row security; the command grants a throwaway role its sign-in without printing the password, and refuses a superuser.
+
+Reverse check: each of the following changes makes at least one test fail: the scope not written again after a commit, a new scope not applied to the open transaction, no scope showing everything, a signed-in request keeping the system scope, the session lookup without it, `get_system_db` without it, ingestion keeping it after the key is found, invitation acceptance on a plain session, the session cleanup and `create-owner` without it, readiness and the command accepting a role that bypasses row security, every policy showing every row, each of the seven tables without its boundary, security events or the audit log writable by the API, and open invitations unique across the platform (23 of 23).
+
+End-to-end check: on a temporary database, the API ran as `sentinelcore_app` after `grant-api-login`: readiness answered `ok`; the owner created an organization, invited and listed events from every organization; a Globex admin who joined by invitation saw only Globex's events and themselves among users, got `404` for the owner's account, invited an email that has an account elsewhere (`201`), and signed out. `make demo` ran with the two roles: 38 people, 18 alerts moved to their event's time as the owner, readiness `ok`.

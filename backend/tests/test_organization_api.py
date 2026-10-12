@@ -18,6 +18,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from tests.accounts import create_account, org_id_for_tests, set_role
+from tests.conftest import rewriting_history
 
 PASSWORD = "testpassword"
 
@@ -53,9 +54,9 @@ def login_headers(client: TestClient, username: str) -> dict[str, str]:
 
 
 def clear_events(db_session: Session) -> None:
-    db_session.execute(delete(AuditLog))
-    db_session.execute(delete(SecurityEvent))
-    db_session.commit()
+    with rewriting_history(db_session) as owner:
+        owner.execute(delete(AuditLog))
+        owner.execute(delete(SecurityEvent))
 
 
 def database_now(db_session: Session) -> datetime:

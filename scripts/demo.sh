@@ -15,8 +15,11 @@ POSTGRES=sentinelcore-postgres
 OWNER_EMAIL=owner@sim.example.com
 PYTHON="$ROOT/backend/.venv/bin/python"
 VITE="$ROOT/frontend/node_modules/.bin/vite"
-# The development credentials from docker-compose.yml, which are public.
-export DATABASE_URL="postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/$DATABASE"
+# The development credentials, which are public: the owner of the tables from
+# docker-compose.yml runs the migrations and moves the demo's alerts; the API
+# signs in as its own role, which row-level security binds.
+export MIGRATIONS_DATABASE_URL="postgresql+psycopg://sentinelcore:sentinelcore@localhost:5432/$DATABASE"
+export DATABASE_URL="postgresql+psycopg://sentinelcore_app:sentinelcore_app@localhost:5432/$DATABASE"
 
 fail() {
   echo "make demo: $*" >&2
@@ -49,7 +52,7 @@ echo "==> A fresh $DATABASE database"
 docker exec "$POSTGRES" psql -q -U sentinelcore -d postgres \
   -c "DROP DATABASE IF EXISTS $DATABASE WITH (FORCE)" \
   -c "CREATE DATABASE $DATABASE"
-(cd "$ROOT/backend" && "$PYTHON" -m alembic upgrade head)
+(cd "$ROOT/backend" && "$PYTHON" -m alembic upgrade head && "$PYTHON" -m app.cli grant-api-login)
 
 echo "==> The owner"
 mkdir -p "$DEMO_DIR"

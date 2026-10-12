@@ -17,12 +17,15 @@ class Invitation(Base):
     """
 
     __tablename__ = "invitations"
-    # At most one open invitation per email: a new one revokes the old one.
-    # Expired ones still count, since the index cannot read the clock; they
-    # are revoked the same way.
+    # At most one open invitation per email in an organization: a new one
+    # revokes the old one. Expired ones still count, since the index cannot
+    # read the clock; they are revoked the same way. Organizations do not
+    # see each other's invitations, so each keeps its own; the first one
+    # accepted takes the email.
     __table_args__ = (
         Index(
             "ix_invitations_open_email",
+            "organization_id",
             "email",
             unique=True,
             postgresql_where=text("accepted_at IS NULL AND revoked_at IS NULL"),

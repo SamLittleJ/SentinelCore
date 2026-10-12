@@ -19,13 +19,15 @@ from app.models import (  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
-# The URL comes from the application settings. `%` is doubled because the
-# config file syntax treats it as interpolation.
-config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
+# The URL comes from the application settings: the owner of the tables, who
+# may create them and the policies on them. `%` is doubled because the config
+# file syntax treats it as interpolation.
+migrations_url = settings.migrations_database_url or settings.database_url
+config.set_main_option("sqlalchemy.url", migrations_url.replace("%", "%%"))
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
+# Interpret the config file for Python logging. The tests run the migrations
+# with a connection of their own and keep their logging as it is.
+if config.config_file_name is not None and "connection" not in config.attributes:
     fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
@@ -71,6 +73,13 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    given = config.attributes.get("connection")
+    if given is not None:
+        context.configure(connection=given, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

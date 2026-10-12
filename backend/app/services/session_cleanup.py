@@ -4,14 +4,18 @@ import logging
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.metrics import SESSIONS_DELETED
+from app.core.row_security import restrict_rows
 from app.services.session_service import delete_stale_sessions
+from app.services.tenancy import SYSTEM
 
 logger = logging.getLogger(__name__)
 
 
 def run_session_cleanup() -> int:
-    """Delete stale sessions in a database session of its own."""
+    """Delete stale sessions, of every account, in a database session of its
+    own."""
     with SessionLocal() as db:
+        restrict_rows(db, SYSTEM)
         deleted = delete_stale_sessions(db, settings.session_retention_days)
 
     SESSIONS_DELETED.inc(deleted)
