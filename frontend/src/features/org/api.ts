@@ -268,6 +268,8 @@ export interface ApiKey {
   name: string
   // Stamped on every event the key sends, e.g. "vpn".
   source: string
+  // Every event the key sends belongs to it.
+  organization_id: number
   created_by_id: number
   created_at: string
   expires_at: string
@@ -288,6 +290,7 @@ export interface NewApiKey {
   name: string
   source: string
   expiresInDays: KeyLifetime
+  organizationId: number
 }
 
 /** Every key, newest first. Listing them is audited. */
@@ -298,7 +301,12 @@ export function fetchApiKeys(signal?: AbortSignal): Promise<ApiKey[]> {
 export function createApiKey(input: NewApiKey): Promise<CreatedApiKey> {
   return apiRequest<CreatedApiKey>('/admin/api-keys', {
     method: 'POST',
-    body: { name: input.name, source: input.source, expires_in_days: input.expiresInDays },
+    body: {
+      name: input.name,
+      source: input.source,
+      expires_in_days: input.expiresInDays,
+      organization_id: input.organizationId,
+    },
   })
 }
 
@@ -311,6 +319,7 @@ export interface Invitation {
   prefix: string
   email: string
   role: Role
+  organization_id: number
   created_by_id: number
   created_at: string
   expires_at: string
@@ -328,6 +337,8 @@ export interface NewInvitation {
   email: string
   // The owner is created once, from the command line, never invited.
   role: AssignableRole
+  // Named by the owner only; an admin invites into their own organization.
+  organization_id?: number
 }
 
 /** Every invitation, newest first. Listing them is audited. */
@@ -341,4 +352,19 @@ export function createInvitation(input: NewInvitation): Promise<CreatedInvitatio
 
 export function revokeInvitation(invitationId: number): Promise<Invitation> {
   return apiRequest<Invitation>(`/admin/invitations/${invitationId}/revoke`, { method: 'POST' })
+}
+
+/** A tenant of the platform, which only the platform owner manages. */
+export interface Organization {
+  id: number
+  name: string
+  slug: string
+  created_at: string
+  suspended_at: string | null
+  members: number
+}
+
+/** Every organization, for the platform owner. Listing them is audited. */
+export function fetchOrganizations(signal?: AbortSignal): Promise<Organization[]> {
+  return apiRequest<Organization[]>('/admin/organizations', { signal })
 }

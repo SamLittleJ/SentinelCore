@@ -13,7 +13,7 @@ from app.core.security import csrf_token_for
 from app.main import app
 from app.models.security_event import SecurityEvent, SecurityEventType
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 PASSWORD = "testpassword"
 
@@ -196,7 +196,7 @@ def test_cookie_request_with_csrf_token_succeeds(
     register(browser, "owneruser")
     owner = db_session.scalar(select(User).where(User.username == "owneruser"))
     assert owner is not None
-    owner.role = UserRole.OWNER
+    set_role(owner, UserRole.OWNER)
     db_session.commit()
     register(browser, "target")
     target = db_session.scalar(select(User).where(User.username == "target"))

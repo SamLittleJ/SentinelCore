@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_client_ip, get_db, require_role
+from app.api.routes.organizations import require_open_organization
 from app.models.api_key import ApiKey
 from app.models.audit_log import AuditEventType
 from app.models.user import User, UserRole
@@ -57,8 +58,9 @@ def issue_api_key(
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[User, Depends(require_role(UserRole.OWNER))],
 ) -> ApiKeyCreated:
-    """Create a key for another system. The response holds the full key, which
-    is not shown again."""
+    """Create a key for another system, in one organization. The response
+    holds the full key, which is not shown again."""
+    require_open_organization(db, key_in.organization_id)
     api_key, key = create_api_key(db, key_in, current_user, client_ip)
     return ApiKeyCreated(api_key=ApiKeyRead.model_validate(api_key), key=key)
 

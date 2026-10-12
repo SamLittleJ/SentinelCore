@@ -4,6 +4,7 @@ from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User
 from app.schemas.audit_log import AuditLogFilters
 from app.services.event_query import event_filter_conditions, fetch_event_page
+from app.services.tenancy import organization_of
 
 
 def create_audit_log(
@@ -14,11 +15,20 @@ def create_audit_log(
     email: str | None = None,
     ip_address: str | None = None,
     target_user: User | None = None,
+    organization_id: int | None = None,
 ) -> AuditLog:
+    """Record `event_type`. The organization is `organization_id` when the
+    record is about something an organization owns, otherwise the one
+    services/tenancy.py works out."""
     audit_log = AuditLog(
         event_type=event_type,
         user_id=user.id if user else None,
         target_user_id=target_user.id if target_user else None,
+        organization_id=(
+            organization_id
+            if organization_id is not None
+            else organization_of(db, user, target_user, email)
+        ),
         email=email if email else (user.email if user else None),
         ip_address=ip_address,
         message=message,

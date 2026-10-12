@@ -491,6 +491,13 @@ const ro = {
       network: 'Serverul nu răspunde. Verifică conexiunea și încearcă din nou.',
     },
   },
+  organizationField: {
+    label: 'Organizație',
+    choose: 'Alege organizația',
+    help: 'Contul sau cheia vor aparține acestei organizații.',
+    none: 'Nu există nicio organizație activă.',
+    failed: 'Organizațiile nu s-au putut încărca. Reîncarcă pagina.',
+  },
   apiKeys: {
     subtitle:
       'Cheile cu care alte sisteme (VPN-ul, furnizorul de identitate, clusterul) trimit evenimente de securitate. Consultarea lor este înregistrată în jurnalul de audit.',

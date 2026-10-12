@@ -38,6 +38,8 @@ class ApiKeyCreate(BaseModel):
     ]
     source: SourceName
     expires_in_days: KeyLifetimeDays
+    # Every event the key sends belongs to it.
+    organization_id: int
 
 
 class ApiKeyRead(BaseModel):
@@ -45,6 +47,7 @@ class ApiKeyRead(BaseModel):
     prefix: str
     name: str
     source: str
+    organization_id: int
     created_by_id: int
     created_at: datetime
     expires_at: datetime

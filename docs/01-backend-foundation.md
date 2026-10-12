@@ -4462,3 +4462,46 @@ The new tests place every attack in its window and before midnight, keep each bu
 Reverse check: 15 of 19 changes make at least one test fail: windows ignored or widened, no drift or too much, no morning routine in the demo or in the population, routine kept past the moment of the run, the fix-up skipped, without delay or moving the day's alerts, no database or host guard, the operators' lock, revocation or key retirement left out. The other four change nothing observable: reporting the attacks after the routine (rules compare event times, not arrival order), dropping the alert source from the fix-up (only alerts have `occurred_at`), a different number of live brute force attacks (the test reads the same setting), and loading the user model alone (the invitation model loads it).
 
 End-to-end check: `scripts/demo.sh` on this machine created the database, migrated it, created the owner, seeded 2,959 sign-ins and 38 attacks, moved 18 alerts and served the app; stopping the frontend stopped the backend too. Headless Firefox took the overview (dark, light at phone width), the alerts over all time (light) and the audit log (dark). The first run showed an empty day before the run's own actions; the routine now reaches the moment of the run.
+
+## Organizations
+
+### 315. Purpose of the stage
+
+SentinelCore now keeps several organizations apart, the first of five stages decided in one design session (see the decisions log). This stage gives every record an organization and lets the platform owner manage organizations. Reads are not limited yet; the next stage scopes every endpoint and adds row-level security after it.
+
+### 316. Model and migration
+
+- `organizations` (`app/models/organization.py`): a unique name, a unique slug that never changes, and `suspended_at`. None is ever deleted.
+- `organization_id` on `users`, `invitations` and `api_keys` (required on the last two) and on `security_events` and `audit_logs` (empty for the platform's own records). A check constraint, `ck_users_owner_has_no_organization`, makes the database itself refuse an owner with an organization or anyone else without one.
+- Migration `98e290d25920` moves everything already stored into an organization named "Default", created only when there is something to move. The owner's own sign-ins and sessions, and failed sign-ins of this application naming no account, stay with the platform. The backfill was checked on a database holding each kind of row; the first version skipped rows whose `user_id` was empty, because `NULL IN (...)` is neither true nor false, and every comparison is now wrapped in `COALESCE(..., false)`. New event types: `organization_created`, `organization_renamed`, `organization_suspended`, `organization_reactivated`, and the audit type `organizations_viewed`; the downgrade recreates both enum types.
+
+### 317. Which organization a record belongs to
+
+`app/services/tenancy.py` holds one rule for every event and audit record that does not name its organization itself: an action on an account belongs to that account's organization, even when the platform owner takes it; otherwise the record belongs to the organization of the account that acted or signed in; otherwise, for a sign-in naming an email, to the organization of the account with that email; otherwise to the platform. Records about something an organization owns name it explicitly: invitations, API keys, the organization's own changes, ingested events (the key's organization) and the alerts they raise (the triggering event's organization).
+
+Ingestion now links a successful sign-in only to an account of the key's own organization, so a key cannot attach events to another organization's account.
+
+### 318. Organizations API and suspension
+
+- `GET`, `POST /admin/organizations`, `PATCH /admin/organizations/{id}` (name only), `POST .../suspend` and `.../reactivate`, for the owner alone. Each change is recorded in the organization's own logs, so its members will see what the platform did.
+- Suspending closes every member's session in the same transaction. While it lasts, `may_sign_in` (`user_service.py`) refuses members at sign-in and on every request with the same `403 Inactive user` a deactivated account gets; `authenticate_api_key` refuses the organization's keys as unknown keys (`401 Invalid API key`); `find_open_invitation` refuses its invitations with the usual `404`. Nothing new can be made in it (`409`).
+- Invitations name their organization: the owner sends `organization_id` (`422` without it, `404` unknown, `409` suspended); an admin invites into their own and gets `403` for naming one. Accepting puts the account in the invitation's organization. API keys take an `organization_id` from the owner the same way.
+- The simulator creates an organization before inviting its people; the demo puts its people in "Acme".
+
+A limit of one account per email across the platform: an admin who invites an address that already has an account, in any organization, learns that it exists. It is recorded for the threat model.
+
+### 319. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 447 passed
+- migration: upgrade, `alembic check`, downgrade, upgrade on a temporary database, with the backfill checked on rows of each kind
+
+Test accounts now join an organization named "test" (`tests/accounts.py`), and `set_role` clears the organization when a test makes an account the owner.
+
+The new tests cover: only the owner manages organizations; creating one, with its events in its own logs and the listing on the platform's; unique names and slugs; slug format; renaming that keeps the slug, refuses a taken name and leaves nothing half done; suspension closing sessions and refusing members exactly as deactivated accounts, keys exactly as unknown keys and invitations exactly as invalid ones; nothing new made in a suspended organization; the owner naming the organization and the account joining it; an admin inviting only into their own; sign-ins, failed sign-ins and lockouts belonging to the account or the platform; the owner's action on an account and the owner's read of an account belonging to its organization; ingested events and their alerts belonging to the key's organization, never linked to another's account; the database refusing an owner with an organization and an account without one.
+
+Reverse check: each of the following changes makes at least one test fail: the actor's organization taking precedence over the target's, no lookup by email, ingestion linking other organizations' accounts, ingested events or alerts without an organization, sign-in or sessions ignoring suspension, keys or invitations ignoring it, suspension keeping sessions, an admin naming an organization, the owner not naming one, new things made in a suspended organization, organization, key, invitation or lockout events left on the platform, no rollback after a taken name, a changeable slug, and admins managing organizations (20 of 20).
+
+End-to-end check: `make demo` built the demo in organization "Acme"; through the running API, a new member and a new key worked, were refused during a suspension (`403 Inactive user`, `401 Invalid API key`) and worked again after reactivation.

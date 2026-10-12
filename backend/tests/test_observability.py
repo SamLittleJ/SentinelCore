@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.core.logging import JsonFormatter, TextFormatter, request_id_var
 from app.main import app
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 
 def metric_value(name: str, **labels: str) -> float:
@@ -269,7 +269,7 @@ def test_user_change_security_events_are_counted(
     owner = db_session.scalar(select(User).where(User.username == "owneruser"))
     target = db_session.scalar(select(User).where(User.username == "targetuser"))
     assert owner is not None and target is not None
-    owner.role = UserRole.OWNER
+    set_role(owner, UserRole.OWNER)
     db_session.commit()
 
     token = client.post(

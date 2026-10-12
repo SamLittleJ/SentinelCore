@@ -55,8 +55,17 @@ class SentinelCore:
             "access_token"
         ]
 
+    def create_organization(self, name: str, slug: str) -> int:
+        response = self.http.post(
+            "/admin/organizations",
+            json={"name": name, "slug": slug},
+            headers=self.as_operator,
+        )
+        return check(response, f"Creating organization {slug}").json()["id"]
+
     def create_api_key(
         self,
+        organization_id: int,
         name: str = "Attack simulator",
         source: str = "simulator",
         expires_in_days: int = 30,
@@ -67,6 +76,7 @@ class SentinelCore:
                 "name": name,
                 "source": source,
                 "expires_in_days": expires_in_days,
+                "organization_id": organization_id,
             },
             headers=self.as_operator,
         )
@@ -81,11 +91,17 @@ class SentinelCore:
         check(response, "Revoking the API key")
         self.api_key = None
 
-    def invite(self, email: str, role: str = "user") -> tuple[int, str]:
-        """The new invitation's id and its token, shown only now."""
+    def invite(
+        self, email: str, role: str = "user", organization_id: int | None = None
+    ) -> tuple[int, str]:
+        """The new invitation's id and its token, shown only now. The owner
+        names the organization; an admin invites into their own."""
+        body: dict = {"email": email, "role": role}
+        if organization_id is not None:
+            body["organization_id"] = organization_id
         response = self.http.post(
             "/admin/invitations",
-            json={"email": email, "role": role},
+            json=body,
             headers=self.as_operator,
         )
         created = check(response, f"Inviting {email}").json()
@@ -98,11 +114,16 @@ class SentinelCore:
         check(response, "Revoking an invitation")
 
     def add_person(
-        self, username: str, email: str, password: str, role: str = "user"
+        self,
+        username: str,
+        email: str,
+        password: str,
+        role: str = "user",
+        organization_id: int | None = None,
     ) -> int:
         """Invite `email`, then accept as the person invited, the only way an
-        account joins the organization."""
-        _, token = self.invite(email, role)
+        account joins an organization."""
+        _, token = self.invite(email, role, organization_id)
         response = self.http.post(
             "/auth/invitations/accept",
             json={"token": token, "username": username, "password": password},

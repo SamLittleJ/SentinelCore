@@ -21,7 +21,7 @@ from app.models.user import User, UserRole
 from app.models.user_session import UserSession
 from app.services import session_cleanup
 from app.services.session_service import delete_stale_sessions
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 from tests.conftest import TestingSessionLocal
 
 PASSWORD = "testpassword"
@@ -37,7 +37,7 @@ def create_user(
 
     user = db_session.scalar(select(User).where(User.username == username))
     assert user is not None
-    user.role = role
+    set_role(user, role)
     db_session.commit()
     return user
 

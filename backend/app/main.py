@@ -14,6 +14,7 @@ from app.api.routes import (
     ingest,
     invitations,
     metrics,
+    organizations,
     security,
     users,
 )
@@ -52,6 +53,7 @@ app.include_router(audit.router)
 app.include_router(security.router)
 app.include_router(admin_users.router)
 app.include_router(api_keys.router)
+app.include_router(organizations.router)
 app.include_router(invitations.router)
 app.include_router(invitations.public_router)
 app.include_router(ingest.router)

@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_client_ip, get_db, require_role
+from app.api.routes.organizations import require_open_organization
 from app.models.audit_log import AuditEventType
 from app.models.invitation import Invitation
 from app.models.user import User, UserRole
@@ -43,12 +44,35 @@ ROLE_NOT_GRANTABLE = HTTPException(
     status_code=status.HTTP_403_FORBIDDEN,
     detail="Only the owner invites admins, and nobody invites an owner",
 )
+# The same answer as any role a caller lacks, so it says nothing more.
+FORBIDDEN = HTTPException(
+    status_code=status.HTTP_403_FORBIDDEN,
+    detail="Insufficient permissions",
+)
 # Unknown, wrong, used, revoked or expired: the same answer for each, so a
 # token cannot be probed for which of these it is.
 INVITATION_NOT_VALID = HTTPException(
     status_code=status.HTTP_404_NOT_FOUND,
     detail="This invitation is not valid. Ask for a new one.",
 )
+
+
+def _invitation_organization(
+    db: Session, invitation_in: InvitationCreate, actor: User
+) -> int:
+    """The organization an invitation is for. The owner must name one that
+    exists and is not suspended; an admin invites into their own and may not
+    name any."""
+    if actor.role == UserRole.OWNER:
+        if invitation_in.organization_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="organization_id is required",
+            )
+        return require_open_organization(db, invitation_in.organization_id).id
+    if invitation_in.organization_id is not None or actor.organization_id is None:
+        raise FORBIDDEN
+    return actor.organization_id
 
 
 def _get_invitation_or_404(db: Session, invitation_id: int) -> Invitation:
@@ -85,11 +109,15 @@ def invite(
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[User, Depends(require_role(*INVITE_ROLES))],
 ) -> InvitationCreated:
-    """Invite someone. The response holds the token for the link, which is
-    not shown again."""
+    """Invite someone into an organization: the one the owner names, or the
+    admin's own. The response holds the token for the link, which is not
+    shown again."""
     if not may_invite(current_user, invitation_in.role):
         raise ROLE_NOT_GRANTABLE
-    # The caller is an operator who sees every account, so this is no oracle.
+    organization_id = _invitation_organization(db, invitation_in, current_user)
+    # Emails are unique across the platform, so this tells an admin that an
+    # address has an account, possibly in another organization: a known
+    # limit of one account per email.
     if get_user_by_email(db, invitation_in.email) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -97,7 +125,7 @@ def invite(
         )
     try:
         invitation, token = create_invitation(
-            db, invitation_in, current_user, client_ip
+            db, invitation_in, organization_id, current_user, client_ip
         )
     except IntegrityError as exc:
         # Another invitation for the email was created at the same moment.

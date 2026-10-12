@@ -21,6 +21,10 @@ class ApiKey(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     # Stamped as `source` on every event the key sends.
     source: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Every event the key sends belongs to this organization.
+    organization_id: Mapped[int] = mapped_column(
+        ForeignKey("organizations.id"), nullable=False, index=True
+    )
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

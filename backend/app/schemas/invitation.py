@@ -25,6 +25,9 @@ class InvitationCreate(BaseModel):
 
     email: NormalizedEmail
     role: InvitedRole
+    # The organization the account will belong to: the owner names it; an
+    # admin invites into their own and may not send it.
+    organization_id: int | None = None
 
 
 class InvitationRead(BaseModel):
@@ -32,6 +35,7 @@ class InvitationRead(BaseModel):
     prefix: str
     email: str
     role: UserRole
+    organization_id: int
     created_by_id: int
     created_at: datetime
     expires_at: datetime

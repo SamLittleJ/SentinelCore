@@ -9,7 +9,7 @@ from app.models.api_key import ApiKey
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.security_event import SecurityEvent, SecurityEventType
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, org_id_for_tests, set_role
 
 PASSWORD = "testpassword"
 NEW_KEY = {"name": "GitHub audit log", "source": "github", "expires_in_days": 90}
@@ -21,7 +21,7 @@ def headers_for(client: TestClient, db_session: Session, role: UserRole) -> dict
     create_account(username, email, PASSWORD)
     user = db_session.scalar(select(User).where(User.email == email))
     assert user is not None
-    user.role = role
+    set_role(user, role)
     db_session.commit()
     token = client.post(
         "/auth/login", json={"email": email, "password": PASSWORD}
@@ -34,10 +34,12 @@ def owner(client: TestClient, db_session: Session) -> dict:
     return headers_for(client, db_session, UserRole.OWNER)
 
 
+def new_key(**overrides) -> dict:
+    return {**NEW_KEY, "organization_id": org_id_for_tests(), **overrides}
+
+
 def create_key(client: TestClient, owner: dict, **overrides) -> dict:
-    response = client.post(
-        "/admin/api-keys", json={**NEW_KEY, **overrides}, headers=owner
-    )
+    response = client.post("/admin/api-keys", json=new_key(**overrides), headers=owner)
     assert response.status_code == 201
     return response.json()
 
@@ -117,7 +119,7 @@ def test_only_the_owner_issues_and_revokes_keys(
     operator = headers_for(client, db_session, role)
 
     assert (
-        client.post("/admin/api-keys", json=NEW_KEY, headers=operator).status_code
+        client.post("/admin/api-keys", json=new_key(), headers=operator).status_code
         == 403
     )
     assert (
@@ -150,9 +152,7 @@ def test_invalid_keys_are_refused(
     owner: dict,
     overrides: dict,
 ) -> None:
-    response = client.post(
-        "/admin/api-keys", json={**NEW_KEY, **overrides}, headers=owner
-    )
+    response = client.post("/admin/api-keys", json=new_key(**overrides), headers=owner)
     assert response.status_code == 422
 
 

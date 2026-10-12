@@ -31,6 +31,11 @@ class AuditEventType(StrEnum):
     INVITATION_CREATED = "invitation_created"
     INVITATION_REVOKED = "invitation_revoked"
     INVITATIONS_VIEWED = "invitations_viewed"
+    ORGANIZATION_CREATED = "organization_created"
+    ORGANIZATION_RENAMED = "organization_renamed"
+    ORGANIZATION_SUSPENDED = "organization_suspended"
+    ORGANIZATION_REACTIVATED = "organization_reactivated"
+    ORGANIZATIONS_VIEWED = "organizations_viewed"
 
 
 class AuditLog(Base):
@@ -52,6 +57,11 @@ class AuditLog(Base):
         ForeignKey("users.id"),
         nullable=True,
         index=True,
+    )
+    # The organization the record belongs to; empty for the platform's own,
+    # such as the owner signing in. See services/tenancy.py.
+    organization_id: Mapped[int | None] = mapped_column(
+        ForeignKey("organizations.id"), nullable=True, index=True
     )
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)

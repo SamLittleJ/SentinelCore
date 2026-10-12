@@ -12,7 +12,7 @@ from app.core.config import Settings, settings
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 PASSWORD = "testpassword"
 
@@ -342,7 +342,7 @@ def test_deactivation_revokes_sessions_and_reactivation_does_not_restore_them(
 ) -> None:
     register(client, "owneruser")
     owner = get_user(db_session, "owneruser")
-    owner.role = UserRole.OWNER
+    set_role(owner, UserRole.OWNER)
     db_session.commit()
     owner_token = login(client, "owneruser")
 

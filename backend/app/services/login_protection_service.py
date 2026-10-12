@@ -96,12 +96,15 @@ def lock_login(
     if user is None:
         user = db.scalar(select(User).where(User.email == email))
     user_id = user.id if user else None
+    # The targeted account's; the platform's when no account has the email.
+    organization_id = user.organization_id if user else None
 
     db.add_all(
         [
             AuditLog(
                 event_type=AuditEventType.LOGIN_LOCKED,
                 user_id=user_id,
+                organization_id=organization_id,
                 email=email,
                 ip_address=ip_address,
                 message=message,
@@ -110,6 +113,7 @@ def lock_login(
                 event_type=SecurityEventType.BRUTE_FORCE_DETECTED,
                 severity=SecuritySeverity.INCIDENT,
                 user_id=user_id,
+                organization_id=organization_id,
                 email=email,
                 ip_address=ip_address,
                 source=BACKEND_SOURCE,

@@ -17,7 +17,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 PASSWORD = "testpassword"
 
@@ -37,7 +37,7 @@ def create_user(
 
     user = db_session.scalar(select(User).where(User.email == email))
     assert user is not None
-    user.role = role
+    set_role(user, role)
     user.is_active = is_active
     db_session.commit()
     return user

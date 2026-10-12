@@ -15,7 +15,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 PASSWORD = "testpassword"
 REASON = "Valid password used from a new country"
@@ -39,7 +39,7 @@ def create_user(
 
     user = db_session.scalar(select(User).where(User.email == email))
     assert user is not None
-    user.role = role
+    set_role(user, role)
     db_session.commit()
     return user
 

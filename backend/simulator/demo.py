@@ -127,11 +127,13 @@ def place_in_history(attack: Attack, rng: random.Random, midnight: datetime) -> 
     return replace(attack, steps=steps)
 
 
-def join(api: SentinelCore, operator: Operator) -> str:
+def join(api: SentinelCore, operator: Operator, organization_id: int) -> str:
     """Brings `operator` in by invitation; returns the password chosen,
     which is used to sign in and then forgotten."""
     password = secrets.token_urlsafe(18)
-    api.add_person(operator.username, operator.email, password, operator.role)
+    api.add_person(
+        operator.username, operator.email, password, operator.role, organization_id
+    )
     return password
 
 
@@ -153,14 +155,17 @@ def seed_demo(
         rng, started_at, "", HISTORY_DAYS, through_now=True
     )
 
+    acme = owner.create_organization("Acme", "acme")
     # The key the organization's VPN reports sign-ins with; it stays active.
-    owner.create_api_key("Corporate VPN", "vpn", 365)
+    owner.create_api_key(acme, "Corporate VPN", "vpn", 365)
     user_ids = {
-        person.email: owner.add_person(person.handle, person.email, person.password)
+        person.email: owner.add_person(
+            person.handle, person.email, person.password, "user", acme
+        )
         for person in organization.people
     }
-    admin.log_in(ADMIN.email, join(owner, ADMIN))
-    analyst.log_in(ANALYST.email, join(owner, ANALYST))
+    admin.log_in(ADMIN.email, join(owner, ADMIN, acme))
+    analyst.log_in(ANALYST.email, join(owner, ANALYST, acme))
 
     backfilled: list[Attack] = []
     live: list[Attack] = []
@@ -187,7 +192,7 @@ def seed_demo(
                 owner.sign_in_with_wrong_password(step.email)
             elif step.kind == "grant_admin" and step.user_id is not None:
                 owner.grant_admin(step.user_id)
-    respond(owner, admin, analyst, organization, user_ids, live)
+    respond(owner, admin, analyst, acme, organization, user_ids, live)
 
     return Seeded(
         started_at=started_at,
@@ -202,6 +207,7 @@ def respond(
     owner: SentinelCore,
     admin: SentinelCore,
     analyst: SentinelCore,
+    acme: int,
     organization: Organization,
     user_ids: dict[str, int],
     live: list[Attack],
@@ -235,7 +241,7 @@ def respond(
     admin.revoke_invitation(withdrawn)
 
     # A key for a system that was retired.
-    old_key = owner.create_api_key("Old identity provider", "idp", 30)
+    old_key = owner.create_api_key(acme, "Old identity provider", "idp", 30)
     owner.revoke_api_key(old_key)
 
 

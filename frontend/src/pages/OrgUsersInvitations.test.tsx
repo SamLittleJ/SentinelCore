@@ -108,6 +108,8 @@ describe('invitations on the users page', () => {
 
     await user.click(within(section).getByRole('button', { name: 'Invită o persoană' }))
     const form = within(section).getByRole('form', { name: 'Invită o persoană' })
+    // An admin invites into their own organization, which they never name.
+    expect(within(form).queryByLabelText('Organizație')).not.toBeInTheDocument()
     const roles = within(form).getByRole('group', { name: 'Rol' })
     // An admin cannot add another admin.
     expect(within(roles).getAllByRole('button').map((button) => button.textContent)).toEqual([
@@ -153,13 +155,31 @@ describe('invitations on the users page', () => {
     expect(document.body).not.toHaveTextContent(TOKEN)
   })
 
-  it('offers the owner the admin role too', async () => {
+  it('lets the owner offer the admin role, in the organization chosen', async () => {
     const user = userEvent.setup()
+    const bodies: unknown[] = []
+    server.use(
+      http.post('/api/admin/invitations', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          { invitation: makeInvitation({ id: 20, role: 'admin' }), token: TOKEN },
+          { status: 201 },
+        )
+      }),
+    )
     const { section } = await openUsers('owner')
 
     await user.click(within(section).getByRole('button', { name: 'Invită o persoană' }))
-    const roles = within(section).getByRole('group', { name: 'Rol' })
-    expect(within(roles).getByRole('button', { name: 'Administrator' })).toBeInTheDocument()
+    const form = within(section).getByRole('form', { name: 'Invită o persoană' })
+    const roles = within(form).getByRole('group', { name: 'Rol' })
+    await user.click(within(roles).getByRole('button', { name: 'Administrator' }))
+    await user.type(within(form).getByLabelText('Email'), 'sef.it@example.com')
+    // The only organization is chosen already.
+    expect(within(form).getByLabelText('Organizație')).toHaveValue('1')
+    await user.click(within(form).getByRole('button', { name: 'Confirmă' }))
+
+    await screen.findByRole('region', { name: /a fost creată/ })
+    expect(bodies).toEqual([{ email: 'sef.it@example.com', role: 'admin', organization_id: 1 }])
   })
 
   it('says when the email already has an account', async () => {

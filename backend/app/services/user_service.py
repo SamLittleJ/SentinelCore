@@ -15,6 +15,7 @@ from app.models.security_event import (
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserFilters
 from app.services.detection_service import run_detection
+from app.services.organization_service import is_suspended
 from app.services.pagination import fetch_page
 from app.services.session_service import stage_revoke_all_sessions
 
@@ -29,14 +30,19 @@ def get_user_by_username(db: Session, username: str) -> User | None:
     return db.scalar(statement)
 
 
-def stage_user(db: Session, user_in: UserCreate, role: UserRole) -> User:
+def stage_user(
+    db: Session, user_in: UserCreate, role: UserRole, organization_id: int | None
+) -> User:
     """Add a new account to the session, unsaved; `commit_account_created`
-    saves it. The unique indexes reject a taken email or username then."""
+    saves it. The unique indexes reject a taken email or username then, and
+    the database rejects an owner with an organization or anyone else
+    without one."""
     user = User(
         username=user_in.username,
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
         role=role,
+        organization_id=organization_id,
     )
     db.add(user)
     db.flush()  # Gives the account its id for the events.
@@ -57,6 +63,7 @@ def commit_account_created(
         severity=SecuritySeverity.INFO,
         user_id=user.id,
         target_user_id=user.id,
+        organization_id=user.organization_id,
         email=user.email,
         ip_address=ip_address,
         source="backend",
@@ -68,6 +75,7 @@ def commit_account_created(
                 event_type=AuditEventType.USER_REGISTERED,
                 user_id=user.id,
                 target_user_id=user.id,
+                organization_id=user.organization_id,
                 email=user.email,
                 ip_address=ip_address,
                 message=message,
@@ -98,10 +106,17 @@ def create_owner(db: Session, user_in: UserCreate) -> User:
     second way in."""
     if db.scalar(select(User.id).where(User.role == UserRole.OWNER).limit(1)):
         raise OwnerExistsError("The organization already has an owner")
-    user = stage_user(db, user_in, UserRole.OWNER)
+    user = stage_user(db, user_in, UserRole.OWNER, organization_id=None)
     return commit_account_created(
         db, user, f"Owner account created from the command line: {user.email}"
     )
+
+
+def may_sign_in(db: Session, user: User) -> bool:
+    """Whether `user` may use the application: active, in an organization
+    that is not suspended. Members of a suspended organization get the same
+    answer as deactivated accounts."""
+    return user.is_active and not is_suspended(db, user.organization_id)
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
@@ -172,6 +187,8 @@ def _commit_user_change(
         severity=severity,
         user_id=actor.id,
         target_user_id=user.id,
+        # The target's, even when the platform owner acts.
+        organization_id=user.organization_id,
         email=actor.email,
         ip_address=ip_address,
         source="backend",
@@ -183,6 +200,7 @@ def _commit_user_change(
                 event_type=audit_event_type,
                 user_id=actor.id,
                 target_user_id=user.id,
+                organization_id=user.organization_id,
                 email=actor.email,
                 ip_address=ip_address,
                 message=message,

@@ -12,7 +12,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from tests.accounts import create_account
+from tests.accounts import create_account, set_role
 
 BASE_TIME = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
@@ -31,7 +31,7 @@ def create_user(
 
     user = db_session.scalar(select(User).where(User.email == email))
     assert user is not None
-    user.role = role
+    set_role(user, role)
     db_session.commit()
     return user
 
