@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_client_ip, get_db, require_role
+from app.api.deps import get_client_ip, get_db, read_scope, require_role
 from app.models.audit_log import AuditEventType
 from app.models.user import User, UserRole
 from app.schemas.pagination import Page
@@ -17,8 +17,9 @@ from app.schemas.user import (
     UserRoleUpdate,
     UserStatusUpdate,
 )
-from app.services.audit_service import create_audit_log
+from app.services.audit_service import audit_read, create_audit_log
 from app.services.security_event_service import list_user_activity
+from app.services.tenancy import scope_of
 from app.services.user_service import (
     get_user_by_id,
     list_users,
@@ -40,9 +41,12 @@ READ_ROLES = (UserRole.ADMIN, UserRole.OWNER, UserRole.SECURITY_ANALYST)
 CONTAINMENT_ROLES = READ_ROLES
 
 
-def _get_user_or_404(db: Session, user_id: int) -> User:
+def _get_user_or_404(db: Session, user_id: int, actor: User) -> User:
+    """The account `user_id`, if `actor` may see it. An account of another
+    organization, or the platform owner's for a member, answers exactly as a
+    missing one, so ids cannot be probed across organizations."""
     user = get_user_by_id(db, user_id)
-    if user is None:
+    if user is None or not scope_of(actor).includes(user.organization_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
@@ -57,14 +61,17 @@ def read_users(
     current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
     filters: Annotated[UserFilters, Query()],
 ) -> Page[UserRead]:
-    users, next_cursor = list_users(db, filters)
+    scope = read_scope(db, current_user, filters.organization_id)
+    users, next_cursor = list_users(db, filters, scope)
 
-    create_audit_log(
+    audit_read(
         db=db,
-        ip_address=client_ip,
-        user=current_user,
         event_type=AuditEventType.USERS_VIEWED,
         message=f"Listed users with {filters.describe()}",
+        user=current_user,
+        scope=scope,
+        shown=(user.organization_id for user in users),
+        ip_address=client_ip,
     )
 
     return Page[UserRead].model_validate(
@@ -80,7 +87,7 @@ def read_user_by_id(
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
 ) -> User:
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
 
     create_audit_log(
         db=db,
@@ -104,7 +111,7 @@ def read_user_activity(
 ) -> Page[SecurityEventRead]:
     """The security events about one account, the same set its owner sees in
     their own activity, with the operator details included."""
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
     events, next_cursor = list_user_activity(db, target_user, filters)
 
     create_audit_log(
@@ -135,7 +142,7 @@ def change_user_role(
         Depends(require_role(UserRole.OWNER)),
     ],
 ) -> User:
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
 
     if target_user.id == current_user.id:
         raise HTTPException(
@@ -211,7 +218,7 @@ def change_user_status(
         Depends(require_role(UserRole.ADMIN, UserRole.OWNER)),
     ],
 ) -> User:
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
 
     _ensure_can_manage_account(
         current_user,
@@ -240,7 +247,7 @@ def revoke_user_sessions(
 ) -> SessionsRevoked:
     """Sign a user out everywhere, for example after a suspected compromise,
     without deactivating the account."""
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
 
     _ensure_can_contain_account(
         current_user,
@@ -270,7 +277,7 @@ def lock_user(
     """Refuse a user's logins for a limited time and sign them out everywhere,
     while a suspected compromise is investigated. The lock expires on its own;
     deactivation remains the lasting decision."""
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
 
     _ensure_can_contain_account(
         current_user,
@@ -301,7 +308,7 @@ def unlock_user(
 ) -> User:
     """Lift a lock before it expires. Analysts lock but do not unlock, so a
     lock is reviewed by someone else before access returns early."""
-    target_user = _get_user_or_404(db, user_id)
+    target_user = _get_user_or_404(db, user_id, current_user)
 
     _ensure_can_contain_account(
         current_user,

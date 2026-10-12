@@ -4505,3 +4505,45 @@ The new tests cover: only the owner manages organizations; creating one, with it
 Reverse check: each of the following changes makes at least one test fail: the actor's organization taking precedence over the target's, no lookup by email, ingestion linking other organizations' accounts, ingested events or alerts without an organization, sign-in or sessions ignoring suspension, keys or invitations ignoring it, suspension keeping sessions, an admin naming an organization, the owner not naming one, new things made in a suspended organization, organization, key, invitation or lockout events left on the platform, no rollback after a taken name, a changeable slug, and admins managing organizations (20 of 20).
 
 End-to-end check: `make demo` built the demo in organization "Acme"; through the running API, a new member and a new key worked, were refused during a suspension (`403 Inactive user`, `401 Invalid API key`) and worked again after reactivation.
+
+## Isolation between organizations
+
+### 320. Purpose of the stage
+
+The second of the five stages: every read is now limited to the caller's organization. Members see only their own organization's records; the platform owner sees every organization and the platform's own records, or one organization they name. Row-level security in PostgreSQL follows in the next stage, behind this filtering.
+
+### 321. Scopes
+
+- `Scope` (`app/services/tenancy.py`) says which records a read may return: one organization's, or everything. `scope_of(user)` gives everything to the owner and their own organization to anyone else; `Scope.conditions(column)` turns it into the `WHERE` condition, and `Scope.includes(id)` checks one record.
+- `read_scope` (`app/api/deps.py`) works out a listing's scope from the optional `organization_id` query parameter: only the owner may send it (`403 Insufficient permissions` for anyone else, even naming their own), and an unknown one answers `404 Organization not found`. The filter models accept `organization_id` (`EventFilters`, `UserFilters`), since they reject unknown parameters; `GET /admin/invitations`, `GET /admin/api-keys` and `GET /security/summary` take it as a plain parameter.
+- Scoped: the security event, audit log, user, invitation and API key listings, and every figure of the summary (severities, failures and their addresses, locked logins, accounts, trends, techniques, the threat level and the latest detection).
+- Read schemas now carry `organization_id` (`UserRead`, `SecurityEventRead`, `AuditLogRead`; invitations and keys already did), for the owner's organization column in the interface.
+
+### 322. Records of another organization
+
+- `_get_user_or_404` (`admin_users.py`) and `_get_invitation_or_404` (`invitations.py`) look a record up through the caller's scope, so an account or invitation of another organization answers with the same `404` and body as a missing one, for reads and actions alike. The owner's account is outside every organization, so a member now gets `404` for it where they used to get `403 Cannot ... an owner`.
+- Pagination: `fetch_page` used to look up the cursor's time by id alone. A member passing the id of another organization's record got their own records older than it, which tells when that record was made. The cursor is now looked up under the same conditions as the page, so a foreign cursor gives an empty page, as an unknown one does.
+- An account's history (`list_user_activity`, for its owner and for operators) leaves out failed sign-ins that only name its email when another organization's systems reported them.
+
+### 323. The owner's reads in the audit log
+
+`audit_read` (`app/services/audit_service.py`) records a listing. A read inside one organization, by a member or by the owner naming it, is recorded in that organization. The owner's read of everything is recorded in each organization whose records it returned, so every organization sees when the owner saw its data, and on the platform when it returned the platform's own records or nothing at all. A read of one account was already recorded in the account's organization.
+
+### 324. Detection within one organization
+
+`detect_password_spray` counts failed sign-ins from an address, and looks for its earlier alerts, only within the event's organization, or within the platform's events for failures naming no account. Before, failures at two organizations added up to one spray, and one organization's alert restarted another's count. The account rules (dormant account, unfamiliar sign-in, privileged role) follow one account, which belongs to one organization, so they needed no change; the module docstring now says so.
+
+### 325. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 500 passed
+- Gitleaks on `backend` and `docs` -> no leaks found
+- no migration in this stage
+
+`tests/test_tenant_isolation.py` (16 tests, 57 cases) sets up two organizations and the owner. It covers: each listing showing a member (admin or analyst) only their organization; the owner seeing all, or the one named; the owner's account missing from a member's user list; `organization_id` refused to members on every listing and the summary, and an unknown one answering `404` to the owner; nothing in another organization changing any figure of the summary, and an organization without detections staying calm beside others that have some; a cursor from another organization answering as an unknown one; every account read and action, on another organization's account and on the owner's, answering exactly as a missing account and changing nothing; the same for an invitation; an account's history leaving out another organization's reports for its email; the owner's reads recorded in each organization they showed, in the one named, and on the platform for an empty page, and visible in the organization's own audit log; a spray counted within one organization, a spray on unknown emails belonging to the platform, and another organization's alert not restarting the count.
+
+Seeded records in older tests now belong to the test organization, and the rows where a member targets the owner moved from the `403` tables to the isolation tests, where they answer `404`.
+
+Reverse check: each of the following changes makes at least one test fail: a scope with no condition, a scope including everything, a member naming an organization, an unknown organization accepted, the owner's filter ignored, the owner's reads recorded only on the platform, an empty read not recorded, a filtered read recorded on the platform, the spray counting or restarting across organizations, an account's history showing other organizations' reports, each of the eight summary queries without its scope, each of the five listings without its scope, the account and invitation lookups without the scope, and the cursor looked up outside the page's conditions (27 of 27).

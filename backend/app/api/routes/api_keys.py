@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_client_ip, get_db, require_role
+from app.api.deps import get_client_ip, get_db, read_scope, require_role
 from app.api.routes.organizations import require_open_organization
 from app.models.api_key import ApiKey
 from app.models.audit_log import AuditEventType
@@ -15,7 +15,7 @@ from app.services.api_key_service import (
     list_api_keys,
     revoke_api_key,
 )
-from app.services.audit_service import create_audit_log
+from app.services.audit_service import audit_read
 
 router = APIRouter(prefix="/admin/api-keys", tags=["api-keys"])
 
@@ -39,14 +39,18 @@ def read_api_keys(
     db: Annotated[Session, Depends(get_db)],
     client_ip: Annotated[str | None, Depends(get_client_ip)],
     current_user: Annotated[User, Depends(require_role(*READ_ROLES))],
+    organization_id: int | None = None,
 ) -> list[ApiKey]:
-    api_keys = list_api_keys(db)
-    create_audit_log(
+    scope = read_scope(db, current_user, organization_id)
+    api_keys = list_api_keys(db, scope)
+    audit_read(
         db=db,
         event_type=AuditEventType.API_KEYS_VIEWED,
-        user=current_user,
-        ip_address=client_ip,
         message="Listed API keys",
+        user=current_user,
+        scope=scope,
+        shown=(api_key.organization_id for api_key in api_keys),
+        ip_address=client_ip,
     )
     return api_keys
 

@@ -23,6 +23,8 @@ class SecurityEventRead(BaseModel):
     user_agent: str | None
     source: str
     message: str
+    # None for the platform's own events, which only the owner sees.
+    organization_id: int | None
     created_at: datetime
     # For alerts, when the event that raised them happened; null otherwise.
     occurred_at: datetime | None

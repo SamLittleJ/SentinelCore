@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -28,7 +28,7 @@ from app.schemas.security_event import (
 from app.services.detection_service import run_detection
 from app.services.event_query import event_filter_conditions, fetch_event_page
 from app.services.session_service import USER_AGENT_MAX_LENGTH
-from app.services.tenancy import organization_of
+from app.services.tenancy import Scope, organization_of
 
 
 def create_security_event(
@@ -64,8 +64,10 @@ def create_security_event(
 def list_security_events(
     db: Session,
     filters: SecurityEventFilters,
+    scope: Scope,
 ) -> tuple[list[SecurityEvent], int | None]:
     conditions = event_filter_conditions(SecurityEvent, filters)
+    conditions += scope.conditions(SecurityEvent.organization_id)
     if filters.event_type:
         conditions.append(SecurityEvent.event_type.in_(filters.event_type))
     if filters.severity:
@@ -85,7 +87,9 @@ def list_user_activity(
     target of someone else's action. They also include failed and blocked
     logins that only name its email, since a wrong password does not link the
     attempt to a user. Those are limited to the account's lifetime, so attempts
-    made against the email before it was registered stay hidden.
+    made against the email before it was registered stay hidden, and to its
+    organization, so another organization's systems reporting the same email
+    stay hidden too.
     """
     conditions = [
         or_(
@@ -95,6 +99,9 @@ def list_user_activity(
                 SecurityEvent.user_id.is_(None),
                 SecurityEvent.email == user.email,
                 SecurityEvent.created_at >= user.created_at,
+                SecurityEvent.organization_id.is_not_distinct_from(
+                    user.organization_id
+                ),
             ),
         )
     ]
@@ -110,7 +117,11 @@ TOP_FAILED_LOGIN_SOURCES = 5
 
 
 def _severity_buckets(
-    db: Session, now: datetime, width: timedelta, count: int
+    db: Session,
+    in_scope: list[ColumnElement[bool]],
+    now: datetime,
+    width: timedelta,
+    count: int,
 ) -> list[SeverityBucket]:
     """Events per severity in `count` windows of `width`, measured back from
     `now`, oldest first."""
@@ -121,7 +132,7 @@ def _severity_buckets(
     ).label("age")
     rows = db.execute(
         select(age, SecurityEvent.severity, func.count())
-        .where(SecurityEvent.created_at >= since)
+        .where(*in_scope, SecurityEvent.created_at >= since)
         .group_by(age, SecurityEvent.severity)
     ).all()
     counts: list[dict[str, int]] = [{} for _ in range(count)]
@@ -139,10 +150,13 @@ def _severity_buckets(
     ]
 
 
-def _techniques(db: Session, since: datetime) -> list[TechniqueCount]:
+def _techniques(
+    db: Session, in_scope: list[ColumnElement[bool]], since: datetime
+) -> list[TechniqueCount]:
     rows = db.execute(
         select(SecurityEvent.event_type, func.count())
         .where(
+            *in_scope,
             SecurityEvent.event_type.in_(MITRE_TECHNIQUES),
             SecurityEvent.created_at >= since,
         )
@@ -168,12 +182,15 @@ def _techniques(db: Session, since: datetime) -> list[TechniqueCount]:
     ]
 
 
-def _threat_level(db: Session, since: datetime, incidents: int) -> ThreatLevel:
+def _threat_level(
+    db: Session, in_scope: list[ColumnElement[bool]], since: datetime, incidents: int
+) -> ThreatLevel:
     if incidents:
         return "incident"
     detection = db.scalar(
         select(SecurityEvent.id)
         .where(
+            *in_scope,
             SecurityEvent.source == DETECTION_SOURCE,
             SecurityEvent.created_at >= since,
         )
@@ -182,10 +199,13 @@ def _threat_level(db: Session, since: datetime, incidents: int) -> ThreatLevel:
     return "warn" if detection is not None else "calm"
 
 
-def _latest_detection(db: Session, since: datetime) -> LatestDetection | None:
+def _latest_detection(
+    db: Session, in_scope: list[ColumnElement[bool]], since: datetime
+) -> LatestDetection | None:
     latest = db.execute(
         select(SecurityEvent.event_type, SecurityEvent.created_at)
         .where(
+            *in_scope,
             SecurityEvent.event_type.in_(MITRE_TECHNIQUES),
             SecurityEvent.created_at >= since,
         )
@@ -200,12 +220,13 @@ def _latest_detection(db: Session, since: datetime) -> LatestDetection | None:
     )
 
 
-def get_security_summary(db: Session) -> SecuritySummary:
-    """Aggregate recent security activity for the organization overview.
+def get_security_summary(db: Session, scope: Scope) -> SecuritySummary:
+    """Aggregate recent security activity in `scope` for the overview.
 
     Windows are measured on the database clock, the one that stamps
     `created_at`.
     """
+    in_scope = scope.conditions(SecurityEvent.organization_id)
     now = database_now(db)
     day_ago = now - timedelta(hours=24)
     week_ago = now - timedelta(days=7)
@@ -216,7 +237,7 @@ def get_security_summary(db: Session) -> SecuritySummary:
             func.count().filter(SecurityEvent.created_at >= day_ago),
             func.count(),
         )
-        .where(SecurityEvent.created_at >= week_ago)
+        .where(*in_scope, SecurityEvent.created_at >= week_ago)
         .group_by(SecurityEvent.severity)
     ).all()
     last_24h = SeverityCounts.model_validate(
@@ -227,6 +248,7 @@ def get_security_summary(db: Session) -> SecuritySummary:
     )
 
     recent_failures = and_(
+        *in_scope,
         SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
         SecurityEvent.created_at >= day_ago,
     )
@@ -247,6 +269,7 @@ def get_security_summary(db: Session) -> SecuritySummary:
     # brute-force event, as in login_protection_service.
     locked_logins = db.execute(
         select(func.count(func.distinct(SecurityEvent.email))).where(
+            *in_scope,
             SecurityEvent.event_type == SecurityEventType.BRUTE_FORCE_DETECTED,
             SecurityEvent.created_at
             > now - timedelta(minutes=settings.login_lockout_minutes),
@@ -258,7 +281,9 @@ def get_security_summary(db: Session) -> SecuritySummary:
             func.count(),
             func.count().filter(User.is_active.is_not(True)),
             func.count().filter(User.locked_until > now),
-        ).select_from(User)
+        )
+        .select_from(User)
+        .where(*scope.conditions(User.organization_id))
     ).one()
 
     return SecuritySummary(
@@ -274,9 +299,9 @@ def get_security_summary(db: Session) -> SecuritySummary:
         users_total=users_total,
         users_inactive=users_inactive,
         accounts_locked=accounts_locked,
-        threat_level=_threat_level(db, day_ago, last_24h.incident),
-        latest_detection=_latest_detection(db, day_ago),
-        hourly=_severity_buckets(db, now, timedelta(hours=1), 24),
-        daily=_severity_buckets(db, now, timedelta(days=1), 7),
-        techniques_7d=_techniques(db, week_ago),
+        threat_level=_threat_level(db, in_scope, day_ago, last_24h.incident),
+        latest_detection=_latest_detection(db, in_scope, day_ago),
+        hourly=_severity_buckets(db, in_scope, now, timedelta(hours=1), 24),
+        daily=_severity_buckets(db, in_scope, now, timedelta(days=1), 7),
+        techniques_7d=_techniques(db, in_scope, week_ago),
     )

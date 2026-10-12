@@ -17,7 +17,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from tests.accounts import create_account, set_role
+from tests.accounts import create_account, org_id_for_tests, set_role
 
 PASSWORD = "testpassword"
 
@@ -82,6 +82,8 @@ def add_event(
         ip_address=ip_address,
         source=source,
         message="seeded",
+        # The readers' organization, so they see it.
+        organization_id=org_id_for_tests(),
         created_at=database_now(db_session) - timedelta(minutes=minutes_ago),
     )
     db_session.add(event)

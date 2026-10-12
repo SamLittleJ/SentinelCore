@@ -15,12 +15,18 @@ explicitly. Everything else follows one rule, here:
 4. otherwise to the platform, with no organization: the owner's own
    sign-ins, and failed sign-ins naming an email no account has. Guessing
    would show a company attempts on addresses that are not its own.
+
+Reads follow the same boundary (`Scope`): a member sees their organization's
+records only, and the platform owner every organization's and the
+platform's, or one organization's when they name it.
 """
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from dataclasses import dataclass
 
-from app.models.user import User
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.orm import InstrumentedAttribute, Session
+
+from app.models.user import User, UserRole
 
 
 def organization_of(
@@ -37,3 +43,34 @@ def organization_of(
     if email:
         return db.scalar(select(User.organization_id).where(User.email == email))
     return None
+
+
+@dataclass(frozen=True)
+class Scope:
+    """The records a read may return: those of one organization, or, with
+    `everything`, those of every organization and of the platform."""
+
+    organization_id: int | None = None
+    everything: bool = False
+
+    def conditions(
+        self, column: InstrumentedAttribute[int | None]
+    ) -> list[ColumnElement[bool]]:
+        """The conditions that keep a query on `column` inside the scope."""
+        if self.everything:
+            return []
+        return [column == self.organization_id]
+
+    def includes(self, organization_id: int | None) -> bool:
+        return self.everything or organization_id == self.organization_id
+
+
+EVERYTHING = Scope(everything=True)
+
+
+def scope_of(user: User) -> Scope:
+    """What `user` may read: everything for the platform owner, their own
+    organization for everyone else."""
+    if user.role == UserRole.OWNER:
+        return EVERYTHING
+    return Scope(organization_id=user.organization_id)

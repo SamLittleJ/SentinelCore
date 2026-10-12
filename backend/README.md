@@ -190,6 +190,8 @@ For `admin`, `owner` and `security_analyst` (the analyst only reads):
 
 The event filters include `target_user_id`, the account an operator acted on. The user list also accepts `locked`.
 
+Every read is limited to the caller's organization. A record of another organization answers exactly as a missing one (`404`, the same body), and so does a cursor (`before_id`) taken from one. The platform owner, who belongs to none, sees every organization and the platform's own records; they may narrow any listing above, and `GET /admin/invitations` and `GET /admin/api-keys`, to one with `organization_id` (`404` if unknown). Anyone else sending `organization_id`, even their own, gets `403 Insufficient permissions`. Records carry their `organization_id`, empty for the platform's own. The owner's reads appear in the audit log of each organization whose records they returned.
+
 Actions on an account:
 
 | Endpoint | Who | What it does |
@@ -200,7 +202,7 @@ Actions on an account:
 | `PATCH /admin/users/{id}/status` | admin, owner | Activates or deactivates the account |
 | `PATCH /admin/users/{id}/role` | owner | Changes the role |
 
-Nobody acts on their own account or on an owner; for status changes, only an owner acts on an admin.
+Nobody acts on their own account or on an owner (for a member, the owner's account answers `404`, as any account outside their organization); for status changes, only an owner acts on an admin.
 
 ## Migrations
 

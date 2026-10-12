@@ -14,6 +14,8 @@ class AuditLogRead(BaseModel):
     email: str | None
     ip_address: str | None
     message: str | None
+    # None for the platform's own records, which only the owner sees.
+    organization_id: int | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

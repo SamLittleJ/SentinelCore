@@ -12,7 +12,7 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
-from tests.accounts import create_account, set_role
+from tests.accounts import create_account, org_id_for_tests, set_role
 
 BASE_TIME = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
@@ -77,6 +77,8 @@ def add_security_event(
         ip_address=ip_address,
         source="backend",
         message="seeded",
+        # The readers' organization, so they see it.
+        organization_id=org_id_for_tests(),
         created_at=BASE_TIME + timedelta(minutes=minutes),
     )
     db_session.add(event)
@@ -94,6 +96,7 @@ def add_audit_log(
         event_type=event_type,
         email=email,
         message="seeded",
+        organization_id=org_id_for_tests(),
         created_at=BASE_TIME + timedelta(minutes=minutes),
     )
     db_session.add(audit_log)

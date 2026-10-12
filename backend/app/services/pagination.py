@@ -36,8 +36,11 @@ def fetch_page[RowT: AuditLog | SecurityEvent | User](
         order = (time_column.desc(), model.id.desc())
         if filters.before_id is not None:
             # An unknown cursor makes the comparison null, so the page is empty.
+            # So does a row outside `conditions`, such as another
+            # organization's: a cursor from a page always meets them, and
+            # any other would tell when that row was recorded.
             cursor_time = (
-                select(time_column).where(model.id == filters.before_id)
+                select(time_column).where(model.id == filters.before_id, *conditions)
             ).scalar_subquery()
             statement = statement.where(
                 tuple_(time_column, model.id)

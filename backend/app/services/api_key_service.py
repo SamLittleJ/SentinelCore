@@ -22,6 +22,7 @@ from app.models.security_event import (
 from app.models.user import User
 from app.schemas.api_key import ApiKeyCreate
 from app.services.organization_service import is_suspended
+from app.services.tenancy import Scope
 
 KEY_SCHEME = "sck"
 
@@ -103,8 +104,14 @@ def create_api_key(
     return api_key, token.value
 
 
-def list_api_keys(db: Session) -> list[ApiKey]:
-    return list(db.scalars(select(ApiKey).order_by(ApiKey.id.desc())).all())
+def list_api_keys(db: Session, scope: Scope) -> list[ApiKey]:
+    return list(
+        db.scalars(
+            select(ApiKey)
+            .where(*scope.conditions(ApiKey.organization_id))
+            .order_by(ApiKey.id.desc())
+        ).all()
+    )
 
 
 def get_api_key(db: Session, key_id: int) -> ApiKey | None:
