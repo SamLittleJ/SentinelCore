@@ -279,9 +279,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--database-url",
-        default=os.environ.get("DATABASE_URL"),
-        help=f"The {DEMO_DATABASE} database the backend runs on; defaults to "
-        "DATABASE_URL.",
+        default=os.environ.get("MIGRATIONS_DATABASE_URL")
+        or os.environ.get("DATABASE_URL"),
+        help=f"The {DEMO_DATABASE} database the backend runs on, as the owner "
+        "of its tables, since the API's role may not move alerts; defaults to "
+        "MIGRATIONS_DATABASE_URL, then DATABASE_URL.",
     )
     return parser.parse_args(argv)
 

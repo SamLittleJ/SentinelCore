@@ -8,7 +8,11 @@ class Settings(BaseSettings):
     app_name: str = "SentinelCore API"
     app_env: str = "development"
     app_debug: bool = True
+    # The API signs in as `sentinelcore_app`, which row-level security binds
+    # (core/row_security.py). Migrations sign in as the owner of the tables,
+    # with MIGRATIONS_DATABASE_URL; without it, they use DATABASE_URL.
     database_url: str
+    migrations_database_url: str | None = None
     secret_key: str
     # Only HMAC algorithms: tokens are signed and verified with SECRET_KEY.
     algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"

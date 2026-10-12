@@ -30,6 +30,7 @@ source .venv/bin/activate
 python -m pip install -e ".[dev]"
 cp .env.example .env
 python -m alembic upgrade head
+python -m app.cli grant-api-login
 python -m app.cli create-owner --email owner@example.com --username owner
 python -m uvicorn app.main:app --reload
 ```

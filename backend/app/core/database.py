@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
+from app.core import row_security  # noqa: F401  Names each transaction's scope.
 from app.core.config import settings
 
 engine = create_engine(settings.database_url)

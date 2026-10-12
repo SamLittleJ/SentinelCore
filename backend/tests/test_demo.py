@@ -33,6 +33,7 @@ from simulator.demo import (
     seed_demo,
 )
 from simulator.population import build_organization
+from tests.conftest import rewriting_history
 
 OWNER_EMAIL = "owner@sim.example.com"
 OWNER_PASSWORD = "owner-password-1"
@@ -147,7 +148,9 @@ def test_the_demo_looks_like_ninety_days_watched_live(
         day -= timedelta(days=1)
     afternoon = day.replace(hour=15, minute=30, second=0, microsecond=0)
     seeded = seed_demo(*operators, seed=7, now=afternoon)
-    moved = place_alerts_at_event_time(db_session, random.Random(7), seeded.started_at)
+    # The demo moves alerts as the owner of the tables: the API may not.
+    with rewriting_history(db_session) as owner:
+        moved = place_alerts_at_event_time(owner, random.Random(7), seeded.started_at)
     started = seeded.started_at
     midnight = started.replace(hour=0, minute=0, second=0, microsecond=0)
 

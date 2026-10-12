@@ -15,7 +15,7 @@ from app.models.security_event import SecurityEvent, SecurityEventType
 from app.models.user import User, UserRole
 from app.services.invitation_service import accept_invitation, find_open_invitation
 from tests.accounts import PASSWORD, create_account, org_id_for_tests
-from tests.conftest import TestingSessionLocal
+from tests.conftest import TestingSessionLocal, system_session
 
 NEW_PASSWORD = "a-new-password"  # nosec B105
 
@@ -217,7 +217,7 @@ def test_a_new_invitation_replaces_the_open_one(
     assert message.endswith("; replaced 1 earlier invitation(s)")
 
 
-def test_the_database_keeps_one_open_invitation_per_email(
+def test_the_database_keeps_one_open_invitation_per_email_in_an_organization(
     client: TestClient, db_session: Session
 ) -> None:
     # The last guard when two operators invite the same email at once.
@@ -225,13 +225,14 @@ def test_the_database_keeps_one_open_invitation_per_email(
     existing = db_session.scalar(select(Invitation))
     assert existing is not None
 
-    with TestingSessionLocal() as other, pytest.raises(IntegrityError):
+    with system_session() as other, pytest.raises(IntegrityError):
         other.add(
             Invitation(
                 prefix="00000000",
                 secret_hash="0" * 64,
                 email=existing.email,
                 role=UserRole.USER,
+                organization_id=existing.organization_id,
                 created_by_id=existing.created_by_id,
                 expires_at=existing.expires_at,
             )
@@ -306,7 +307,7 @@ def test_an_invitation_works_once(client: TestClient, db_session: Session) -> No
 def test_two_requests_cannot_use_one_invitation_at_once(client: TestClient) -> None:
     token = invite(client, operator(client, UserRole.OWNER))
 
-    with TestingSessionLocal() as first, TestingSessionLocal() as second:
+    with system_session() as first, system_session() as second:
         # The first request holds the invitation while it creates the account.
         held = find_open_invitation(first, token, for_update=True)
         assert held is not None

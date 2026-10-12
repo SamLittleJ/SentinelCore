@@ -11,12 +11,13 @@ from sqlalchemy.orm import Session
 
 from app.api.cookies import CSRF_HEADER, SESSION_COOKIE
 from app.core.database import SessionLocal
+from app.core.row_security import restrict_rows
 from app.core.security import csrf_token_for, decode_access_token
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
 from app.services.organization_service import get_organization
 from app.services.session_service import get_active_session
-from app.services.tenancy import Scope, scope_of
+from app.services.tenancy import SYSTEM, Scope, scope_of
 from app.services.user_service import is_account_locked, may_sign_in
 
 # /auth/token accepts the OAuth2 password form, so Swagger UI can log in.
@@ -32,11 +33,23 @@ ACCOUNT_LOCKED_DETAIL = "Account temporarily locked"
 
 
 def get_db() -> Generator:
+    """A database session that sees no rows until the request says who is
+    asking (core/row_security.py): `get_current_session` names the account
+    it authenticates, and routes for no account use `get_system_db`."""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+def get_system_db(db: Annotated[Session, Depends(get_db)]) -> Session:
+    """The session of a route that authenticates its caller itself: sign-in,
+    an invitation or an API key, found before their organization is known.
+    It sees every row, so such a route must name a narrower scope as soon as
+    it knows one."""
+    restrict_rows(db, SYSTEM)
+    return db
 
 
 def get_user_agent(request: Request) -> str | None:
@@ -89,6 +102,9 @@ def get_current_session(
     except (InvalidTokenError, ValueError) as exc:
         raise credentials_exception from exc
 
+    # The account and its session are found before their organization is
+    # known; once they check out, the database shows what the account may.
+    restrict_rows(db, SYSTEM)
     user = db.get(User, user_id)
     if user is None:
         raise credentials_exception
@@ -126,6 +142,7 @@ def get_current_session(
                 detail="CSRF token missing or invalid",
             )
 
+    restrict_rows(db, scope_of(user))
     return session
 
 

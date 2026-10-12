@@ -23,6 +23,7 @@ from app.models.security_event import (
 )
 from app.models.user import User, UserRole
 from tests.accounts import create_account, organization_id
+from tests.conftest import serve_requests_from
 from tests.test_organizations import headers_for, ingest, new_key, sign_in
 
 ATTACKER_IP = "203.0.113.9"
@@ -68,7 +69,7 @@ def platform(client: TestClient, db_session: Session) -> Platform:
 def attacker(db_session: Session) -> Generator[TestClient]:
     """A client whose requests come from ATTACKER_IP, so the spray rule,
     which is keyed on addresses, can fire."""
-    app.dependency_overrides[get_db] = lambda: db_session
+    app.dependency_overrides[get_db] = serve_requests_from(db_session)
     with TestClient(app, client=(ATTACKER_IP, 50000)) as test_client:
         yield test_client
     app.dependency_overrides.clear()

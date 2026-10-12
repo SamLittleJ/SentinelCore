@@ -18,7 +18,8 @@ explicitly. Everything else follows one rule, here:
 
 Reads follow the same boundary (`Scope`): a member sees their organization's
 records only, and the platform owner every organization's and the
-platform's, or one organization's when they name it.
+platform's, or one organization's when they name it. The database enforces it
+too, through row-level security on the scope of whoever is asking.
 """
 
 from dataclasses import dataclass
@@ -66,6 +67,11 @@ class Scope:
 
 
 EVERYTHING = Scope(everything=True)
+# The scope of code that acts for no signed-in account: sign-in itself, which
+# must find an account, a session, an API key or an invitation before knowing
+# its organization, and background tasks. The database shows it every row
+# (core/row_security.py).
+SYSTEM = EVERYTHING
 
 
 def scope_of(user: User) -> Scope:

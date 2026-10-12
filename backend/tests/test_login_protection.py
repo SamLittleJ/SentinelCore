@@ -16,6 +16,7 @@ from app.models.security_event import (
 from app.models.user import User, UserRole
 from app.services import user_service
 from tests.accounts import create_account
+from tests.conftest import rewriting_history
 
 EMAIL = "testuser@example.com"
 PASSWORD = "testpassword"
@@ -47,12 +48,12 @@ def count_security_events(db_session: Session, event_type: SecurityEventType) ->
 
 def shift_security_events_back(db_session: Session, minutes: int) -> None:
     """Move all recorded security events into the past to simulate elapsed time."""
-    db_session.execute(
-        update(SecurityEvent).values(
-            created_at=SecurityEvent.created_at - timedelta(minutes=minutes)
+    with rewriting_history(db_session) as owner:
+        owner.execute(
+            update(SecurityEvent).values(
+                created_at=SecurityEvent.created_at - timedelta(minutes=minutes)
+            )
         )
-    )
-    db_session.commit()
 
 
 def test_threshold_failure_locks_login_and_records_incident(
