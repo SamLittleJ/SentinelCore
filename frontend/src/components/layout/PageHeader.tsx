@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
 
+import { useCurrentUser } from '@/features/auth/hooks'
 import { cn } from '@/lib/utils'
 
-import { navItemFor, scopeOf } from './navigation'
+import { navItemFor, scopeName, scopeOf } from './navigation'
 
 interface PageHeaderProps {
   title: ReactNode
@@ -21,12 +22,13 @@ export function PageHeader({ title, description, actions, className }: PageHeade
   const { pathname } = useLocation()
   const scope = scopeOf(pathname)
   const item = navItemFor(pathname)
+  const { data: user } = useCurrentUser()
 
   return (
     <header className={cn('flex flex-wrap items-end justify-between gap-4', className)}>
       <div className="flex min-w-0 flex-col gap-2">
         <p className="label-mono text-brand">
-          {t(`scope.${scope}`)}
+          {scopeName(scope, user, t)}
           {item && (
             <>
               {' / '}

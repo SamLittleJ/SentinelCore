@@ -4,7 +4,7 @@ import { type KeyboardEvent, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
-import { canViewOrganization, type User } from '@/features/auth/api'
+import { canViewOrganization, type CurrentUser } from '@/features/auth/api'
 import { useLogOut } from '@/features/auth/hooks'
 import { DEFAULT_RANGE, writeLogFilters } from '@/features/org/filters'
 import { writeUserFilters } from '@/features/org/user-filters'
@@ -12,7 +12,7 @@ import { THEMES, useTheme } from '@/features/theme/theme-context'
 import { LANGUAGES } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-import { NAV } from './navigation'
+import { navItems, scopeName } from './navigation'
 
 type Group = 'search' | 'pages' | 'actions'
 
@@ -44,7 +44,7 @@ function normalize(text: string): string {
 /** Everything the palette can do for `user`. Searching opens the filtered
  * page, which loads (and audits) the records as usual: the palette itself
  * never asks the API for anything. */
-function useCommands(user: User, query: string, close: () => void): Command[] {
+function useCommands(user: CurrentUser, query: string, close: () => void): Command[] {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
@@ -80,12 +80,12 @@ function useCommands(user: User, query: string, close: () => void): Command[] {
 
   const scopes = operator ? (['personal', 'organization'] as const) : (['personal'] as const)
   for (const scope of scopes) {
-    for (const item of NAV[scope]) {
+    for (const item of navItems(scope, user)) {
       commands.push({
         id: `page-${item.to}`,
         group: 'pages',
         label: t(item.label),
-        hint: `${t(`scope.${scope}`)} / ${item.number}`,
+        hint: `${scopeName(scope, user, t)} / ${item.number}`,
         run: go(item.to),
       })
     }
@@ -133,7 +133,7 @@ function useCommands(user: User, query: string, close: () => void): Command[] {
 }
 
 interface CommandPaletteProps {
-  user: User
+  user: CurrentUser
   open: boolean
   onOpenChange: (open: boolean) => void
 }

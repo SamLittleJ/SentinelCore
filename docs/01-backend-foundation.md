@@ -4591,3 +4591,33 @@ The third of the five stages: PostgreSQL holds the organization boundary itself,
 Reverse check: each of the following changes makes at least one test fail: the scope not written again after a commit, a new scope not applied to the open transaction, no scope showing everything, a signed-in request keeping the system scope, the session lookup without it, `get_system_db` without it, ingestion keeping it after the key is found, invitation acceptance on a plain session, the session cleanup and `create-owner` without it, readiness and the command accepting a role that bypasses row security, every policy showing every row, each of the seven tables without its boundary, security events or the audit log writable by the API, and open invitations unique across the platform (23 of 23).
 
 End-to-end check: on a temporary database, the API ran as `sentinelcore_app` after `grant-api-login`: readiness answered `ok`; the owner created an organization, invited and listed events from every organization; a Globex admin who joined by invitation saw only Globex's events and themselves among users, got `404` for the owner's account, invited an email that has an account elsewhere (`201`), and signed out. `make demo` ran with the two roles: 38 people, 18 alerts moved to their event's time as the owner, readiness `ok`.
+
+## Organizations in the interface: API support
+
+### 332. Purpose of the stage
+
+The fourth of the five stages is the interface, which needed two things the API did not give yet: a member's organization by name, and each organization's state for the platform owner's overview.
+
+### 333. The signed-in account's organization
+
+`GET /users/me` now answers with `CurrentUserRead` (`app/schemas/user.py`): the account's usual fields plus `organization`, its id, name and slug (`OrganizationBrief`, `app/schemas/organization.py`), or `null` for the platform owner. Only this endpoint carries it, so the account lists do not look up an organization per row. The request's session is already limited to the reader's organization, so the lookup can only find their own; members still cannot list organizations.
+
+### 334. Organizations by level in the summary
+
+- `GET /security/summary` gains `organizations` (`OrganizationLevel` in `app/schemas/security_event.py`), filled only for a scope of everything: the owner without `organization_id`. Members and the owner looking at one organization get `null`.
+- One row per organization, suspended ones included and marked, and one for the platform's own records (`id`, `name` and `slug` null), each with its level and counts over the last 24 hours. Two grouped queries: the events since the start of the window by organization, with a count per severity and of detection alerts, then the organizations.
+- The level follows one rule for the band and the table (`_level_of` in `app/services/security_event_service.py`): an incident outweighs a detection alert; with neither, calm. Rows are ordered by level, then incidents, then warnings, then name, with the platform after the organizations at the same counts.
+- Like the rest of the summary it holds counts, not records, so it is not audited.
+
+### 335. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations` -> 0 errors
+- pytest -> 548 passed
+- Gitleaks on `backend` and `docs` -> no leaks found
+
+The new tests in `tests/test_tenant_isolation.py` cover: the owner's ranking of Globex (an incident), Acme (detections only), the platform (a failed sign-in on an unknown email, which is no detection) and a suspended Initech, with each organization's row matching its own summary; the field left out for an admin, an analyst and the owner filtering by one organization; and `/users/me` naming Acme for its admin and nothing for the owner.
+
+Reverse check: each of the following changes makes at least one test fail: the list given to every reader, detections not raising the level, rows not ranked, the platform's row left out, suspension not shown, and `/users/me` without the organization (6 of 6).
+

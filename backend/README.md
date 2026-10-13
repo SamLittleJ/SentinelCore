@@ -170,7 +170,7 @@ LOG_FORMAT=text   # json for log collectors
 
 Every login creates a session, revocable through `/auth/logout`, `/auth/logout-all`, `DELETE /users/me/sessions/{id}` or, by an operator, `POST /admin/users/{id}/revoke-sessions`.
 
-Users can sign out of their other devices while staying signed in on the current one with `DELETE /users/me/sessions`. The security history of one's own account is at `GET /users/me/activity`.
+Users can sign out of their other devices while staying signed in on the current one with `DELETE /users/me/sessions`. The security history of one's own account is at `GET /users/me/activity`. `GET /users/me` also names the account's organization (`organization`: id, name and slug; `null` for the platform owner).
 
 Expired sessions, or sessions revoked more than `SESSION_RETENTION_DAYS` days ago, are deleted by the API every `SESSION_CLEANUP_INTERVAL_MINUTES` minutes. The cleanup can also run by hand or from cron:
 
@@ -186,7 +186,7 @@ For `admin`, `owner` and `security_analyst` (the analyst only reads):
 |----------|---------|
 | `GET /security/events` | Security events, with filters and cursor pagination |
 | `GET /admin/audit-logs` | Audit logs, with the same filters |
-| `GET /security/summary` | Counts over 24 hours and 7 days, hour by hour and day by day, alerts per MITRE ATT&CK technique, the threat level and the latest detection's technique and time, blocked logins, the IPs with the most failures, accounts |
+| `GET /security/summary` | Counts over 24 hours and 7 days, hour by hour and day by day, alerts per MITRE ATT&CK technique, the threat level and the latest detection's technique and time, blocked logins, the IPs with the most failures, accounts; for the owner without `organization_id`, also `organizations`: every organization and the platform with their level and 24-hour counts, the worst first |
 | `GET /admin/users` | Users; filters `q`, `role`, `is_active`, cursor pagination |
 | `GET /admin/users/{id}` | One user's details |
 | `GET /admin/users/{id}/activity` | One account's security history |

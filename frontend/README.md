@@ -35,7 +35,7 @@ src/
 ├── features/
 │   ├── account/     # the "My account" scope: sessions, activity
 │   ├── auth/        # authentication API client, hooks, route protection, invitation links
-│   ├── org/         # the "Organization" scope: overview, logs, users, invitations, API keys, MITRE ATT&CK, filters, actions
+│   ├── org/         # the "Organization" scope ("Platform" for the owner): overview, logs, users, invitations, API keys, organizations and the owner's organization picker, MITRE ATT&CK, filters, actions
 │   └── theme/       # dark / light theme
 ├── i18n/            # Romanian and English translations
 ├── lib/             # API client, TanStack Query setup, utilities

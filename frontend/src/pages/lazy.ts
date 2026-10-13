@@ -26,3 +26,7 @@ export const OrgApiKeysPage = lazy(() =>
 export const OrgUserPage = lazy(() =>
   import('./OrgUserPage').then((module) => ({ default: module.OrgUserPage })),
 )
+
+export const OrgOrganizationsPage = lazy(() =>
+  import('./OrgOrganizationsPage').then((module) => ({ default: module.OrgOrganizationsPage })),
+)

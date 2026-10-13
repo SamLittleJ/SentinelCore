@@ -13,6 +13,7 @@ from pydantic import (
 )
 
 from app.models.user import UserRole
+from app.schemas.organization import OrganizationBrief
 from app.schemas.pagination import CursorPageFilters
 
 USERNAME_MIN_LENGTH = 3
@@ -65,6 +66,13 @@ class UserRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CurrentUserRead(UserRead):
+    """The signed-in account, with its organization's name for the console;
+    None for the platform owner."""
+
+    organization: OrganizationBrief | None
 
 
 class UserLogin(BaseModel):

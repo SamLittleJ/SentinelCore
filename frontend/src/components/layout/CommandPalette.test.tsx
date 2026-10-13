@@ -142,7 +142,7 @@ describe('sidebar', () => {
 
     await screen.findByRole('heading', { name: 'Sesiunile mele' })
     expect(summaries).toBe(0)
-    await userEvent.setup().click(screen.getByRole('link', { name: 'Organizația' }))
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Acme' }))
     await waitFor(() => expect(summaries).toBeGreaterThan(0))
     expect(screen.getByRole('link', { name: /Evenimente de securitate/ })).toHaveTextContent(
       /^02Evenimente de securitate$/,
@@ -153,7 +153,7 @@ describe('sidebar', () => {
     signedInAs(makeUser('admin'))
     renderApp('/org/users')
 
-    expect(await screen.findByText('Organizația / 04 Utilizatori')).toBeInTheDocument()
+    expect(await screen.findByText('Acme / 04 Utilizatori')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1, name: 'Utilizatori' })).toBeInTheDocument()
   })
 
@@ -162,6 +162,6 @@ describe('sidebar', () => {
     renderApp('/org/users/7')
 
     await screen.findByRole('heading', { level: 1, name: 'elena.radu' })
-    expect(screen.getByText('Organizația / 04 Utilizatori')).toBeInTheDocument()
+    expect(screen.getByText('Acme / 04 Utilizatori')).toBeInTheDocument()
   })
 })

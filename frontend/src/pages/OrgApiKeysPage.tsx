@@ -26,6 +26,7 @@ import {
   validKeyName,
 } from '@/features/org/api-keys'
 import { apiKeysKey, useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/features/org/hooks'
+import { useOrganizationName } from '@/features/org/organization-column'
 import { OrganizationField } from '@/features/org/OrganizationField'
 import { canManageApiKeys } from '@/features/org/permissions'
 import { ApiError } from '@/lib/api'
@@ -354,6 +355,7 @@ function KeysTable({
 }) {
   const { t } = useTranslation()
   const format = useFormatters()
+  const organizationOf = useOrganizationName()
 
   return (
     <div className="w-full overflow-x-auto rounded-lg border bg-card">
@@ -364,6 +366,11 @@ function KeysTable({
               {t('apiKeys.key')}
             </th>
             {/* On phones the source and state move under the name. */}
+            {organizationOf && (
+              <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                {t('organizations.column')}
+              </th>
+            )}
             <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
               {t('apiKeys.source')}
             </th>
@@ -397,9 +404,19 @@ function KeysTable({
                     <span className="mt-1 flex flex-wrap items-center gap-2 sm:hidden">
                       <span className="font-mono text-xs">{key.source}</span>
                       <KeyStateBadge state={state} />
+                      {organizationOf && (
+                        <span className="text-xs text-muted-foreground">
+                          {organizationOf(key.organization_id)}
+                        </span>
+                      )}
                     </span>
                   </div>
                 </td>
+                {organizationOf && (
+                  <td className="hidden max-w-40 truncate px-4 py-2.5 sm:table-cell">
+                    {organizationOf(key.organization_id)}
+                  </td>
+                )}
                 <td className="hidden px-4 py-2.5 font-mono text-xs sm:table-cell">{key.source}</td>
                 <td className="hidden px-4 py-2.5 sm:table-cell">
                   <KeyStateBadge state={state} />

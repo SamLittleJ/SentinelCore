@@ -66,3 +66,26 @@ export function RequireOrganizationAccess() {
 
   return <Outlet />
 }
+
+/** Pages only the platform owner may use, such as the organizations. The
+ * API refuses everyone else anyway; this avoids a page of refusals. */
+export function RequireOwner() {
+  const { t } = useTranslation()
+  const { data: user } = useCurrentUser()
+
+  if (user?.role !== 'owner') {
+    return (
+      <StatusPage
+        title={t('errors.forbiddenTitle')}
+        body={t('errors.ownerOnlyBody')}
+        action={
+          <Button asChild variant="outline">
+            <Link to="/org">{t('errors.backToOverview')}</Link>
+          </Button>
+        }
+      />
+    )
+  }
+
+  return <Outlet />
+}

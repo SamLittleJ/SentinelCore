@@ -12,6 +12,7 @@ import { useCurrentUser } from '@/features/auth/hooks'
 import { AccountState } from '@/features/org/AccountState'
 import { invitationsKey, userListKey, useUsers } from '@/features/org/hooks'
 import { InvitationsSection } from '@/features/org/InvitationsSection'
+import { useOrganizationName } from '@/features/org/organization-column'
 import { UserFilterBar } from '@/features/org/UserFilterBar'
 import {
   hasUserFilters,
@@ -82,6 +83,7 @@ function UsersTable({ users }: { users: User[] }) {
   const navigate = useNavigate()
   const location = useLocation()
   const state: UserPageState = { from: location.pathname + location.search }
+  const organizationOf = useOrganizationName()
 
   const openRow = (event: MouseEvent, user: User) => {
     // The link handles its own clicks.
@@ -100,6 +102,11 @@ function UsersTable({ users }: { users: User[] }) {
             <th scope="col" className="px-4 py-2.5 font-medium">
               {t('users.role')}
             </th>
+            {organizationOf && (
+              <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                {t('organizations.column')}
+              </th>
+            )}
             {/* On phones the state moves under the email, so it stays in view. */}
             <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
               {t('users.state')}
@@ -126,12 +133,22 @@ function UsersTable({ users }: { users: User[] }) {
                     {user.username}
                   </Link>
                   <span className="font-mono text-xs text-muted-foreground">{user.email}</span>
-                  <span className="mt-1 sm:hidden">
+                  <span className="mt-1 flex flex-wrap items-center gap-2 sm:hidden">
                     <AccountState user={user} />
+                    {organizationOf && (
+                      <span className="text-xs text-muted-foreground">
+                        {organizationOf(user.organization_id)}
+                      </span>
+                    )}
                   </span>
                 </div>
               </td>
               <td className="px-4 py-2.5 whitespace-nowrap">{t(`roles.${user.role}`)}</td>
+              {organizationOf && (
+                <td className="hidden max-w-40 truncate px-4 py-2.5 sm:table-cell">
+                  {organizationOf(user.organization_id)}
+                </td>
+              )}
               <td className="hidden px-4 py-2.5 sm:table-cell">
                 <AccountState user={user} />
               </td>

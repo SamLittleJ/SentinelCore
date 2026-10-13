@@ -116,6 +116,19 @@ class LatestDetection(BaseModel):
 ThreatLevel = Literal["calm", "warn", "incident"]
 
 
+class OrganizationLevel(BaseModel):
+    """One organization's last 24 hours, for the platform owner's overview:
+    its level and counts, no records. `id`, `name` and `slug` are None for
+    the platform's own records, which belong to no organization."""
+
+    id: int | None
+    name: str | None
+    slug: str | None
+    suspended: bool
+    threat_level: ThreatLevel
+    last_24h: SeverityCounts
+
+
 class SecuritySummary(BaseModel):
     """Aggregates for the organization overview, measured back from
     `generated_at` on the database clock."""
@@ -141,3 +154,6 @@ class SecuritySummary(BaseModel):
     daily: list[SeverityBucket]
     # Alerts per technique over the last 7 days, the most frequent first.
     techniques_7d: list[TechniqueCount]
+    # Every organization and the platform, the worst first; only in the
+    # owner's summary of the whole platform, None otherwise.
+    organizations: list[OrganizationLevel] | None = None
