@@ -104,6 +104,7 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [01 - Backend Foundation](docs/01-backend-foundation.md): the technical journal of every backend stage
 - [02 - Decisions Log](docs/02-decisions-log.md): the technical decisions made along the way
 - [03 - Frontend Foundation](docs/03-frontend-foundation.md): the technical journal of the frontend
+- [04 - Threat Model](docs/04-threat-model.md): a STRIDE analysis of the system, with the boundary between organizations at its centre, each mitigation linked to the test that proves it
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 
 ## License
