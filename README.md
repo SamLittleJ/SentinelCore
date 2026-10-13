@@ -53,7 +53,7 @@ In Swagger UI, the **Authorize** button takes the email in the `username` field,
 
 ## Demo
 
-One command shows SentinelCore with ninety days of a synthetic organization behind it:
+One command shows SentinelCore with ninety days of three synthetic organizations behind it:
 
 ```bash
 make demo
@@ -63,15 +63,25 @@ It needs the Quick start done once (Docker, `backend/.venv` with `backend/.env`,
 
 1. starts PostgreSQL and recreates a separate `sentinelcore_demo` database, leaving the development one alone;
 2. creates the owner `owner@sim.example.com` with a random password, written only to `.demo/owner.txt` (readable by you alone, ignored by git) and never printed;
-3. fills ninety days, ending now, through the API: 36 people joining by invitation, an admin and an analyst, their routine sign-ins reported by a VPN key, and the attack simulator's attacks spread across the days at random hours (password sprays, stolen passwords used on dormant accounts and from unknown places, and the evasive variants the rules miss);
-4. plays today's events live: brute force against two accounts, an admin role granted, and the operators' response (sessions closed, an account locked, the dormant accounts deactivated, a promotion, new invitations, a retired API key);
-5. runs the backend and the frontend until Ctrl+C. Open `http://localhost:5173` and sign in with the details in `.demo/owner.txt`.
+3. fills ninety days, ending now, through the API, for three organizations, each with its own email domain, office address and VPN key:
+   - **Acme**, the attacked one: 36 people joining by invitation, an admin and an analyst, their routine sign-ins, and the attack simulator's attacks spread across the days at random hours (password sprays, stolen passwords used on dormant accounts and from unknown places, and the evasive variants the rules miss);
+   - **Globex**: 12 people and an admin who only keep to their routine;
+   - **Initech**: 6 people and an admin, also quiet, suspended by the owner at the end of the run;
+4. plays today's events live: brute force against two Acme accounts, an admin role granted, the operators' response (sessions closed, an account locked, the dormant accounts deactivated, a promotion, new invitations, a retired API key), a few failed sign-ins on emails no account has, which belong to the platform, and Initech's suspension;
+5. writes each admin's password to `.demo/acme-admin.txt`, `.demo/globex-admin.txt` and `.demo/initech-admin.txt`, as for the owner;
+6. runs the backend and the frontend until Ctrl+C. Open `http://localhost:5173` and sign in with the details in `.demo/owner.txt`.
 
-Each run starts from scratch with the same seed, so the organization and its history are the same, shifted to end at the time of the run. `make demo-clean` removes the database and `.demo/`.
+Each run starts from scratch with the same seed, so the organizations and their history are the same, shifted to end at the time of the run. `make demo-clean` removes the database and `.demo/`.
+
+A short walk through the organizations:
+
+1. As the owner, the console is the **Platform**: the overview ranks Acme (an active incident), Globex and Initech (each with the alert its admin raised by joining) and the platform's own failed sign-ins. The organization picker in the sidebar narrows every page to one of them.
+2. As Globex's admin, the console is **Globex**: its people and events only, nothing of Acme's.
+3. As Initech's admin, sign-in is refused, as for a deactivated account: the organization is suspended.
 
 What to know about the data:
 
-- Everything is synthetic, made by `backend/simulator` from one seed. Email addresses use `sim.example.com`, and network addresses come from documentation ranges.
+- Everything is synthetic, made by `backend/simulator` from one seed. Email addresses use domains reserved for examples (`acme.example`, `globex.example`, `initech.example`, and `sim.example.com` for the owner), and network addresses come from documentation ranges.
 - Accounts, invitations and operator actions go through the API at the time of the run, so the accounts show today as their joining date and today's log holds them all. Their sign-ins go back ninety days.
 - Alerts raised from the history are moved, in the demo database only, to the time of the event that raised them plus a few seconds, as if SentinelCore had watched the ninety days live. Without this, every one of them would carry the time of the run. The application itself always keeps the detection time.
 

@@ -1,17 +1,21 @@
 """Command line: python -m simulator.demo --owner-email owner@sim.example.com
 
-Fills the demo database with ninety days of a synthetic organization, through
-the API of a SentinelCore running on it:
+Fills the demo database with ninety days of three synthetic organizations,
+through the API of a SentinelCore running on it:
 
-1. Its people join by invitation, and two operators join them: an admin and
-   an analyst.
-2. Their routine sign-ins and the simulator's attacks, spread across the
-   ninety days, are reported through ingestion oldest first, as a log
-   shipper sends them. Each detection rule judges an event against the
-   events before its own time, whatever the order they arrive in.
-3. Today's work: attacks that can only happen live (brute force against
-   this application's own sign-in, an admin role granted) and the operators'
-   response to what was detected.
+1. Acme, the attacked one: its people join by invitation, and two operators
+   join them, an admin and an analyst. Globex and Initech, smaller, have
+   people who only keep to their routine, and an admin each.
+2. Each organization's routine sign-ins, and the simulator's attacks on
+   Acme spread across the ninety days, are reported through its own key,
+   oldest first, as a log shipper sends them. Each detection rule judges an
+   event against the events before its own time, whatever the order they
+   arrive in.
+3. Today's work: attacks on Acme that can only happen live (brute force
+   against this application's own sign-in, an admin role granted), the
+   operators' response to what was detected, a few sign-ins failing on
+   emails no account has, which belong to the platform, and Initech
+   suspended by the owner.
 4. Every alert raised from the history is then placed at the moment its
    event happened, plus a few seconds, as if SentinelCore had watched the
    ninety days live. This step writes to the database directly, so it
@@ -19,7 +23,9 @@ the API of a SentinelCore running on it:
 
 Everything is synthetic and drawn from one seed. `make demo` runs this on the
 `sentinelcore_demo` database it has just created. The owner's password is
-read from SENTINELCORE_OWNER_PASSWORD, or asked for.
+read from SENTINELCORE_OWNER_PASSWORD, or asked for. With --accounts-dir, the
+admins' passwords are written there, one file each, readable by the user
+alone, to sign in as them during a presentation.
 """
 
 import argparse
@@ -28,8 +34,9 @@ import os
 import random
 import secrets
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
@@ -51,7 +58,11 @@ from app.models.security_event import DETECTION_SOURCE, SecurityEvent
 from simulator.__main__ import LOCAL_HOSTS
 from simulator.attacks import Attack, plan_attacks
 from simulator.client import SentinelCore, SimulatorError
-from simulator.population import Organization, build_organization
+from simulator.population import (
+    Organization,
+    build_organization,
+    build_quiet_organization,
+)
 
 DEMO_DATABASE = "sentinelcore_demo"
 HISTORY_DAYS = 90
@@ -83,17 +94,54 @@ DETECTION_DELAY = (2.0, 40.0)
 
 
 @dataclass(frozen=True)
+class Tenant:
+    """One of the demo's organizations: its own email domain (reserved for
+    examples, RFC 2606), office address and home networks."""
+
+    name: str
+    slug: str
+    domain: str
+    office_ip: str
+    first_home: int
+
+
+ACME = Tenant("Acme", "acme", "acme.example", "192.0.2.10", 0)
+GLOBEX = Tenant("Globex", "globex", "globex.example", "192.0.2.20", 40)
+INITECH = Tenant("Initech", "initech", "initech.example", "192.0.2.30", 60)
+# The quiet organizations' size, besides their admin.
+QUIET_PEOPLE = {GLOBEX: 12, INITECH: 6}
+
+
+@dataclass(frozen=True)
 class Operator:
     username: str
     email: str
     role: str
 
 
-ADMIN = Operator("andreea.vasile", "andreea.vasile@sim.example.com", "admin")
-ANALYST = Operator("tudor.ciobanu", "tudor.ciobanu@sim.example.com", "security_analyst")
-# People about to join, invited today.
+ADMIN = Operator("andreea.vasile", "andreea.vasile@acme.example", "admin")
+ANALYST = Operator("tudor.ciobanu", "tudor.ciobanu@acme.example", "security_analyst")
+GLOBEX_ADMIN = Operator("matei.radulescu", "matei.radulescu@globex.example", "admin")
+INITECH_ADMIN = Operator("ilie.constantin", "ilie.constantin@initech.example", "admin")
+# People about to join Acme, invited today.
 NEW_HIRES = ("sara.neagu", "victor.oprea", "ilinca.preda")
 WITHDRAWN = "temp.contractor"
+# Tried today at this application's sign-in. No account has them, so the
+# failures belong to the platform; too few for a password spray.
+UNKNOWN_EMAILS = (
+    "admin@acme-corp.example",
+    "root@globex-it.example",
+    "it.support@initech-mail.example",
+)
+
+
+@dataclass(frozen=True)
+class Account:
+    """An account to sign in with during a presentation."""
+
+    file: str
+    email: str
+    password: str = field(repr=False)
 
 
 @dataclass
@@ -103,6 +151,9 @@ class Seeded:
     sign_ins: int
     backfilled_attacks: int
     live_attacks: int
+    # People per organization, operators included.
+    organizations: dict[str, int] = field(default_factory=dict)
+    accounts: list[Account] = field(default_factory=list)
 
 
 def place_in_history(attack: Attack, rng: random.Random, midnight: datetime) -> Attack:
@@ -128,8 +179,7 @@ def place_in_history(attack: Attack, rng: random.Random, midnight: datetime) -> 
 
 
 def join(api: SentinelCore, operator: Operator, organization_id: int) -> str:
-    """Brings `operator` in by invitation; returns the password chosen,
-    which is used to sign in and then forgotten."""
+    """Brings `operator` in by invitation; returns the password chosen."""
     password = secrets.token_urlsafe(18)
     api.add_person(
         operator.username, operator.email, password, operator.role, organization_id
@@ -152,10 +202,17 @@ def seed_demo(
     started_at = now or datetime.now(UTC)
     midnight = started_at.replace(hour=0, minute=0, second=0, microsecond=0)
     organization = build_organization(
-        rng, started_at, "", HISTORY_DAYS, through_now=True
+        rng,
+        started_at,
+        "",
+        HISTORY_DAYS,
+        through_now=True,
+        domain=ACME.domain,
+        office_ip=ACME.office_ip,
+        first_home=ACME.first_home,
     )
 
-    acme = owner.create_organization("Acme", "acme")
+    acme = owner.create_organization(ACME.name, ACME.slug)
     # The key the organization's VPN reports sign-ins with; it stays active.
     owner.create_api_key(acme, "Corporate VPN", "vpn", 365)
     user_ids = {
@@ -164,8 +221,10 @@ def seed_demo(
         )
         for person in organization.people
     }
-    admin.log_in(ADMIN.email, join(owner, ADMIN, acme))
+    admin_password = join(owner, ADMIN, acme)
+    admin.log_in(ADMIN.email, admin_password)
     analyst.log_in(ANALYST.email, join(owner, ANALYST, acme))
+    accounts = [Account("acme-admin.txt", ADMIN.email, admin_password)]
 
     backfilled: list[Attack] = []
     live: list[Attack] = []
@@ -185,6 +244,42 @@ def seed_demo(
     ]
     history.sort(key=lambda sign_in: sign_in.occurred_at)
     owner.ingest([sign_in.payload() for sign_in in history])
+    people = {ACME.name: len(organization.people) + 2}
+
+    # The quiet organizations, drawn after Acme so its history stays the
+    # same for a seed. Usernames are unique across the platform.
+    taken = {person.handle for person in organization.people}
+    taken |= {ADMIN.username, ANALYST.username}
+    quiet: dict[Tenant, int] = {}
+    for tenant, admin_of in ((GLOBEX, GLOBEX_ADMIN), (INITECH, INITECH_ADMIN)):
+        quiet_organization = build_quiet_organization(
+            rng,
+            started_at,
+            QUIET_PEOPLE[tenant],
+            HISTORY_DAYS,
+            through_now=True,
+            domain=tenant.domain,
+            office_ip=tenant.office_ip,
+            first_home=tenant.first_home,
+            taken=frozenset(taken),
+        )
+        taken |= {person.handle for person in quiet_organization.people}
+        quiet[tenant] = owner.create_organization(tenant.name, tenant.slug)
+        owner.create_api_key(quiet[tenant], "Corporate VPN", "vpn", 365)
+        for person in quiet_organization.people:
+            owner.add_person(
+                person.handle, person.email, person.password, "user", quiet[tenant]
+            )
+        accounts.append(
+            Account(
+                f"{tenant.slug}-admin.txt",
+                admin_of.email,
+                join(owner, admin_of, quiet[tenant]),
+            )
+        )
+        owner.ingest([sign_in.payload() for sign_in in quiet_organization.sign_ins])
+        history += quiet_organization.sign_ins
+        people[tenant.name] = len(quiet_organization.people) + 1
 
     for attack in live:
         for step in attack.steps:
@@ -194,12 +289,19 @@ def seed_demo(
                 owner.grant_admin(step.user_id)
     respond(owner, admin, analyst, acme, organization, user_ids, live)
 
+    for email in UNKNOWN_EMAILS:
+        owner.sign_in_with_wrong_password(email)
+    # Last: its members are signed out and its key refused from now on.
+    owner.suspend_organization(quiet[INITECH])
+
     return Seeded(
         started_at=started_at,
-        people=len(organization.people) + 2,
+        people=sum(people.values()),
         sign_ins=len(history),
         backfilled_attacks=len(backfilled),
         live_attacks=len(live),
+        organizations=people,
+        accounts=accounts,
     )
 
 
@@ -236,8 +338,8 @@ def respond(
     owner.change_role(user_ids[organization.active[19].email], "security_analyst")
 
     for handle in NEW_HIRES:
-        admin.invite(f"{handle}@sim.example.com")
-    withdrawn, _ = admin.invite(f"{WITHDRAWN}@sim.example.com")
+        admin.invite(f"{handle}@{ACME.domain}")
+    withdrawn, _ = admin.invite(f"{WITHDRAWN}@{ACME.domain}")
     admin.revoke_invitation(withdrawn)
 
     # A key for a system that was retired.
@@ -268,15 +370,36 @@ def place_alerts_at_event_time(
     return len(alerts)
 
 
+def write_accounts(directory: Path, accounts: list[Account]) -> None:
+    """One file per account in `directory`, readable by the user alone. The
+    passwords are never printed."""
+    for account in accounts:
+        path = directory / account.file
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        # An older file keeps its mode through O_CREAT.
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w") as file:
+            file.write(
+                "SentinelCore demo account (local only)\n"
+                f"email: {account.email}\n"
+                f"password: {account.password}\n"
+            )
+
+
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m simulator.demo",
-        description="Fill the demo database with ninety days of a synthetic "
-        "organization.",
+        description="Fill the demo database with ninety days of three synthetic "
+        "organizations.",
     )
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--owner-email", required=True)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--accounts-dir",
+        type=Path,
+        help="Where to write the admins' passwords, one file each, mode 600.",
+    )
     parser.add_argument(
         "--database-url",
         default=os.environ.get("MIGRATIONS_DATABASE_URL")
@@ -329,8 +452,15 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         engine.dispose()
 
+    if args.accounts_dir is not None:
+        write_accounts(args.accounts_dir, seeded.accounts)
+
+    organizations = ", ".join(
+        f"{name} {count}" for name, count in seeded.organizations.items()
+    )
     print(
-        f"Demo ready: {seeded.people} people, {seeded.sign_ins} sign-ins over "
+        f"Demo ready: {seeded.people} people ({organizations}; "
+        f"{INITECH.name} suspended), {seeded.sign_ins} sign-ins over "
         f"{HISTORY_DAYS} days, {seeded.backfilled_attacks} attacks in the "
         f"history and {seeded.live_attacks} today, {moved} alerts placed at "
         "their event's time."
