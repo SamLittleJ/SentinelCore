@@ -13,6 +13,7 @@ import { invitationLink } from '@/features/auth/invitation-link'
 import { ActionForm, ActionNotice, ConfirmForm, type Notice } from '@/features/org/ActionForm'
 import type { AssignableRole, Invitation, NewInvitation } from '@/features/org/api'
 import { useCreateInvitation, useInvitations, useRevokeInvitation } from '@/features/org/hooks'
+import { useOrganizationName } from '@/features/org/organization-column'
 import { OrganizationField } from '@/features/org/OrganizationField'
 import {
   canRevokeInvitation,
@@ -371,6 +372,7 @@ function InvitationsTable({
 }) {
   const { t } = useTranslation()
   const format = useFormatters()
+  const organizationOf = useOrganizationName()
 
   return (
     <div className={cn('w-full overflow-x-auto', !bare && 'rounded-lg border bg-card')}>
@@ -381,6 +383,11 @@ function InvitationsTable({
               {t('invitations.person')}
             </th>
             {/* On phones the role and state move under the email. */}
+            {organizationOf && (
+              <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+                {t('organizations.column')}
+              </th>
+            )}
             <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
               {t('invitations.role')}
             </th>
@@ -423,9 +430,19 @@ function InvitationsTable({
                     <span className="mt-1 flex flex-wrap items-center gap-2 sm:hidden">
                       <span className="text-xs">{t(`roles.${invitation.role}`)}</span>
                       <InvitationStateBadge state={state} />
+                      {organizationOf && (
+                        <span className="text-xs text-muted-foreground">
+                          {organizationOf(invitation.organization_id)}
+                        </span>
+                      )}
                     </span>
                   </div>
                 </td>
+                {organizationOf && (
+                  <td className="hidden max-w-40 truncate px-4 py-2.5 sm:table-cell">
+                    {organizationOf(invitation.organization_id)}
+                  </td>
+                )}
                 <td className="hidden px-4 py-2.5 whitespace-nowrap sm:table-cell">
                   {t(`roles.${invitation.role}`)}
                 </td>

@@ -18,12 +18,17 @@ import {
   fetchUserActivity,
   fetchUsers,
   type LogQuery,
+  createOrganization,
+  reactivateOrganization,
+  renameOrganization,
   revokeApiKey,
   revokeInvitation,
   revokeUserSessions,
   type SecurityEvent,
+  suspendOrganization,
 } from './api'
 import { type LogFilters, searchQuery, sinceFor, type TimeRange } from './filters'
+import { useViewedOrganization } from './organization-view'
 import type { UserFilters } from './user-filters'
 
 // Everything under this key is organization data, not the reader's own.
@@ -57,8 +62,9 @@ function useLogPages<Item, Type extends string>(
   filters: LogFilters<Type>,
   fetchPage: (query: LogQuery, signal: AbortSignal) => Promise<Page<Item>>,
 ) {
+  const organizationId = useViewedOrganization()
   return useInfiniteQuery({
-    queryKey: [...key, filters],
+    queryKey: [...key, organizationId, filters],
     queryFn: async ({ pageParam, signal }): Promise<AnchoredPage<Item>> => {
       // The time window starts when the first page loads. Later pages keep
       // that start, so loading more never shifts the window.
@@ -70,6 +76,7 @@ function useLogPages<Item, Type extends string>(
           targetUserId: filters.targetUserId,
           since,
           beforeId: pageParam?.beforeId,
+          organizationId,
         },
         signal,
       )
@@ -107,9 +114,10 @@ export function useAuditLogs(filters: LogFilters<AuditEventType>) {
 /** The counts behind the organization overview. They are not audited, but
  * they reload only with the incidents beside them, so the two never disagree. */
 export function useSecuritySummary() {
+  const organizationId = useViewedOrganization()
   return useQuery({
-    queryKey: securitySummaryKey,
-    queryFn: ({ signal }) => fetchSecuritySummary(signal),
+    queryKey: [...securitySummaryKey, organizationId],
+    queryFn: ({ signal }) => fetchSecuritySummary(organizationId, signal),
     refetchOnWindowFocus: false,
   })
 }
@@ -117,14 +125,16 @@ export function useSecuritySummary() {
 /** The latest incidents for the overview. Reading them is audited, like any
  * read of the event log. */
 export function useRecentIncidents() {
+  const organizationId = useViewedOrganization()
   return useQuery({
-    queryKey: recentIncidentsKey,
+    queryKey: [...recentIncidentsKey, organizationId],
     queryFn: ({ signal }) =>
       fetchSecurityEvents(
         {
           severity: ['incident'],
           since: sinceFor(RECENT_INCIDENTS_RANGE),
           limit: RECENT_INCIDENTS,
+          organizationId,
         },
         signal,
       ),
@@ -135,11 +145,18 @@ export function useRecentIncidents() {
 // Reading accounts is audited too, so these do not reload on window focus.
 
 export function useUsers(filters: UserFilters) {
+  const organizationId = useViewedOrganization()
   return useInfiniteQuery({
-    queryKey: [...userListKey, filters],
+    queryKey: [...userListKey, organizationId, filters],
     queryFn: ({ pageParam, signal }) =>
       fetchUsers(
-        { search: filters.search, roles: filters.roles, state: filters.state, beforeId: pageParam },
+        {
+          search: filters.search,
+          roles: filters.roles,
+          state: filters.state,
+          beforeId: pageParam,
+          organizationId,
+        },
         signal,
       ),
     initialPageParam: null as number | null,
@@ -202,9 +219,10 @@ export function useRevokeUserSessions(userId: number) {
 
 /** Every API key. Listing them is audited, so they reload only on request. */
 export function useApiKeys() {
+  const organizationId = useViewedOrganization()
   return useQuery({
-    queryKey: apiKeysKey,
-    queryFn: ({ signal }) => fetchApiKeys(signal),
+    queryKey: [...apiKeysKey, organizationId],
+    queryFn: ({ signal }) => fetchApiKeys(organizationId, signal),
     refetchOnWindowFocus: false,
   })
 }
@@ -234,9 +252,10 @@ export function useRevokeApiKey() {
 
 /** Every invitation. Listing them is audited, so they reload only on request. */
 export function useInvitations() {
+  const organizationId = useViewedOrganization()
   return useQuery({
-    queryKey: invitationsKey,
-    queryFn: ({ signal }) => fetchInvitations(signal),
+    queryKey: [...invitationsKey, organizationId],
+    queryFn: ({ signal }) => fetchInvitations(organizationId, signal),
     refetchOnWindowFocus: false,
   })
 }
@@ -264,13 +283,46 @@ export function useRevokeInvitation() {
   return useMutation({ mutationFn: revokeInvitation, onSettled: afterChange })
 }
 
-/** The platform's organizations, for the owner's forms. Listing them is
- * audited, so they load once per page and on request. */
+/** The platform's organizations, for the owner's picker, forms and columns.
+ * Listing them is audited, so they load once and then only after a change or
+ * on request, not each time another part of the page asks for them. */
 export function useOrganizations(enabled: boolean) {
   return useQuery({
     queryKey: organizationsKey,
     queryFn: ({ signal }) => fetchOrganizations(signal),
     enabled,
+    staleTime: Infinity,
     refetchOnWindowFocus: false,
   })
+}
+
+/** A change to an organization shows in its list, in both logs, and in the
+ * summary; suspending one also closes its members' sessions. */
+function useAfterOrganizationChange() {
+  const queryClient = useQueryClient()
+  return () => {
+    for (const queryKey of [organizationsKey, securityEventsKey, auditLogsKey, securitySummaryKey]) {
+      void queryClient.invalidateQueries({ queryKey })
+    }
+  }
+}
+
+export function useCreateOrganization() {
+  const afterChange = useAfterOrganizationChange()
+  return useMutation({ mutationFn: createOrganization, onSettled: afterChange })
+}
+
+export function useRenameOrganization() {
+  const afterChange = useAfterOrganizationChange()
+  return useMutation({ mutationFn: renameOrganization, onSettled: afterChange })
+}
+
+export function useSuspendOrganization() {
+  const afterChange = useAfterOrganizationChange()
+  return useMutation({ mutationFn: suspendOrganization, onSettled: afterChange })
+}
+
+export function useReactivateOrganization() {
+  const afterChange = useAfterOrganizationChange()
+  return useMutation({ mutationFn: reactivateOrganization, onSettled: afterChange })
 }

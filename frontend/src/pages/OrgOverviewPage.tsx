@@ -10,7 +10,13 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { SecurityEventType, Severity } from '@/features/account/api'
-import type { AccountState, SecurityEvent, SecuritySummary } from '@/features/org/api'
+import type {
+  AccountState,
+  OrganizationLevel,
+  SecurityEvent,
+  SecuritySummary,
+  ThreatLevel,
+} from '@/features/org/api'
 import { DEFAULT_RANGE, type LogFilters, writeLogFilters } from '@/features/org/filters'
 import {
   recentIncidentsKey,
@@ -21,6 +27,7 @@ import {
 import { LogDetails } from '@/features/org/LogDetails'
 import { accountLabel, accountLinks } from '@/features/org/records'
 import { techniqueName } from '@/features/org/mitre'
+import { useOrganizationView } from '@/features/org/organization-view'
 import { securityEventFields, techniqueBadge } from '@/features/org/security-event-fields'
 import { writeUserFilters } from '@/features/org/user-filters'
 import { useFormatters } from '@/lib/format'
@@ -48,6 +55,8 @@ export function OrgOverviewPage() {
   const queryClient = useQueryClient()
   const summary = useSecuritySummary()
   const incidents = useRecentIncidents()
+  // Only the owner's summary of the whole platform lists organizations.
+  const levels = summary.data?.organizations ?? null
 
   const refreshing = summary.isFetching || incidents.isFetching
   const refresh = () => {
@@ -59,8 +68,8 @@ export function OrgOverviewPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title={t('orgOverview.title')}
-        description={t('orgOverview.subtitle')}
+        title={levels ? t('orgOverview.platformTitle') : t('orgOverview.title')}
+        description={levels ? t('orgOverview.platformSubtitle') : t('orgOverview.subtitle')}
         actions={
           <div className="flex flex-col items-start gap-1 sm:items-end">
             <Button variant="outline" disabled={refreshing} onClick={refresh}>
@@ -80,6 +89,15 @@ export function OrgOverviewPage() {
       />
 
       <SummaryTiles summary={summary} />
+
+      {levels && (
+        <section aria-labelledby="organizations-by-level" className="flex flex-col gap-3">
+          <SectionHeading id="organizations-by-level" help={t('orgOverview.byLevelHelp')}>
+            {t('orgOverview.byLevel')}
+          </SectionHeading>
+          <OrganizationsByLevel levels={levels} />
+        </section>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <section aria-labelledby="recent-incidents" className="flex flex-col gap-3">
@@ -333,6 +351,92 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
         fields={selected ? securityEventFields(selected, t, format) : []}
         actions={selected ? accountLinks(selected, t) : []}
       />
+    </div>
+  )
+}
+
+const LEVEL_DOTS: Record<ThreatLevel, string> = {
+  calm: 'bg-sev-ok',
+  warn: 'bg-sev-warn',
+  incident: 'bg-sev-incident',
+}
+
+const LEVEL_TEXT: Record<ThreatLevel, string> = {
+  calm: 'text-sev-ok',
+  warn: 'text-sev-warn',
+  incident: 'text-sev-incident',
+}
+
+/** Every organization and the platform at their level, the worst first.
+ * Picking one shows only its data on every page. Counts only, from the
+ * summary, so nothing here is audited. */
+function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
+  const { t } = useTranslation()
+  const format = useFormatters()
+  const { choose } = useOrganizationView()
+
+  return (
+    <div className="w-full overflow-x-auto rounded-lg border bg-card">
+      <table aria-label={t('orgOverview.byLevel')} className="w-full text-left text-sm">
+        <thead className="text-xs text-muted-foreground">
+          <tr className="border-b">
+            <th scope="col" className="px-4 py-2.5 font-medium">
+              {t('organizations.organization')}
+            </th>
+            <th scope="col" className="px-4 py-2.5 font-medium">
+              {t('orgOverview.level')}
+            </th>
+            <th scope="col" className="px-4 py-2.5 text-right font-medium">
+              {t('orgOverview.incidents24h')}
+            </th>
+            <th scope="col" className="hidden px-4 py-2.5 text-right font-medium sm:table-cell">
+              {t('orgOverview.warnings24h')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {levels.map((level) => (
+            <tr key={level.id ?? 'platform'} className="border-b last:border-b-0">
+              <td className="min-w-40 px-4 py-2.5">
+                <span className="flex flex-wrap items-center gap-2">
+                  {level.id === null ? (
+                    <span className="text-muted-foreground">{t('organizations.platform')}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => choose(level.id)}
+                      aria-label={t('orgOverview.show', { name: level.name })}
+                      className="rounded-sm text-left font-medium hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                      {level.name}
+                    </button>
+                  )}
+                  {level.suspended && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {t('organizations.states.suspended')}
+                    </span>
+                  )}
+                </span>
+              </td>
+              <td className="px-4 py-2.5 whitespace-nowrap">
+                {/* The level is written out, never shown by color alone. */}
+                <span className="flex items-center gap-2">
+                  <span aria-hidden className={cn('size-2 rounded-full', LEVEL_DOTS[level.threat_level])} />
+                  <span className={cn('label-mono', LEVEL_TEXT[level.threat_level])}>
+                    {t(`band.levels.${level.threat_level}`)}
+                  </span>
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums">
+                {format.number(level.last_24h.incident)}
+              </td>
+              <td className="hidden px-4 py-2.5 text-right font-mono text-xs tabular-nums sm:table-cell">
+                {format.number(level.last_24h.warn)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

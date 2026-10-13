@@ -8,11 +8,18 @@ export interface User {
   username: string
   email: string
   role: Role
+  // Null for the platform owner, who belongs to no organization.
+  organization_id: number | null
   is_active: boolean
   // Set while an operator's lock is in force or after it expired.
   locked_until: string | null
   created_at: string
   updated_at: string
+}
+
+/** The signed-in account, with the name of its organization. */
+export interface CurrentUser extends User {
+  organization: { id: number; name: string; slug: string } | null
 }
 
 // Roles that may use the organization perspective, as enforced by the API.
@@ -30,8 +37,8 @@ export function isAccountLockedError(error: unknown): boolean {
   return error instanceof ApiError && error.status === 403 && error.detail === ACCOUNT_LOCKED_DETAIL
 }
 
-export function fetchCurrentUser(signal?: AbortSignal): Promise<User> {
-  return apiRequest<User>('/users/me', { signal })
+export function fetchCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
+  return apiRequest<CurrentUser>('/users/me', { signal })
 }
 
 // Browser login: the backend answers 204 and sets the httpOnly session cookie.

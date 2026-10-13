@@ -39,3 +39,13 @@ class OrganizationRead(BaseModel):
     suspended_at: datetime | None
     # Accounts that belong to it, active or not.
     members: int
+
+
+class OrganizationBrief(BaseModel):
+    """Who an account belongs to, as its member sees it."""
+
+    id: int
+    name: str
+    slug: str
+
+    model_config = ConfigDict(from_attributes=True)

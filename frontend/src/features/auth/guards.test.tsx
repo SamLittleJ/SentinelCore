@@ -71,14 +71,16 @@ describe('route guards and navigation', () => {
       signedInAs(makeUser(role))
       renderApp('/org')
 
+      // The owner looks at the whole platform; a member at their organization.
+      const owner = role === 'owner'
       const scope = await screen.findByRole('navigation', { name: 'Perspectivă' })
-      expect(within(scope).getByRole('link', { name: 'Organizația' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      )
+      expect(
+        within(scope).getByRole('link', { name: owner ? 'Platformă' : 'Acme' }),
+      ).toHaveAttribute('aria-current', 'page')
       const nav = screen.getByRole('navigation', { name: 'Navigare principală' })
       expect(within(nav).getByRole('link', { name: 'Evenimente de securitate' })).toBeInTheDocument()
       expect(within(nav).getByRole('link', { name: 'Chei API' })).toBeInTheDocument()
+      expect(within(nav).queryByRole('link', { name: 'Organizații' }) !== null).toBe(owner)
     },
   )
 

@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { User } from '@/features/auth/api'
+import type { CurrentUser } from '@/features/auth/api'
 import { useLogOut } from '@/features/auth/hooks'
 import { THEMES, useTheme, type Theme } from '@/features/theme/theme-context'
 import { LANGUAGES, type Language } from '@/i18n'
@@ -25,7 +25,7 @@ const THEME_LABEL_KEYS = {
 
 const LANGUAGE_NAMES: Record<Language, string> = { ro: 'Română', en: 'English' }
 
-export function AccountMenu({ user }: { user: User }) {
+export function AccountMenu({ user }: { user: CurrentUser }) {
   const { t, i18n } = useTranslation()
   const { theme, setTheme } = useTheme()
   const logOut = useLogOut()
@@ -47,6 +47,7 @@ export function AccountMenu({ user }: { user: User }) {
           <span className="truncate font-medium">{user.username}</span>
           <span className="label-mono truncate text-muted-foreground">
             {t(`roles.${user.role}`)}
+            {user.organization && ` · ${user.organization.name}`}
           </span>
         </span>
         <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />

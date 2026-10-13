@@ -20,6 +20,7 @@ import { securityEventsKey, useSecurityEvents } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
 import { LogFilterBar } from '@/features/org/LogFilterBar'
 import { LogTable } from '@/features/org/LogTable'
+import { useOrganizationColumn } from '@/features/org/organization-column'
 import { accountLabel, accountLinks, narrowingActions } from '@/features/org/records'
 import { securityEventFields, techniqueBadge } from '@/features/org/security-event-fields'
 import { ApiError } from '@/lib/api'
@@ -33,6 +34,7 @@ export function OrgEventsPage() {
   const filters = useMemo(() => readLogFilters(params, SECURITY_EVENT_TYPES), [params])
   const events = useSecurityEvents(filters)
   const [selected, setSelected] = useState<SecurityEvent | null>(null)
+  const organizationColumn = useOrganizationColumn<SecurityEvent>()
 
   const describe = (type: SecurityEventType) => t(`orgEvents.types.${type}`)
   const applyFilters = (next: LogFilters<SecurityEventType>) => {
@@ -80,6 +82,7 @@ export function OrgEventsPage() {
             annotate={techniqueBadge}
             onSelect={setSelected}
             columns={[
+              ...organizationColumn,
               {
                 header: t('orgLog.severity'),
                 cell: (event) => <SeverityBadge severity={event.severity} />,

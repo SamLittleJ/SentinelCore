@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import database_now
 from app.core.metrics import record_security_event
+from app.models.organization import Organization
 from app.models.security_event import (
     DETECTION_SOURCE,
     MITRE_TECHNIQUES,
@@ -18,6 +19,7 @@ from app.schemas.security_event import (
     AccountActivityFilters,
     FailedLoginSource,
     LatestDetection,
+    OrganizationLevel,
     SecurityEventFilters,
     SecuritySummary,
     SeverityBucket,
@@ -182,6 +184,13 @@ def _techniques(
     ]
 
 
+def _level_of(incidents: int, detections: bool) -> ThreatLevel:
+    """An incident outweighs a detection alert; with neither, all is calm."""
+    if incidents:
+        return "incident"
+    return "warn" if detections else "calm"
+
+
 def _threat_level(
     db: Session, in_scope: list[ColumnElement[bool]], since: datetime, incidents: int
 ) -> ThreatLevel:
@@ -196,7 +205,70 @@ def _threat_level(
         )
         .limit(1)
     )
-    return "warn" if detection is not None else "calm"
+    return _level_of(incidents, detection is not None)
+
+
+LEVEL_RANK: dict[ThreatLevel, int] = {"incident": 2, "warn": 1, "calm": 0}
+
+
+def _organization_levels(db: Session, since: datetime) -> list[OrganizationLevel]:
+    """The level and counts of every organization and of the platform since
+    `since`, the worst first, for the owner's overview."""
+    activity = {
+        organization_id: (
+            SeverityCounts(info=info, warn=warn, incident=incident),
+            detections > 0,
+        )
+        for organization_id, info, warn, incident, detections in db.execute(
+            select(
+                SecurityEvent.organization_id,
+                func.count().filter(SecurityEvent.severity == SecuritySeverity.INFO),
+                func.count().filter(SecurityEvent.severity == SecuritySeverity.WARN),
+                func.count().filter(
+                    SecurityEvent.severity == SecuritySeverity.INCIDENT
+                ),
+                func.count().filter(SecurityEvent.source == DETECTION_SOURCE),
+            )
+            .where(SecurityEvent.created_at >= since)
+            .group_by(SecurityEvent.organization_id)
+        )
+    }
+    organizations = db.execute(
+        select(
+            Organization.id,
+            Organization.name,
+            Organization.slug,
+            Organization.suspended_at,
+        )
+    ).all()
+
+    levels = []
+    for organization_id, name, slug, suspended_at in [
+        (None, None, None, None),
+        *organizations,
+    ]:
+        counts, detections = activity.get(organization_id, (SeverityCounts(), False))
+        levels.append(
+            OrganizationLevel(
+                id=organization_id,
+                name=name,
+                slug=slug,
+                suspended=suspended_at is not None,
+                threat_level=_level_of(counts.incident, detections),
+                last_24h=counts,
+            )
+        )
+    # The platform comes after the organizations at the same level.
+    return sorted(
+        levels,
+        key=lambda level: (
+            -LEVEL_RANK[level.threat_level],
+            -level.last_24h.incident,
+            -level.last_24h.warn,
+            level.id is None,
+            level.name or "",
+        ),
+    )
 
 
 def _latest_detection(
@@ -304,4 +376,5 @@ def get_security_summary(db: Session, scope: Scope) -> SecuritySummary:
         hourly=_severity_buckets(db, in_scope, now, timedelta(hours=1), 24),
         daily=_severity_buckets(db, in_scope, now, timedelta(days=1), 7),
         techniques_7d=_techniques(db, in_scope, week_ago),
+        organizations=_organization_levels(db, day_ago) if scope.everything else None,
     )

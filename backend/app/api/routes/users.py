@@ -12,12 +12,19 @@ from app.api.deps import (
     require_role,
 )
 from app.models.audit_log import AuditEventType
+from app.models.organization import Organization
 from app.models.security_event import SecurityEventType, SecuritySeverity
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
+from app.schemas.organization import OrganizationBrief
 from app.schemas.pagination import Page
 from app.schemas.security_event import AccountActivityFilters, MyActivityRead
-from app.schemas.user import SessionRead, SessionsRevoked, UserRead
+from app.schemas.user import (
+    CurrentUserRead,
+    SessionRead,
+    SessionsRevoked,
+    UserRead,
+)
 from app.services.audit_service import create_audit_log
 from app.services.security_event_service import (
     create_security_event,
@@ -33,11 +40,24 @@ from app.services.session_service import (
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/me", response_model=UserRead)
+@router.get("/me", response_model=CurrentUserRead)
 def read_current_user(
+    db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> UserRead:
-    return current_user
+) -> CurrentUserRead:
+    # The session is already limited to the reader's organization, so this
+    # can only find their own.
+    organization = (
+        db.get(Organization, current_user.organization_id)
+        if current_user.organization_id is not None
+        else None
+    )
+    return CurrentUserRead(
+        **UserRead.model_validate(current_user).model_dump(),
+        organization=(
+            OrganizationBrief.model_validate(organization) if organization else None
+        ),
+    )
 
 
 @router.get("/admin-only")

@@ -1,7 +1,7 @@
 import { Navigate, type RouteObject } from 'react-router'
 
 import { AppShell } from '@/components/layout/AppShell'
-import { RequireAuth, RequireOrganizationAccess } from '@/features/auth/guards'
+import { RequireAuth, RequireOrganizationAccess, RequireOwner } from '@/features/auth/guards'
 import { INVITE_PATH } from '@/features/auth/invitation-link'
 import { AcceptInvitationPage } from '@/pages/AcceptInvitationPage'
 import { LoginPage } from '@/pages/LoginPage'
@@ -13,6 +13,7 @@ import {
   OrgApiKeysPage,
   OrgAuditPage,
   OrgEventsPage,
+  OrgOrganizationsPage,
   OrgOverviewPage,
   OrgUserPage,
   OrgUsersPage,
@@ -42,6 +43,10 @@ export const appRoutes: RouteObject[] = [
               { path: 'users', element: <OrgUsersPage /> },
               { path: 'users/:userId', element: <OrgUserPage /> },
               { path: 'api-keys', element: <OrgApiKeysPage /> },
+              {
+                element: <RequireOwner />,
+                children: [{ path: 'organizations', element: <OrgOrganizationsPage /> }],
+              },
             ],
           },
           { path: '*', element: <NotFoundPage /> },

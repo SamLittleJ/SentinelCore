@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.main import app
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.invitation import Invitation
+from app.models.organization import Organization
 from app.models.security_event import (
     SecurityEvent,
     SecurityEventType,
@@ -289,6 +290,73 @@ def test_an_organization_without_detections_stays_calm_beside_others(
     assert initech["latest_detection"] is None
     assert initech["techniques_7d"] == []
     assert sum(bucket["warn"] for bucket in initech["daily"]) == 0
+
+
+def test_the_owners_summary_ranks_every_organization_and_the_platform(
+    client: TestClient, db_session: Session, platform: Platform
+) -> None:
+    # Globex has an incident; Acme only the detections of its admins joining
+    # (T1098); Initech, suspended, nothing; the platform a failed sign-in on
+    # an email no account has, which is no detection.
+    db_session.add(
+        SecurityEvent(
+            event_type=SecurityEventType.BRUTE_FORCE_DETECTED,
+            severity=SecuritySeverity.INCIDENT,
+            email="gina@example.com",
+            organization_id=platform.globex,
+            message="seeded",
+        )
+    )
+    initech = organization_id(db_session, "initech")
+    db_session.execute(
+        update(Organization)
+        .where(Organization.id == initech)
+        .values(suspended_at=func.now())
+    )
+    db_session.commit()
+    fail_login(client, "nobody@example.com")
+
+    levels = summary_counts(client, platform.owner)["organizations"]
+
+    # At one level, more incidents and then more warnings come first.
+    assert [(level["slug"], level["threat_level"]) for level in levels] == [
+        ("globex", "incident"),
+        ("acme", "warn"),
+        (None, "calm"),
+        ("initech", "calm"),
+    ]
+    assert [level["suspended"] for level in levels] == [False, False, False, True]
+    platform_level = levels[2]
+    assert platform_level["id"] is None
+    # The owner's own sign-in is info, also the platform's.
+    assert platform_level["last_24h"]["warn"] == 1
+    assert platform_level["last_24h"]["incident"] == 0
+    # Each organization's row agrees with its own summary.
+    for level in levels:
+        if level["id"] is None:
+            continue
+        own = summary_counts(client, platform.owner, organization_id=level["id"])
+        assert level["last_24h"] == own["last_24h"]
+        assert level["threat_level"] == own["threat_level"]
+
+
+@pytest.mark.parametrize("reader", ["ada", "ana"])
+def test_only_the_owners_whole_platform_summary_lists_organizations(
+    client: TestClient, platform: Platform, reader: str
+) -> None:
+    assert summary_counts(client, getattr(platform, reader))["organizations"] is None
+    named = summary_counts(client, platform.owner, organization_id=platform.acme)
+    assert named["organizations"] is None
+
+
+def test_an_account_reads_the_name_of_its_own_organization(
+    client: TestClient, platform: Platform
+) -> None:
+    me = client.get("/users/me", headers=platform.ada).json()
+    assert me["organization"] == {"id": platform.acme, "name": "Acme", "slug": "acme"}
+
+    owner = client.get("/users/me", headers=platform.owner).json()
+    assert owner["organization"] is None
 
 
 @pytest.mark.parametrize(

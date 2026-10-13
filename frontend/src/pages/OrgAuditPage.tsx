@@ -18,6 +18,7 @@ import { auditLogsKey, useAuditLogs } from '@/features/org/hooks'
 import { LogDetails } from '@/features/org/LogDetails'
 import { LogFilterBar } from '@/features/org/LogFilterBar'
 import { LogTable } from '@/features/org/LogTable'
+import { useOrganizationColumn } from '@/features/org/organization-column'
 import { accountLabel, accountLinks, narrowingActions, recordFields } from '@/features/org/records'
 import { ApiError } from '@/lib/api'
 
@@ -28,6 +29,7 @@ export function OrgAuditPage() {
   const filters = useMemo(() => readLogFilters(params, AUDIT_EVENT_TYPES), [params])
   const logs = useAuditLogs(filters)
   const [selected, setSelected] = useState<AuditLog | null>(null)
+  const organizationColumn = useOrganizationColumn<AuditLog>()
 
   const describe = (type: AuditEventType) => t(`audit.types.${type}`)
   const applyFilters = (next: LogFilters<AuditEventType>) => {
@@ -73,6 +75,7 @@ export function OrgAuditPage() {
             describe={(log) => describe(log.event_type)}
             onSelect={setSelected}
             columns={[
+              ...organizationColumn,
               {
                 header: t('orgLog.account'),
                 cell: (log) => accountLabel(log, t),

@@ -5,18 +5,21 @@ import { NavLink, Outlet, useLocation } from 'react-router'
 
 import { Wordmark } from '@/components/brand/Logomark'
 import { Skeleton } from '@/components/ui/skeleton'
-import { canViewOrganization, type User } from '@/features/auth/api'
+import { canViewOrganization, type CurrentUser } from '@/features/auth/api'
 import { useCurrentUser } from '@/features/auth/hooks'
 import { useSecuritySummary } from '@/features/org/hooks'
+import { OrganizationPicker } from '@/features/org/OrganizationPicker'
+import { OrganizationViewProvider } from '@/features/org/OrganizationViewProvider'
 import { ThreatBand } from '@/features/org/ThreatBand'
 import { cn } from '@/lib/utils'
 
 import { AccountMenu } from './AccountMenu'
 import { CommandPalette } from './CommandPalette'
-import { NAV, type NavItem, scopeOf } from './navigation'
+import { type NavItem, navItems, scopeName, scopeOf } from './navigation'
 
-function ScopeSwitch({ inOrganization }: { inOrganization: boolean }) {
+function ScopeSwitch({ user, inOrganization }: { user: CurrentUser; inOrganization: boolean }) {
   const { t } = useTranslation()
+  const organization = scopeName('organization', user, t)
   const option = (active: boolean) =>
     cn(
       'label-mono -mb-px border-b-2 px-2 py-2 text-center transition-colors',
@@ -30,8 +33,13 @@ function ScopeSwitch({ inOrganization }: { inOrganization: boolean }) {
       <NavLink to="/me" className={option(!inOrganization)} aria-current={!inOrganization ? 'page' : undefined}>
         {t('scope.personal')}
       </NavLink>
-      <NavLink to="/org" className={option(inOrganization)} aria-current={inOrganization ? 'page' : undefined}>
-        {t('scope.organization')}
+      <NavLink
+        to="/org"
+        title={organization}
+        className={cn(option(inOrganization), 'truncate')}
+        aria-current={inOrganization ? 'page' : undefined}
+      >
+        {organization}
       </NavLink>
     </nav>
   )
@@ -83,7 +91,7 @@ function NavEntry({ item, badge }: { item: NavItem; badge?: boolean }) {
   )
 }
 
-function Sidebar({ user, onOpenPalette }: { user: User; onOpenPalette: () => void }) {
+function Sidebar({ user, onOpenPalette }: { user: CurrentUser; onOpenPalette: () => void }) {
   const { t } = useTranslation()
   const location = useLocation()
   const scope = scopeOf(location.pathname)
@@ -108,10 +116,12 @@ function Sidebar({ user, onOpenPalette }: { user: User; onOpenPalette: () => voi
         </kbd>
       </button>
 
-      {canViewOrganization(user) && <ScopeSwitch inOrganization={inOrganization} />}
+      {canViewOrganization(user) && <ScopeSwitch user={user} inOrganization={inOrganization} />}
+
+      {inOrganization && user.role === 'owner' && <OrganizationPicker />}
 
       <nav aria-label={t('nav.label')} className="flex gap-1 overflow-x-auto [scrollbar-width:thin] md:flex-col md:overflow-visible">
-        {NAV[scope].map((item) => (
+        {navItems(scope, user).map((item) => (
           <NavEntry key={item.to} item={item} badge={inOrganization && item.label === 'nav.securityEvents'} />
         ))}
       </nav>
@@ -158,21 +168,23 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
-      <Sidebar user={user} onOpenPalette={() => setPaletteOpen(true)} />
-      <main className="min-w-0 flex-1">
-        {inOrganization && canViewOrganization(user) && <ThreatBand />}
-        <div className="px-4 pt-8 pb-12 md:px-8 md:pt-12">
-          {/* One centered column for every page, so titles keep their place
-              when moving between pages and wide screens stay balanced. */}
-          <div className="mx-auto w-full max-w-5xl">
-            <Suspense fallback={<PageLoader />}>
-              <Outlet />
-            </Suspense>
+    <OrganizationViewProvider enabled={user.role === 'owner'}>
+      <div className="flex min-h-screen flex-col md:flex-row">
+        <Sidebar user={user} onOpenPalette={() => setPaletteOpen(true)} />
+        <main className="min-w-0 flex-1">
+          {inOrganization && canViewOrganization(user) && <ThreatBand />}
+          <div className="px-4 pt-8 pb-12 md:px-8 md:pt-12">
+            {/* One centered column for every page, so titles keep their place
+                when moving between pages and wide screens stay balanced. */}
+            <div className="mx-auto w-full max-w-5xl">
+              <Suspense fallback={<PageLoader />}>
+                <Outlet />
+              </Suspense>
+            </div>
           </div>
-        </div>
-      </main>
-      <CommandPalette user={user} open={paletteOpen} onOpenChange={setPaletteOpen} />
-    </div>
+        </main>
+        <CommandPalette user={user} open={paletteOpen} onOpenChange={setPaletteOpen} />
+      </div>
+    </OrganizationViewProvider>
   )
 }

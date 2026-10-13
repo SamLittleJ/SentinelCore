@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 
 import type { ActivityEvent, Page, Session } from '@/features/account/api'
-import type { Role, User } from '@/features/auth/api'
+import type { CurrentUser, Role, User } from '@/features/auth/api'
 import type {
   ApiKey,
   AuditLog,
@@ -13,12 +13,16 @@ import type {
   SeverityBucket,
 } from '@/features/org/api'
 
-export function makeUser(role: Role = 'user', overrides: Partial<User> = {}): User {
+/** An account of Acme, or the platform owner, who belongs to none. As the
+ * signed-in account, it carries its organization's name too. */
+export function makeUser(role: Role = 'user', overrides: Partial<CurrentUser> = {}): CurrentUser {
   return {
     id: 7,
     username: 'elena.radu',
     email: 'elena.radu@example.com',
     role,
+    organization_id: role === 'owner' ? null : 1,
+    organization: role === 'owner' ? null : { id: 1, name: 'Acme', slug: 'acme' },
     is_active: true,
     locked_until: null,
     created_at: '2026-03-14T09:30:00Z',
@@ -66,6 +70,7 @@ export function makeSecurityEvent(overrides: Partial<SecurityEvent> = {}): Secur
     created_at: '2026-10-06T08:15:00Z',
     occurred_at: null,
     mitre_technique: null,
+    organization_id: 1,
     ...overrides,
   }
 }
@@ -80,6 +85,7 @@ export function makeAuditLog(overrides: Partial<AuditLog> = {}): AuditLog {
     ip_address: '192.0.2.44',
     message: 'Listed users with no filters',
     created_at: '2026-10-06T09:00:00Z',
+    organization_id: 1,
     ...overrides,
   }
 }
@@ -156,6 +162,7 @@ export function makeSummary(overrides: Partial<SecuritySummary> = {}): SecurityS
     users_total: 1,
     users_inactive: 0,
     accounts_locked: 0,
+    organizations: null,
     ...overrides,
   }
 }
@@ -182,7 +189,7 @@ export const server = setupServer(
 )
 
 /** The API answers as if `user` is signed in (or nobody, for null). */
-export function signedInAs(user: User | null) {
+export function signedInAs(user: User | CurrentUser | null) {
   server.use(
     http.get('/api/users/me', () =>
       user === null

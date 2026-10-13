@@ -26,6 +26,11 @@ export const AUDIT_EVENT_TYPES = [
   'invitation_created',
   'invitation_revoked',
   'invitations_viewed',
+  'organization_created',
+  'organization_renamed',
+  'organization_suspended',
+  'organization_reactivated',
+  'organizations_viewed',
 ] as const
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number]
 
@@ -49,6 +54,8 @@ export interface SecurityEvent {
   occurred_at: string | null
   // The MITRE ATT&CK technique a detection stands for, e.g. "T1110.003".
   mitre_technique: string | null
+  // Null for the platform's own records.
+  organization_id: number | null
 }
 
 export interface AuditLog {
@@ -60,6 +67,8 @@ export interface AuditLog {
   ip_address: string | null
   message: string | null
   created_at: string
+  // Null for the platform's own records.
+  organization_id: number | null
 }
 
 /** Filters shared by both logs; the API matches email and IP exactly. */
@@ -72,6 +81,8 @@ export interface LogQuery {
   beforeId?: number | null
   // Page size; the API defaults to 50.
   limit?: number
+  // The platform owner's choice; nobody else may send it.
+  organizationId?: number | null
 }
 
 export interface SecurityEventQuery extends LogQuery {
@@ -92,7 +103,14 @@ function logParams(query: LogQuery): URLSearchParams {
   if (query.targetUserId !== undefined) params.set('target_user_id', String(query.targetUserId))
   if (query.beforeId) params.set('before_id', String(query.beforeId))
   if (query.limit !== undefined) params.set('limit', String(query.limit))
+  setOrganization(params, query.organizationId)
   return params
+}
+
+/** Names the organization the platform owner is looking at; with none, the
+ * API answers for all of them. */
+function setOrganization(params: URLSearchParams, organizationId: number | null | undefined) {
+  if (organizationId != null) params.set('organization_id', String(organizationId))
 }
 
 function withQuery(path: string, params: URLSearchParams): string {
@@ -165,10 +183,29 @@ export interface SecuritySummary {
   daily: SeverityBucket[]
   // Alerts per technique over 7 days, the most frequent first.
   techniques_7d: TechniqueCount[]
+  // Every organization and the platform, the worst first; only in the
+  // owner's summary of the whole platform, null otherwise.
+  organizations: OrganizationLevel[] | null
 }
 
-export function fetchSecuritySummary(signal?: AbortSignal): Promise<SecuritySummary> {
-  return apiRequest<SecuritySummary>('/security/summary', { signal })
+/** One organization's last 24 hours, for the owner's overview. `id`, `name`
+ * and `slug` are null for the platform's own records. */
+export interface OrganizationLevel {
+  id: number | null
+  name: string | null
+  slug: string | null
+  suspended: boolean
+  threat_level: ThreatLevel
+  last_24h: SeverityCounts
+}
+
+export function fetchSecuritySummary(
+  organizationId: number | null,
+  signal?: AbortSignal,
+): Promise<SecuritySummary> {
+  const params = new URLSearchParams()
+  setOrganization(params, organizationId)
+  return apiRequest<SecuritySummary>(withQuery('/security/summary', params), { signal })
 }
 
 // Account states the user list filters by. The API filters `is_active` and
@@ -182,6 +219,7 @@ export interface UserQuery {
   roles?: readonly Role[]
   state?: AccountState
   beforeId?: number | null
+  organizationId?: number | null
 }
 
 export function fetchUsers(query: UserQuery, signal?: AbortSignal): Promise<Page<User>> {
@@ -197,6 +235,7 @@ export function fetchUsers(query: UserQuery, signal?: AbortSignal): Promise<Page
     params.set('is_active', 'false')
   }
   if (query.beforeId) params.set('before_id', String(query.beforeId))
+  setOrganization(params, query.organizationId)
   return apiRequest<Page<User>>(withQuery('/admin/users', params), { signal })
 }
 
@@ -294,8 +333,10 @@ export interface NewApiKey {
 }
 
 /** Every key, newest first. Listing them is audited. */
-export function fetchApiKeys(signal?: AbortSignal): Promise<ApiKey[]> {
-  return apiRequest<ApiKey[]>('/admin/api-keys', { signal })
+export function fetchApiKeys(organizationId: number | null, signal?: AbortSignal): Promise<ApiKey[]> {
+  const params = new URLSearchParams()
+  setOrganization(params, organizationId)
+  return apiRequest<ApiKey[]>(withQuery('/admin/api-keys', params), { signal })
 }
 
 export function createApiKey(input: NewApiKey): Promise<CreatedApiKey> {
@@ -342,8 +383,13 @@ export interface NewInvitation {
 }
 
 /** Every invitation, newest first. Listing them is audited. */
-export function fetchInvitations(signal?: AbortSignal): Promise<Invitation[]> {
-  return apiRequest<Invitation[]>('/admin/invitations', { signal })
+export function fetchInvitations(
+  organizationId: number | null,
+  signal?: AbortSignal,
+): Promise<Invitation[]> {
+  const params = new URLSearchParams()
+  setOrganization(params, organizationId)
+  return apiRequest<Invitation[]>(withQuery('/admin/invitations', params), { signal })
 }
 
 export function createInvitation(input: NewInvitation): Promise<CreatedInvitation> {
@@ -367,4 +413,35 @@ export interface Organization {
 /** Every organization, for the platform owner. Listing them is audited. */
 export function fetchOrganizations(signal?: AbortSignal): Promise<Organization[]> {
   return apiRequest<Organization[]>('/admin/organizations', { signal })
+}
+
+export interface NewOrganization {
+  name: string
+  // Lowercase letters, digits and inner hyphens; it never changes.
+  slug: string
+}
+
+export function createOrganization(input: NewOrganization): Promise<Organization> {
+  return apiRequest<Organization>('/admin/organizations', { method: 'POST', body: input })
+}
+
+export function renameOrganization(input: { id: number; name: string }): Promise<Organization> {
+  return apiRequest<Organization>(`/admin/organizations/${input.id}`, {
+    method: 'PATCH',
+    body: { name: input.name },
+  })
+}
+
+/** Closes every member's session and refuses their sign-ins and the
+ * organization's API keys until it is reactivated. Its data stays. */
+export function suspendOrganization(organizationId: number): Promise<Organization> {
+  return apiRequest<Organization>(`/admin/organizations/${organizationId}/suspend`, {
+    method: 'POST',
+  })
+}
+
+export function reactivateOrganization(organizationId: number): Promise<Organization> {
+  return apiRequest<Organization>(`/admin/organizations/${organizationId}/reactivate`, {
+    method: 'POST',
+  })
 }

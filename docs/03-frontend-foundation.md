@@ -608,3 +608,55 @@ The tests cover the only organization chosen already and sent, the choice among 
 Reverse check: each of the following changes makes at least one test fail: no automatic choice, suspended organizations offered, a key form valid without an organization, the owner's invitation or the key request without it, and the field shown to admins (6 of 6).
 
 End-to-end check: on the demo, headless Firefox took the API key form (dark) and the invitation form (light, and dark at phone width) with "Acme" chosen; no horizontal scrolling at phone width.
+
+## Stage 12: Several organizations
+
+### 63. Names of the scope
+
+The organization scope is named after the reader: "Platformă" for the platform owner, the organization's name for a member, read from `GET /users/me` (`scopeName` in `components/layout/navigation.ts`). The name shows in the scope switch, the page headers, the command palette and, beside the role, in the account menu.
+
+### 64. The owner's choice of organization
+
+- One picker in the sidebar, for the owner only, sets the organization of every organization page at once: overview, band, incident badge, both logs, users, invitations and API keys. The queries send it as `organization_id` and keep it in their keys. Members never send it, even with one in the address: the API would answer `403`.
+- The address holds the choice (`?org=3`, or `?org=all`), so a link opens the same view and Back restores the previous one. Pages rewrite their address with each filter, and links inside the pages do not carry it, so `OrganizationViewProvider` (`features/org/OrganizationViewProvider.tsx`) also remembers the last choice seen, reads it while the address holds none, and puts it back. Without that, every such step would load every organization's records once in between, and each of those loads is audited in each organization it returns.
+- Choosing writes only to the address, never to the remembered value first. Navigation updates the address a moment later, and a choice written first would be overwritten by the old address in between, so "all organizations" could not be chosen after one.
+- An address naming an organization that does not exist falls back to all of them.
+- The organizations list is audited, so it loads once and then only after a change to an organization or on request (`staleTime: Infinity`), not each time the picker, a form or a column asks for it.
+
+### 65. Organization column
+
+While the owner views every organization, the logs, users, invitations and API keys show which organization each row belongs to, or "Platformă" for the platform's own records (`features/org/organization-column.tsx`). With one organization chosen, and for members, the column would repeat one name and is left out. On phones the name moves under the row's main line, as the role and state do.
+
+### 66. Organizations page
+
+`/org/organizations` (`pages/OrgOrganizationsPage.tsx`), for the owner only: the route is behind `RequireOwner` and the menu entry is shown to the owner alone, last, so the other pages keep their numbers for everyone.
+
+- The list shows each organization's name, slug, state (written out, not by color alone), members and creation date.
+- Creating one suggests a slug from the name (diacritics and symbols removed) until the slug is edited by hand. The name and slug rules mirror the API's (`features/org/organizations.ts`), so the form says what is wrong before sending; a taken name or slug gets its own message.
+- Renaming keeps the slug and waits for a different, valid name.
+- Suspending signs out every member at once, so the owner types the organization's slug before the confirmation becomes available. It uses the page's confirmation step, as every other action does, rather than a modal dialog. Reactivating asks for a plain confirmation.
+- After each change, the list, both logs and the summary reload.
+
+### 67. Platform overview
+
+For the owner viewing every organization, the overview is "Prezentarea platformei" and adds "Organizații după nivel": each organization and the platform with its level, written out beside its color, and its incidents and warnings over 24 hours, from the summary's new `organizations` field. A suspended organization is marked. Choosing an organization's name opens its view on every page.
+
+### 68. Event types
+
+The interface now names `organization_created`, `organization_renamed`, `organization_suspended` and `organization_reactivated` (security events, personal and organization views) and `organizations_viewed` (audit log).
+
+### 69. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 237 passed
+- build -> successful; the organizations page loads on demand as its own chunk
+- npm audit -> 0 vulnerabilities
+- Gitleaks on `frontend/src` -> no leaks found
+
+The new tests cover: the slug suggested from a name and the name and slug rules; the list with states and members; creating with a suggested slug, then one edited by hand; a slug refused before sending; a taken name; renaming; suspending only once the slug is typed; reactivating; an admin refused the page without loading the list; the scope named "Platformă" for the owner and "Acme" for a member, and the menu entry for the owner only; the picker's options, suspended ones marked; the column shown for every organization and gone after choosing one, with every request, the band's included, naming it; the choice kept through a filter and a menu link, with no request for every organization in between; an unknown organization falling back to all; the platform overview's ranking and opening one organization from it; a member with the organization's name, no picker, no column and no `organization_id` sent.
+
+Reverse check: each of the following changes makes at least one test fail: the choice not put back in the address, no remembered choice while the address has none, members allowed a choice, the column shown with one organization chosen, the user list or the summary ignoring the choice, an unknown organization kept, suspending without typing the slug, the slug not following the name until edited, no owner guard on the page, the menu entry shown to admins, the scope not named after the organization, diacritics kept in the slug, and renaming to the same name (14 of 14). The column check was missed at first, because the test kept looking at the table shown before the choice; it now looks at whichever table is shown.
+
+End-to-end check: on a temporary database, the API ran as `sentinelcore_app`; the owner created Acme, Globex and Initech through the API, people joined by invitation, a brute force against an Acme account raised an incident, two sign-ins failed on unknown emails, and Initech was suspended. Headless Firefox took the platform overview (dark and light, and dark at phone width), the organizations page with the suspension step and the slug typed (dark, and light at phone width), the event log with the organization column (light), the overview with Acme chosen (dark), and an Acme admin's event log (dark), named "Acme", with no picker and no column. The overview ranked Acme (active incident), Globex (warning), the platform and Initech (suspended, calm).
+
