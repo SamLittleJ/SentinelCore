@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# `make demo`: a fresh demo database with ninety days of a synthetic
-# organization, then the backend and the frontend running on it until Ctrl+C.
+# `make demo`: a fresh demo database with ninety days of three synthetic
+# organizations, then the backend and the frontend running on it until Ctrl+C.
 #
 # Everything stays on this machine: PostgreSQL from docker-compose.yml, the
-# backend on 127.0.0.1:8000, the frontend on localhost:5173. The owner's
-# password is random, written only to .demo/owner.txt (mode 600, ignored by
-# git) and never printed.
+# backend on 127.0.0.1:8000, the frontend on localhost:5173. The passwords are
+# random, written only to .demo/ (the owner's to owner.txt, each admin's to
+# <organization>-admin.txt; mode 600, ignored by git) and never printed.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -83,15 +83,16 @@ for _ in $(seq 1 30); do
 done
 curl -sf http://127.0.0.1:8000/health >/dev/null || fail "the backend did not answer; see .demo/backend.log"
 
-echo "==> Ninety days of a synthetic organization"
+echo "==> Ninety days of three synthetic organizations"
 (cd "$ROOT/backend" && SENTINELCORE_OWNER_PASSWORD="$OWNER_PASSWORD" \
-  "$PYTHON" -m simulator.demo --owner-email "$OWNER_EMAIL")
+  "$PYTHON" -m simulator.demo --owner-email "$OWNER_EMAIL" --accounts-dir "$DEMO_DIR")
 unset OWNER_PASSWORD
 
 cat <<INFO
 
 SentinelCore demo: http://localhost:5173
 Sign in as $OWNER_EMAIL; the password is in .demo/owner.txt.
+The admins of Acme, Globex and Initech (suspended) are in .demo/*-admin.txt.
 The data is synthetic. Ctrl+C stops the demo; 'make demo-clean' removes it.
 
 INFO

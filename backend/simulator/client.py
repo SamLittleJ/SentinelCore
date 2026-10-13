@@ -63,6 +63,13 @@ class SentinelCore:
         )
         return check(response, f"Creating organization {slug}").json()["id"]
 
+    def suspend_organization(self, organization_id: int) -> None:
+        response = self.http.post(
+            f"/admin/organizations/{organization_id}/suspend",
+            headers=self.as_operator,
+        )
+        check(response, "Suspending an organization")
+
     def create_api_key(
         self,
         organization_id: int,

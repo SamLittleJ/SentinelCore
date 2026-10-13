@@ -9,8 +9,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.api_key import ApiKey
 from app.models.invitation import Invitation
+from app.models.organization import Organization
 from app.models.security_event import (
     DETECTION_SOURCE,
     SecurityEvent,
@@ -22,17 +24,23 @@ from app.services.user_service import create_owner
 from simulator.attacks import plan_attacks
 from simulator.client import SentinelCore
 from simulator.demo import (
+    ACME,
     DETECTION_DELAY,
+    GLOBEX,
     HISTORY_DAYS,
+    INITECH,
     JITTER,
     TODAY,
+    UNKNOWN_EMAILS,
     WINDOWS,
+    Account,
     main,
     place_alerts_at_event_time,
     place_in_history,
     seed_demo,
+    write_accounts,
 )
-from simulator.population import build_organization
+from simulator.population import build_organization, build_quiet_organization
 from tests.conftest import rewriting_history
 
 OWNER_EMAIL = "owner@sim.example.com"
@@ -188,10 +196,10 @@ def test_the_demo_looks_like_ninety_days_watched_live(
         assert alert.created_at < midnight
     assert len({alert.created_at.date() for alert in history}) >= 10
 
-    # Today: the live attacks, two operators and a promotion to roles that
-    # reach every account.
+    # Today: the live attacks, Acme's two operators and a promotion, and the
+    # admins of Globex and Initech: roles that reach every account.
     found_today = Counter(alert.event_type.value for alert in today)
-    assert found_today["privileged_role_granted"] == TODAY["privileged-role"] + 3
+    assert found_today["privileged_role_granted"] == TODAY["privileged-role"] + 5
     # The lockout raises it, from this application's own sign-ins.
     brute_force = db_session.scalars(
         select(SecurityEvent).where(
@@ -213,7 +221,185 @@ def test_the_demo_looks_like_ninety_days_watched_live(
     assert sorted((key.source, key.revoked_at is None) for key in keys) == [
         ("idp", False),
         ("vpn", True),
+        ("vpn", True),
+        ("vpn", True),
     ]
+
+
+def a_workday_afternoon() -> datetime:
+    """A workday afternoon in the past, so the morning's routine is certain."""
+    day = datetime.now(UTC) - timedelta(days=1)
+    while day.weekday() >= 5:
+        day -= timedelta(days=1)
+    return day.replace(hour=15, minute=30, second=0, microsecond=0)
+
+
+def test_the_demo_keeps_three_organizations_apart(
+    operators: tuple[SentinelCore, SentinelCore, SentinelCore],
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    seeded = seed_demo(*operators, seed=7, now=a_workday_afternoon())
+    db_session.expire_all()
+
+    organizations = {
+        organization.slug: organization
+        for organization in db_session.scalars(select(Organization))
+    }
+    assert set(organizations) == {"acme", "globex", "initech"}
+    assert organizations["initech"].suspended_at is not None
+    assert organizations["acme"].suspended_at is None
+    assert seeded.organizations == {"Acme": 38, "Globex": 13, "Initech": 7}
+
+    # Each organization's people on its own domain, the owner on none.
+    for tenant in (ACME, GLOBEX, INITECH):
+        members = db_session.scalars(
+            select(User).where(User.organization_id == organizations[tenant.slug].id)
+        ).all()
+        assert members
+        assert all(user.email.endswith(f"@{tenant.domain}") for user in members)
+
+    def alerts_of(slug: str | None) -> Counter[str]:
+        organization_id = organizations[slug].id if slug else None
+        return Counter(
+            alert.event_type.value
+            for alert in db_session.scalars(
+                select(SecurityEvent).where(
+                    SecurityEvent.source == DETECTION_SOURCE,
+                    SecurityEvent.organization_id.is_not_distinct_from(organization_id),
+                )
+            )
+        )
+
+    # The quiet organizations raise nothing but their admin joining (T1098);
+    # the platform's failures on unknown emails raise nothing at all.
+    assert alerts_of("globex") == {"privileged_role_granted": 1}
+    assert alerts_of("initech") == {"privileged_role_granted": 1}
+    assert alerts_of(None) == {}
+    assert alerts_of("acme")["password_spray_detected"] >= 5
+    platform_failures = db_session.scalars(
+        select(SecurityEvent.email).where(
+            SecurityEvent.organization_id.is_(None),
+            SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
+        )
+    ).all()
+    assert sorted(email or "" for email in platform_failures) == sorted(UNKNOWN_EMAILS)
+
+    # Everything Acme's key reported names its domain, the spray's guessed
+    # addresses included.
+    reported_by_acme = db_session.scalars(
+        select(SecurityEvent.email).where(
+            SecurityEvent.organization_id == organizations["acme"].id,
+            SecurityEvent.source == "vpn",
+        )
+    ).all()
+    assert all(
+        email is not None and email.endswith(f"@{ACME.domain}")
+        for email in reported_by_acme
+    )
+    assert f"admin@{ACME.domain}" in reported_by_acme
+
+    # The routine of each quiet organization was reported through its key.
+    for slug in ("globex", "initech"):
+        reported = db_session.scalars(
+            select(SecurityEvent).where(
+                SecurityEvent.organization_id == organizations[slug].id,
+                SecurityEvent.source == "vpn",
+            )
+        ).all()
+        assert len(reported) > 100
+
+    # Signing in as the admins written for the presentation: Globex's sees
+    # Globex only; Initech's is refused, as a deactivated account is.
+    accounts = {account.file: account for account in seeded.accounts}
+    assert set(accounts) == {"acme-admin.txt", "globex-admin.txt", "initech-admin.txt"}
+    globex_admin = SentinelCore(client)
+    globex_admin.log_in(
+        accounts["globex-admin.txt"].email, accounts["globex-admin.txt"].password
+    )
+    events = client.get(
+        "/security/events", params={"limit": 200}, headers=globex_admin.as_operator
+    )
+    assert events.status_code == 200
+    assert {event["organization_id"] for event in events.json()["items"]} == {
+        organizations["globex"].id
+    }
+    refused = client.post(
+        "/auth/login",
+        json={
+            "email": accounts["initech-admin.txt"].email,
+            "password": accounts["initech-admin.txt"].password,
+        },
+    )
+    assert refused.status_code == 403
+    assert refused.json() == {"detail": "Inactive user"}
+
+
+def test_a_quiet_organization_keeps_to_its_routine() -> None:
+    acme = build_organization(
+        random.Random(3), NOW, "", HISTORY_DAYS, domain=ACME.domain
+    )
+    taken = frozenset(person.handle for person in acme.people)
+    globex = build_quiet_organization(
+        random.Random(3),
+        NOW,
+        12,
+        HISTORY_DAYS,
+        domain=GLOBEX.domain,
+        office_ip=GLOBEX.office_ip,
+        first_home=GLOBEX.first_home,
+        taken=taken,
+    )
+
+    assert len(globex.active) == 12
+    assert (globex.dormant, globex.idle, globex.returning) == ([], [], None)
+    assert not taken & {person.handle for person in globex.people}
+    assert all(person.email.endswith("@globex.example") for person in globex.people)
+    assert [person.home for person in globex.people] == list(range(40, 52))
+    # Only the office and home networks, with the usual devices: no trip, new
+    # laptop or password change day.
+    addresses = {sign_in.ip_address for sign_in in globex.sign_ins}
+    assert GLOBEX.office_ip in addresses
+    assert ACME.office_ip not in addresses
+    assert all(
+        address == GLOBEX.office_ip or address.startswith(("198.18.", "2001:db8:"))
+        for address in addresses
+        if address is not None
+    )
+    # Never as many failures in a day as a password spray needs, as on a
+    # password change day.
+    failures_per_day = Counter(
+        sign_in.occurred_at.date()
+        for sign_in in globex.sign_ins
+        if not sign_in.succeeded
+    )
+    assert max(failures_per_day.values()) < settings.detection_spray_min_accounts
+    assert [case.name for case in globex.cases] == ["routine"]
+
+
+def test_the_admins_passwords_are_written_for_the_user_alone(tmp_path) -> None:
+    stale = tmp_path / "globex-admin.txt"
+    stale.write_text("old")
+    stale.chmod(0o644)
+
+    write_accounts(
+        tmp_path,
+        [
+            Account("acme-admin.txt", "andreea.vasile@acme.example", "first-secret-1"),
+            Account(
+                "globex-admin.txt", "matei.radulescu@globex.example", "second-secret"
+            ),
+        ],
+    )
+
+    for name in ("acme-admin.txt", "globex-admin.txt"):
+        assert (tmp_path / name).stat().st_mode & 0o777 == 0o600
+    assert (tmp_path / "globex-admin.txt").read_text() == (
+        "SentinelCore demo account (local only)\n"
+        "email: matei.radulescu@globex.example\n"
+        "password: second-secret\n"
+    )
+    assert "second-secret" not in repr(Account("x", "y", "second-secret"))
 
 
 # The command line

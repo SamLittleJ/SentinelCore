@@ -4621,3 +4621,35 @@ The new tests in `tests/test_tenant_isolation.py` cover: the owner's ranking of 
 
 Reverse check: each of the following changes makes at least one test fail: the list given to every reader, detections not raising the level, rows not ranked, the platform's row left out, suspension not shown, and `/users/me` without the organization (6 of 6).
 
+## Demo with three organizations
+
+### 336. Purpose of the stage
+
+The last of the five stages: `make demo` shows the platform as it is meant to run, with several organizations kept apart, instead of one.
+
+### 337. Three organizations
+
+- **Acme** is the demo as before: 36 people, an admin, an analyst, the attacks spread across ninety days, today's live attacks and the operators' response. Its addresses moved from `sim.example.com` to `acme.example`, and the spray's guessed addresses now take the organization's domain (`spray_targets` in `simulator/attacks.py`). For a seed, its history is the same as before: the refactoring below was checked to give the same sign-ins for several seeds.
+- **Globex** (12 people) and **Initech** (6) are quiet: their people keep to the plain routine only, with nobody back from a long leave, travelling, on a new device or changing a password. `build_quiet_organization` (`simulator/population.py`) builds them from the same day of routine as Acme's people (`usual_day`, taken out of `build_organization`). Each has its admin, whose role raises the only alert of the organization (T1098), and its own VPN key.
+- Each organization has its own email domain, reserved for examples (RFC 2606), its own office address and its own range of home networks. Usernames are unique across the platform, so the quiet organizations' people are drawn among names no one else has taken. They are drawn after Acme's attacks are planned, so Acme's history does not depend on them.
+- Today, besides Acme's events, three sign-ins fail at this application's own login on emails no account has: they belong to the platform, and are too few for a password spray. Last, the owner suspends Initech through the API: its members are signed out and its key refused from then on. Nothing is backdated: the suspension happens at the time of the run.
+- The owner's overview ranks Acme (an active incident), Globex and Initech (a warning each, from the admin joining) and the platform (calm).
+
+### 338. Accounts for a presentation
+
+`python -m simulator.demo --accounts-dir DIR` writes each admin's password to `DIR/<organization>-admin.txt`, created with mode 600 and set to it if the file was there already (`write_accounts`); `make demo` passes `.demo/`, beside the owner's file. The passwords are never printed, and `Account` keeps them out of its `repr`. Signing in as Globex's admin shows Globex alone; Initech's admin is refused as a deactivated account is.
+
+### 339. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` and `simulator` -> 0 errors
+- pytest -> 551 passed
+- Gitleaks on `backend`, `docs` and `scripts` -> no leaks found
+
+The new tests cover: the whole demo in-process with three organizations, Initech suspended and the others not, each organization's people on its own domain, Globex and Initech raising only their admin's alert, the platform's failures on unknown emails with no alert, everything Acme's key reported on Acme's domain, each quiet organization's routine reported through its key, Globex's admin seeing only Globex and Initech's admin refused; a quiet organization's people, homes, office and domain, none of another organization's usernames, and never as many failures in a day as a spray needs; and the account files written for the user alone, also over an older file.
+
+Reverse check: each of the following changes makes at least one test fail: other organizations' usernames allowed, the domain ignored, home networks not offset, the office address ignored, the spray guessing on the old domain, a password change day in a quiet organization, Initech not suspended, no platform failures, the quiet organizations without their own key, an admin's file not written (Acme's or another's), and an older file keeping its mode (12 of 12).
+
+End-to-end check: `make demo` on this machine built the three organizations (58 people, 4,812 sign-ins, 35 attacks in the history and 3 today, 18 alerts placed at their event's time) and served the app; the four account files had mode 600. Through the running API, the owner's summary ranked Acme (incident), Globex and Initech (warning, Initech suspended) and the platform (calm); Globex's admin signed in and saw Globex's events only, named "Globex"; Initech's admin got `403 Inactive user`; Acme's admin signed in.
+

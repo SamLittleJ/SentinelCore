@@ -65,6 +65,8 @@ BROWSER_UPDATE_DAY = 15
 
 # Documentation and benchmarking address ranges, never routed on the internet.
 OFFICE_IP = "192.0.2.10"
+# Reserved for examples (RFC 2606): no real company owns it.
+DOMAIN = "sim.example.com"
 HOTEL_NETWORK = "100.64.50."
 CONFERENCE_NETWORK = "100.64.70."
 
@@ -166,28 +168,46 @@ class Organization:
     active: list[Person]
     dormant: list[Person]
     idle: list[Person]
-    returning: Person
+    # Back from a long leave; none in a quiet organization.
+    returning: Person | None
     sign_ins: list[SignIn]
     cases: list[BenignCase]
+    domain: str = DOMAIN
 
     @property
     def people(self) -> list[Person]:
-        return [*self.active, *self.dormant, *self.idle, self.returning]
+        returning = [self.returning] if self.returning else []
+        return [*self.active, *self.dormant, *self.idle, *returning]
 
 
-def make_people(rng: random.Random, tag: str) -> list[Person]:
-    """Distinct people; `tag`, when given, keeps their emails apart from
-    earlier runs on the same database."""
-    names = [(first, last) for first in FIRST_NAMES for last in LAST_NAMES]
-    chosen = rng.sample(names, ACTIVE_PEOPLE + DORMANT_PEOPLE + IDLE_PEOPLE + 1)
+def make_people(
+    rng: random.Random,
+    tag: str,
+    count: int = ACTIVE_PEOPLE + DORMANT_PEOPLE + IDLE_PEOPLE + 1,
+    domain: str = DOMAIN,
+    first_home: int = 0,
+    taken: frozenset[str] = frozenset(),
+) -> list[Person]:
+    """`count` distinct people; `tag`, when given, keeps their emails apart
+    from earlier runs on the same database. Usernames are unique across the
+    platform, so handles in `taken`, another organization's, are left out;
+    home networks are numbered from `first_home`."""
+    names = [
+        (first, last)
+        for first in FIRST_NAMES
+        for last in LAST_NAMES
+        if f"{first}.{last}" not in taken
+    ]
+    chosen = rng.sample(names, count)
     people = []
-    for home, (first, last) in enumerate(chosen):
+    for index, (first, last) in enumerate(chosen):
         handle = f"{first}.{last}"
         local_part = f"{handle}.{tag}" if tag else handle
+        home = first_home + index
         people.append(
             Person(
                 handle=handle,
-                email=f"{local_part}@sim.example.com",
+                email=f"{local_part}@{domain}",
                 password=secrets.token_urlsafe(18),
                 home=home,
                 laptop=rng.choice(LAPTOPS),
@@ -215,17 +235,66 @@ def sign_in_with_typos(
     return [*attempts, SignIn(when, True, person.email, ip, agent)]
 
 
+def usual_day(
+    rng: random.Random,
+    person: Person,
+    day_start: datetime,
+    first_day: bool,
+    office_ip: str,
+    laptop: str,
+    phone: str,
+    old_password_at: datetime | None = None,
+) -> list[SignIn]:
+    """One ordinary day of `person`: the office on workdays, with an
+    occasional typo, often home in the evening, and home now and then at the
+    weekend. On `old_password_at` they type their old password once first."""
+    if first_day:
+        # The organization is older than the window: everyone has used the
+        # office and home before, which the first day stands for.
+        office = SignIn(
+            at(day_start, 8.5, rng, 1.5), True, person.email, office_ip, laptop
+        )
+        home = person.home_address(rng)
+        return [
+            office,
+            SignIn(at(day_start, 18, rng, 4), True, person.email, home, phone),
+        ]
+    if day_start.weekday() < 5:
+        if old_password_at is not None:
+            when, typos = old_password_at, 1
+        else:
+            when = at(day_start, 8.5, rng, 1.5)
+            typos = 1 if rng.random() < ROUTINE_TYPO_RATE else 0
+        sign_ins = sign_in_with_typos(when, person, office_ip, laptop, typos)
+        if rng.random() < EVENING_SIGN_IN_RATE:
+            home = person.home_address(rng)
+            sign_ins.append(
+                SignIn(at(day_start, 18, rng, 4), True, person.email, home, phone)
+            )
+        return sign_ins
+    if rng.random() < WEEKEND_SIGN_IN_RATE:
+        home = person.home_address(rng)
+        return [SignIn(at(day_start, 10, rng, 10), True, person.email, home, phone)]
+    return []
+
+
 def build_organization(
     rng: random.Random,
     now: datetime,
     tag: str,
     history_days: int = HISTORY_DAYS,
     through_now: bool = False,
+    *,
+    domain: str = DOMAIN,
+    office_ip: str = OFFICE_IP,
+    first_home: int = 0,
+    taken: frozenset[str] = frozenset(),
 ) -> Organization:
     """The organization and `history_days` of its routine, ending the day
     before `now`, or at `now` itself when `through_now`: the demo shows this
-    morning too."""
-    people = make_people(rng, tag)
+    morning too. The demo gives each of its organizations its own email
+    domain, office address and home networks."""
+    people = make_people(rng, tag, domain=domain, first_home=first_home, taken=taken)
     active = people[:ACTIVE_PEOPLE]
     dormant = people[ACTIVE_PEOPLE : ACTIVE_PEOPLE + DORMANT_PEOPLE]
     idle = people[ACTIVE_PEOPLE + DORMANT_PEOPLE : -1]
@@ -265,43 +334,22 @@ def build_organization(
                 continue
             if person is new_phone and day <= NEW_PHONE_DAY:
                 phone = user_agent(next(d for d in PHONES if d != person.phone), day)
-            if day == history_days:
-                # The organization is older than the window: everyone has used
-                # the office and home before, which the first day stands for.
-                sign_ins.append(
-                    SignIn(
-                        at(day_start, 8.5, rng, 1.5),
-                        True,
-                        person.email,
-                        OFFICE_IP,
-                        laptop,
-                    )
-                )
-                home = person.home_address(rng)
-                sign_ins.append(
-                    SignIn(at(day_start, 18, rng, 4), True, person.email, home, phone)
-                )
-            elif workday:
-                if day == rotation_day and index in rotating:
-                    # Everyone types the old password once after the change.
-                    when = day_start + timedelta(hours=9, minutes=rotating.index(index))
-                    typos = 1
-                else:
-                    when = at(day_start, 8.5, rng, 1.5)
-                    typos = 1 if rng.random() < ROUTINE_TYPO_RATE else 0
-                sign_ins += sign_in_with_typos(when, person, OFFICE_IP, laptop, typos)
-                if rng.random() < EVENING_SIGN_IN_RATE:
-                    home = person.home_address(rng)
-                    sign_ins.append(
-                        SignIn(
-                            at(day_start, 18, rng, 4), True, person.email, home, phone
-                        )
-                    )
-            elif rng.random() < WEEKEND_SIGN_IN_RATE:
-                home = person.home_address(rng)
-                sign_ins.append(
-                    SignIn(at(day_start, 10, rng, 10), True, person.email, home, phone)
-                )
+            # Everyone types the old password once after the change.
+            old_password_at = (
+                day_start + timedelta(hours=9, minutes=rotating.index(index))
+                if workday and day == rotation_day and index in rotating
+                else None
+            )
+            sign_ins += usual_day(
+                rng,
+                person,
+                day_start,
+                day == history_days,
+                office_ip,
+                laptop,
+                phone,
+                old_password_at,
+            )
 
     # Accounts that were used long ago, or a while ago, and then left alone;
     # attackers wake them up later. The returning person is back from a long
@@ -326,7 +374,7 @@ def build_organization(
         day_start = midnight - timedelta(days=day)
         agent = user_agent(returning.laptop, day)
         sign_ins.append(
-            SignIn(at(day_start, 8.5, rng, 1), True, returning.email, OFFICE_IP, agent)
+            SignIn(at(day_start, 8.5, rng, 1), True, returning.email, office_ip, agent)
         )
 
     cases = [
@@ -348,7 +396,7 @@ def build_organization(
             f"{PASSWORD_CHANGE_PEOPLE} people type their old password once from "
             "09:00, behind the office's single address",
             "password_spray_detected",
-            ip_addresses=frozenset({OFFICE_IP}),
+            ip_addresses=frozenset({office_ip}),
         ),
         BenignCase(
             "trip_with_known_laptop",
@@ -373,4 +421,44 @@ def build_organization(
     if through_now:
         sign_ins = [sign_in for sign_in in sign_ins if sign_in.occurred_at < now]
     sign_ins.sort(key=lambda sign_in: sign_in.occurred_at)
-    return Organization(active, dormant, idle, returning, sign_ins, cases)
+    return Organization(active, dormant, idle, returning, sign_ins, cases, domain)
+
+
+def build_quiet_organization(
+    rng: random.Random,
+    now: datetime,
+    size: int,
+    history_days: int = HISTORY_DAYS,
+    through_now: bool = False,
+    *,
+    domain: str,
+    office_ip: str,
+    first_home: int,
+    taken: frozenset[str] = frozenset(),
+) -> Organization:
+    """`size` people who only keep to their routine: nobody away for long,
+    travelling or on a new device, and no password change day. Nothing in
+    their history looks like an attack, so a rule that fires on it is a false
+    positive. The demo's organizations besides the attacked one."""
+    people = make_people(rng, "", size, domain, first_home, taken)
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    sign_ins: list[SignIn] = []
+    for day in range(history_days, -1 if through_now else 0, -1):
+        day_start = midnight - timedelta(days=day)
+        for person in people:
+            laptop = user_agent(person.laptop, day)
+            phone = user_agent(person.phone, day) if person.phone else laptop
+            sign_ins += usual_day(
+                rng, person, day_start, day == history_days, office_ip, laptop, phone
+            )
+    if through_now:
+        sign_ins = [sign_in for sign_in in sign_ins if sign_in.occurred_at < now]
+    sign_ins.sort(key=lambda sign_in: sign_in.occurred_at)
+    routine = BenignCase(
+        "routine",
+        "Office sign-ins on workdays (with an occasional typo), evenings and "
+        "weekends from home",
+        None,
+        emails=frozenset(person.email for person in people),
+    )
+    return Organization(people, [], [], None, sign_ins, [routine], domain)

@@ -214,7 +214,7 @@ def spray_targets(
     real = rng.sample(
         [person.email for person in organization.active], count - SPRAY_GUESSES
     )
-    guesses = [f"{name}@sim.example.com" for name in ("admin", "it", "hr")]
+    guesses = [f"{name}@{organization.domain}" for name in ("admin", "it", "hr")]
     return rng.sample(real + guesses, count)
 
 
