@@ -567,3 +567,13 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Documented, not fixed.** The pull request adds the analysis only; each gap it finds is fixed in its own pull request, with the usual checks. It ends with five residual risks and estimates; their order is chosen afterwards.
 - **Scope.** Today's system; containers, the supply chain and cloud infrastructure add their sections in their phases.
 
+
+## Security headers
+
+- **Where the headers come from.** Decided in a grilling session, each with the recommended answer. The API sets its own in a middleware. The console's come from `vite.config.ts`: a relaxed policy for the dev server, and the strict one for `vite preview`, which serves the build. Phase B's nginx copies the preview's headers.
+- **Inline styles allowed, inline scripts not.** Radix adds `<style>` elements, and a nonce would need a server that writes each page. A style cannot run code, and `img-src`, `font-src` and `form-action` keep injected markup from loading from or posting to another site. Scripts are limited to the bundle's own files.
+- **Enforced at once.** There is no report-only phase and no endpoint for violation reports. Such an endpoint would be public and unauthenticated, another surface to abuse, like ingestion. End-to-end runs over every page show whether the policy breaks anything.
+- **The API's answers.** `default-src 'none'; frame-ancestors 'none'`, with `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, so that security data stays out of caches. The same headers are on an unhandled error's `500`.
+- **The documentation pages.** Chosen over hosting Swagger UI and ReDoc locally or turning them off outside development: a narrow policy for `/docs` and `/redoc` that allows their two packages, and Swagger UI's inline script by its hash. The supply chain risk that remains is T-58 in the threat model.
+- **HSTS off by default.** `HSTS_MAX_AGE` sends it once the host is on HTTPS. Browsers remember it, so turning it on by default would lock browsers out of a host on plain HTTP.
+- **Fonts as files.** Vite no longer inlines fonts as `data:` URIs, so `font-src 'self'` holds without allowing `data:` fonts.

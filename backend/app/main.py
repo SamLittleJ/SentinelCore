@@ -18,6 +18,7 @@ from app.api.routes import (
     security,
     users,
 )
+from app.api.security_headers import SecurityHeadersMiddleware, internal_error_handler
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.services.session_cleanup import run_session_cleanup_periodically
@@ -44,6 +45,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="SentinelCore API", version="0.1.0", lifespan=lifespan)
 
 app.middleware("http")(observe_requests)
+# Added last, so it wraps the others and every response they produce. An
+# unhandled error is answered outside every middleware, hence the handler.
+app.add_middleware(SecurityHeadersMiddleware, hsts_max_age=settings.hsts_max_age)
+app.add_exception_handler(Exception, internal_error_handler(settings.hsts_max_age))
 
 app.include_router(health.router)
 app.include_router(metrics.router)

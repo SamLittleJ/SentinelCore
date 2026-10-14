@@ -660,3 +660,57 @@ Reverse check: each of the following changes makes at least one test fail: the c
 
 End-to-end check: on a temporary database, the API ran as `sentinelcore_app`; the owner created Acme, Globex and Initech through the API, people joined by invitation, a brute force against an Acme account raised an incident, two sign-ins failed on unknown emails, and Initech was suspended. Headless Firefox took the platform overview (dark and light, and dark at phone width), the organizations page with the suspension step and the slug typed (dark, and light at phone width), the event log with the organization column (light), the overview with Acme chosen (dark), and an Acme admin's event log (dark), named "Acme", with no picker and no column. The overview ranked Acme (active incident), Globex (warning), the platform and Initech (suspended, calm).
 
+
+## Stage 13: Security headers
+
+### 70. The console's policy
+
+`security-headers.ts`, beside `vite.config.ts`, holds the headers. The config sends `productionHeaders` from `vite preview`, which serves the build, and `developmentHeaders` from the dev server. The production Content Security Policy:
+
+- `script-src 'self'`: only the bundle's own files run. An injected `<script>`, `onclick=` or `javascript:` link does not. `index.html` has no inline script, and the build adds none.
+- `style-src 'self' 'unsafe-inline'`: Radix dialogs and menus add `<style>` elements while they are open (`react-remove-scroll`, through `react-style-singleton`). A nonce would need a server that writes each page. A style cannot run code, and `style={{…}}` goes through the CSS object model, which the policy does not restrict.
+- the other directives:
+  - `img-src 'self' data:` and `font-src 'self'`;
+  - `connect-src 'self'`, since the API is reached through `/api` on the same origin;
+  - `object-src 'none'`, `base-uri 'none'` and `form-action 'self'`;
+  - `frame-ancestors 'none'`.
+
+Besides the policy, the console sends `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a `Permissions-Policy` and `Cross-Origin-Opener-Policy: same-origin`. Whatever serves the build in production (nginx, in phase B) must send the same headers.
+
+### 71. Fonts as files
+
+Vite inlines files under 4 kB into the CSS as `data:` URIs. Four Cyrillic subsets of IBM Plex Sans Condensed (weights 600 and 700) were inlined this way. `font-src 'self'` would have blocked them as soon as a name written in Cyrillic needed them. `build.assetsInlineLimit` now keeps fonts as files, so the policy stays as narrow as it is.
+
+### 72. The dev server
+
+The dev server adds the React Refresh preamble as an inline script and reloads the page over a websocket. Its policy therefore allows `'unsafe-inline'` scripts and `ws:` connections; everything else is the production policy. Firefox reported no violation on the dev server either.
+
+### 73. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 243 passed
+- build -> successful, with no inline script and no `data:` font
+- npm audit -> 0 vulnerabilities
+- Gitleaks on `frontend` -> no leaks found
+
+The new tests cover:
+- the production policy running only the bundle's own scripts, and closing `object-src`, `base-uri`, `connect-src` and `form-action`;
+- inline styles allowed, with nothing else inline and no `eval`;
+- no framing in either policy;
+- the dev policy relaxing scripts and connections only;
+- the dev server and the preview each sending their headers;
+- fonts never inlined.
+
+Reverse check: each of the following changes makes at least one test fail (8 of 8):
+- inline scripts in production;
+- the console framed by its own origin;
+- no `object-src`, or no `X-Frame-Options`;
+- the dev policy relaxing another directive;
+- either server without its headers;
+- fonts inlined again.
+
+End-to-end check, on a temporary database filled by the attack simulator, with `vite preview` serving the build under the production policy:
+- **Every page, no violation.** Headless Firefox, driven over WebDriver BiDi, signed in through the login page. It opened every page of both scopes, dark and light, at desktop and phone width: the owner's overview, both logs, the users and one user, API keys, organizations with the creation form, the account menu and the 404 page, plus `/login` and `/invite`. Across 58 checks there was no policy violation and no horizontal overflow.
+- **The check itself.** A second run with inline styles forbidden blocked the account menu each time it opened (`style-src-elem`, from `react-remove-scroll`). So the check does see violations, and Radix does need inline styles.
+- **Framing.** A page on another origin that framed the console got Firefox's refusal.
