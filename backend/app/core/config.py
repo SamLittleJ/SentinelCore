@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     auth_cookie_secure: bool = True
     # When set, /metrics requires `Authorization: Bearer <token>`.
     metrics_token: SecretStr | None = None
+    # Strict-Transport-Security max-age, in seconds: browsers then refuse to
+    # reach the host over plain HTTP. 0 sends no header; set it only once the
+    # host is served over HTTPS, since browsers remember it.
+    hsts_max_age: int = Field(default=0, ge=0)
 
     @field_validator("secret_key")
     @classmethod

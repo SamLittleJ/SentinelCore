@@ -23,6 +23,7 @@ The app runs at `http://localhost:5173`. Vite forwards `/api/*` requests to the 
 | `npm test` | the Vitest tests |
 | `npm run test:watch` | the tests, rerun on every change |
 | `npm run build` | production build into `dist/` |
+| `npm run preview` | serves the build from `dist/` with the production security headers, forwarding `/api` like the dev server |
 
 ## Structure
 
@@ -43,6 +44,7 @@ src/
 ├── test/            # test setup and the mocked API server (MSW)
 ├── routes.tsx       # the routes, also used by the tests
 └── main.tsx         # entry point
+security-headers.ts  # the headers the dev server and the build's preview send
 ```
 
 ## Authentication
@@ -50,6 +52,15 @@ src/
 Login uses `POST /api/auth/session`. The backend puts the token in an httpOnly cookie that frontend code cannot read. For requests that change data, the API client (`src/lib/api.ts`) reads the `sentinelcore_csrf` cookie and sends it in the `X-CSRF-Token` header.
 
 New accounts come from invitations. An admin or the owner creates one on the Users page and gets a link of the form `/invite#sci_…`, shown once. The token sits in the fragment, which the browser never sends to a server; the public `/invite` page reads it, clears it from the address bar, and sends it to the API in a request body. After the account is created, the page opens `/login` with the email filled in.
+
+## Security headers
+
+`security-headers.ts` holds the headers the console is served with; `vite.config.ts` sends them from both servers.
+
+- **Production** (`npm run preview`): a Content Security Policy that runs only the bundle's own scripts (`script-src 'self'`) and lets no other site frame the console (`frame-ancestors 'none'`, plus `X-Frame-Options: DENY`), with `nosniff`, `Referrer-Policy: no-referrer`, a `Permissions-Policy` and `Cross-Origin-Opener-Policy`. Inline styles stay allowed, because Radix dialogs and menus add `<style>` elements while they are open. Fonts stay files rather than inlined `data:` URIs, so `font-src 'self'` covers them.
+- **Development** (`npm run dev`): the same, except for the inline React Refresh script and the hot reload websocket, which Vite's dev server needs.
+
+Whatever serves the build in production (nginx, in phase B) must send the production headers.
 
 ## Theme and translations
 

@@ -4653,3 +4653,65 @@ Reverse check: each of the following changes makes at least one test fail: other
 
 End-to-end check: `make demo` on this machine built the three organizations (58 people, 4,812 sign-ins, 35 attacks in the history and 3 today, 18 alerts placed at their event's time) and served the app; the four account files had mode 600. Through the running API, the owner's summary ranked Acme (incident), Globex and Initech (warning, Initech suspended) and the platform (calm); Globex's admin signed in and saw Globex's events only, named "Globex"; Initech's admin got `403 Inactive user`; Acme's admin signed in.
 
+
+## Security headers
+
+### 340. Purpose of the stage
+
+The first of the five residual risks in the threat model (T-01, T-03). No response carried a Content Security Policy or anything against framing. A script injected into a page would have run, and another site could show the console in a frame and trick an operator into clicking an action (clickjacking). The choices below were decided in a grilling session, each with the recommended answer.
+
+### 341. Headers on every response
+
+`SecurityHeadersMiddleware` (`app/api/security_headers.py`) is a plain ASGI middleware. It is registered last in `app/main.py`, so it wraps the request middleware and every response the application produces. JSON answers get:
+
+- `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`: a browser that opens an API answer as a page runs, loads and frames nothing;
+- `X-Content-Type-Options: nosniff`, so an answer is never read as HTML because of what it contains;
+- `X-Frame-Options: DENY`, which does the job of `frame-ancestors` in browsers that predate it;
+- `Referrer-Policy: no-referrer`;
+- `Cache-Control: no-store`, which keeps security data out of the browser's and proxies' caches;
+- a `Permissions-Policy` that turns off the camera, microphone, location and payments;
+- `Cross-Origin-Opener-Policy: same-origin`.
+
+The headers replace any a route sets itself. No route sets its own today.
+
+### 342. Unhandled errors
+
+Starlette answers an unhandled error in `ServerErrorMiddleware`, which sits outside every middleware the application adds, so its `500` would leave without the headers. `internal_error_handler` answers instead, with the same body (`Internal Server Error`) plus the headers. The error still reaches the server, which logs it.
+
+### 343. The documentation pages
+
+`/docs`, `/docs/oauth2-redirect` and `/redoc` are pages. Swagger UI and ReDoc load from `cdn.jsdelivr.net`, and Swagger UI starts with an inline script.
+
+- **Scripts from the CDN.** Their policy allows the two packages only (`swagger-ui-dist@5`, `redoc@2`), not the whole CDN, which would let an injected tag load any package published on npm.
+- **The inline script.** Swagger UI's inline script is allowed by its SHA-256 hash rather than by `'unsafe-inline'`. The middleware holds these pages until their body is complete, hashes each inline script and names it in the policy. The policy follows FastAPI's page as it is, and no other inline script runs.
+- **Styles, fonts and images.** Styles stay inline, since both tools style their elements as they draw them. ReDoc's fonts come from Google Fonts, and the images are FastAPI's favicon and ReDoc's logo.
+- **Framing** is refused on these pages too.
+
+The code from the CDN is a supply chain risk that the policy narrows but does not remove. The threat model records it as T-58.
+
+### 344. HSTS
+
+`HSTS_MAX_AGE` (seconds, default `0`) adds `Strict-Transport-Security: max-age=<n>`, after which browsers refuse plain HTTP to the host. It stays off by default: browsers remember it, so a host still on plain HTTP would become unreachable to them. `includeSubDomains` is not sent, since the application does not own its domain's other hosts.
+
+### 345. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations` -> 0 errors
+- pytest -> 564 passed
+- Gitleaks on `backend` and `docs` -> no leaks found
+
+The new tests cover:
+- the API's headers on a `200`, `401`, `404`, `405` and `422`, and on an unhandled error's `500`;
+- Swagger UI's pages allowing each of their inline scripts by hash, never `'unsafe-inline'`, and the package rather than the whole CDN;
+- ReDoc's package, with no inline script;
+- neither documentation page allowed in a frame;
+- HSTS sent only once configured.
+
+Reverse check: each of the following changes makes at least one test fail (12 of 12):
+- no middleware, or no error handler;
+- the API's policy without `frame-ancestors`, no `nosniff`, or no `Cache-Control`;
+- the documentation pages without their hashes, with `'unsafe-inline'` scripts, allowing the whole CDN, given the API's policy, or allowed in a frame;
+- HSTS always sent, or never sent.
+
+End-to-end check: a backend on a temporary database answered through `vite preview` with the API's headers. In headless Firefox, Swagger UI and ReDoc drew the API's schema with no policy violation, and a page on another origin that framed `/docs` got Firefox's refusal.
