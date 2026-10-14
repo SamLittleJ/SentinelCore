@@ -166,12 +166,16 @@ LOG_FORMAT=text   # json for log collectors
 - **Browser (frontend):** `POST /auth/session` sets the httpOnly `sentinelcore_session` cookie and the `sentinelcore_csrf` cookie. Every POST/PUT/PATCH/DELETE request authenticated by cookie must send the CSRF cookie's value in the `X-CSRF-Token` header.
 - **API and Swagger:** `POST /auth/login` (JSON) or `POST /auth/token` (OAuth2 form) return a token, then sent as `Authorization: Bearer <token>`. These requests need no CSRF token.
 
+## API documentation
+
+Swagger UI (`/docs`), ReDoc (`/redoc`) and the schema (`/openapi.json`) are served only when `API_DOCS_ENABLED=true`, which `.env.example` sets for development; otherwise they answer `404`, like any unknown path. The pages load their code from a CDN, and cookies do not separate ports, so open them at `http://127.0.0.1:8000/docs`: another host than the web app's `localhost`, whose cookies never reach it. Keep the setting off outside development.
+
 ## Security headers
 
 Every response carries a Content Security Policy and the usual security headers (`app/api/security_headers.py`):
 
 - JSON answers get `default-src 'none'; frame-ancestors 'none'`: nothing in them may run, load or be framed. With them come `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, a `Permissions-Policy` that turns off the camera, microphone, location and payments, and `Cross-Origin-Opener-Policy: same-origin`. An unhandled error's `500` carries them too.
-- `/docs` and `/redoc` are pages that load Swagger UI and ReDoc from a CDN: their policy allows those two packages only, and Swagger UI's inline script by its hash.
+- `/docs` and `/redoc`, when turned on, are pages that load Swagger UI and ReDoc from a CDN: their policy allows those two packages only, and Swagger UI's inline script by its hash. Turned off, their paths get the API's policy, like any unknown path.
 - `HSTS_MAX_AGE` (seconds, `0` by default) adds `Strict-Transport-Security`. Set it only once the host is served over HTTPS.
 
 ## Sessions

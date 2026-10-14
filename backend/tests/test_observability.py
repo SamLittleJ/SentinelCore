@@ -341,8 +341,8 @@ def test_metrics_endpoint_requires_configured_token(
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
-def test_metrics_endpoint_is_not_in_openapi_schema(client: TestClient) -> None:
-    assert "/metrics" not in client.get("/openapi.json").json()["paths"]
+def test_metrics_endpoint_is_not_in_openapi_schema() -> None:
+    assert "/metrics" not in app.openapi()["paths"]
 
 
 # Health checks

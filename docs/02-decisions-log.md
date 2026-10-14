@@ -577,3 +577,13 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **The documentation pages.** Chosen over hosting Swagger UI and ReDoc locally or turning them off outside development: a narrow policy for `/docs` and `/redoc` that allows their two packages, and Swagger UI's inline script by its hash. The supply chain risk that remains is T-58 in the threat model.
 - **HSTS off by default.** `HSTS_MAX_AGE` sends it once the host is on HTTPS. Browsers remember it, so turning it on by default would lock browsers out of a host on plain HTTP.
 - **Fonts as files.** Vite no longer inlines fonts as `data:` URIs, so `font-src 'self'` holds without allowing `data:` fonts.
+
+## API documentation outside development
+
+- **Off unless turned on.** Decided in a grilling session, each with the recommended answer. This replaces the earlier choice under "Security headers", which kept the documentation pages on with a narrow policy: their CDN code (T-58) could still act with the console's session wherever both share a host, since cookies do not separate ports. `API_DOCS_ENABLED`, default `false`, turns on `/docs`, `/docs/oauth2-redirect`, `/redoc` and `/openapi.json` together; `.env.example` sets it for development.
+- **A setting of its own.** Chosen over deriving it from `APP_ENV`, which nothing reads yet and which would become a hidden switch for more than one behaviour.
+- **The schema too.** `/openapi.json` maps every route, administration included, and nothing in the project reads it over HTTP; the tests read it from the application.
+- **A plain 404.** Off, the routes are not registered, and their paths answer like any unknown path, headers included: the headers middleware is told the documentation is off, so it gives those paths the API's policy. A `403` or a "documentation disabled" message would tell a caller how the server is configured.
+- **An application factory.** `create_app(settings)` builds the application; `app.main:app` is still the one built from the environment. Tests build their own with the documentation on or off, so they do not depend on a local `.env`.
+- **Development keeps the risk.** Accepted and documented rather than hosting Swagger UI and ReDoc locally or pinning their exact versions: the documentation is opened at `127.0.0.1:8000`, a host to which the console's `localhost` cookies are never sent.
+- **No startup log line.** `APP_ENV` is not read, so the API cannot tell production from development to warn; the setting is visible in the environment, and a test pins its default.

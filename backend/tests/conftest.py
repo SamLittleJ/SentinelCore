@@ -24,13 +24,15 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import get_db
+from app.core.config import settings
 from app.core.row_security import APP_ROLE, restrict_rows
-from app.main import app
+from app.main import app, create_app
 from app.services.tenancy import SYSTEM
 
 TEST_DATABASE_URL = os.getenv(
@@ -124,6 +126,15 @@ def serve_requests_from(db_session: Session) -> Callable[[], Generator[Session]]
             restrict_rows(db_session, SYSTEM)
 
     return override_get_db
+
+
+def build_app(**changes: object) -> FastAPI:
+    """An application of its own, built from the settings with `changes`.
+
+    `app` is built once, from the local `.env`; a test that needs a setting
+    either way builds its own instead.
+    """
+    return create_app(settings.model_copy(update=changes))
 
 
 @pytest.fixture()

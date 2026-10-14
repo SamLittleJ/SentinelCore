@@ -13,6 +13,7 @@ from starlette.routing import Route
 from app.api.deps import get_db
 from app.api.security_headers import SecurityHeadersMiddleware
 from app.main import app
+from tests.conftest import build_app
 
 COMMON_HEADERS = {
     "x-content-type-options": "nosniff",
@@ -91,14 +92,19 @@ def test_an_unhandled_error_carries_the_headers_too() -> None:
     assert_api_headers(dict(response.headers))
 
 
-# Documentation pages
+# Documentation pages (served only once API_DOCS_ENABLED turns them on)
+
+
+@pytest.fixture()
+def documentation() -> TestClient:
+    return TestClient(build_app(api_docs_enabled=True))
 
 
 @pytest.mark.parametrize("page", ["/docs", "/docs/oauth2-redirect"])
 def test_swagger_ui_runs_its_own_inline_script_and_no_other(
-    client: TestClient, page: str
+    documentation: TestClient, page: str
 ) -> None:
-    response = client.get(page)
+    response = documentation.get(page)
 
     assert response.status_code == 200
     scripts = inline_scripts(response.text)
@@ -112,8 +118,10 @@ def test_swagger_ui_runs_its_own_inline_script_and_no_other(
     assert "https://cdn.jsdelivr.net" not in script_src
 
 
-def test_redoc_loads_its_package_and_runs_no_inline_script(client: TestClient) -> None:
-    response = client.get("/redoc")
+def test_redoc_loads_its_package_and_runs_no_inline_script(
+    documentation: TestClient,
+) -> None:
+    response = documentation.get("/redoc")
 
     assert response.status_code == 200
     assert inline_scripts(response.text) == []
@@ -125,9 +133,9 @@ def test_redoc_loads_its_package_and_runs_no_inline_script(client: TestClient) -
 
 @pytest.mark.parametrize("page", ["/docs", "/redoc"])
 def test_a_documentation_page_cannot_be_framed_either(
-    client: TestClient, page: str
+    documentation: TestClient, page: str
 ) -> None:
-    response = client.get(page)
+    response = documentation.get(page)
 
     policy = directives(response.headers["content-security-policy"])
     assert policy["default-src"] == ["'none'"]

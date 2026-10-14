@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # reach the host over plain HTTP. 0 sends no header; set it only once the
     # host is served over HTTPS, since browsers remember it.
     hsts_max_age: int = Field(default=0, ge=0)
+    # Swagger UI (/docs), ReDoc (/redoc) and the schema (/openapi.json). The
+    # pages run code from a public CDN and the schema maps every route, so they
+    # are off unless turned on, for development.
+    api_docs_enabled: bool = False
 
     @field_validator("secret_key")
     @classmethod
