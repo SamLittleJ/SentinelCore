@@ -77,15 +77,20 @@ def documentation_policy(page: bytes) -> str:
 class SecurityHeadersMiddleware:
     """Adds the headers to every HTTP response the application produces."""
 
-    def __init__(self, app: ASGIApp, hsts_max_age: int = 0) -> None:
+    def __init__(
+        self, app: ASGIApp, hsts_max_age: int = 0, documentation: bool = False
+    ) -> None:
         self.app = app
         self.headers = common_headers(hsts_max_age)
+        # Without the documentation, its paths are unknown ones like any other,
+        # and answer with the API's policy.
+        self.documentation_pages = DOCUMENTATION_PAGES if documentation else frozenset()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        if scope["path"] in DOCUMENTATION_PAGES:
+        if scope["path"] in self.documentation_pages:
             await self._documentation_page(scope, receive, send)
             return
 

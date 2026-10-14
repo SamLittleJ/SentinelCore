@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, settings
+from app.main import app
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
@@ -416,8 +417,8 @@ def test_oauth2_form_login_rejects_invalid_email(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_openapi_points_swagger_to_the_form_login(client: TestClient) -> None:
-    schemes = client.get("/openapi.json").json()["components"]["securitySchemes"]
+def test_openapi_points_swagger_to_the_form_login() -> None:
+    schemes = app.openapi()["components"]["securitySchemes"]
 
     assert schemes["OAuth2PasswordBearer"]["flows"]["password"]["tokenUrl"] == (
         "/auth/token"

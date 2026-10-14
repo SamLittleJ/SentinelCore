@@ -4715,3 +4715,47 @@ Reverse check: each of the following changes makes at least one test fail (12 of
 - HSTS always sent, or never sent.
 
 End-to-end check: a backend on a temporary database answered through `vite preview` with the API's headers. In headless Firefox, Swagger UI and ReDoc drew the API's schema with no policy violation, and a page on another origin that framed `/docs` got Firefox's refusal.
+
+## API documentation setting
+
+### 346. Purpose of the stage
+
+T-58 in the threat model: Swagger UI and ReDoc load their code from a public CDN, and cookies do not separate ports, so wherever the documentation shares the console's host, a compromised package could act with the operator's session. The schema at `/openapi.json` also maps every route, administration included. Neither is needed outside development, so both are off unless a setting turns them on.
+
+### 347. The setting
+
+`API_DOCS_ENABLED` (default `false`) turns on `/docs`, `/docs/oauth2-redirect`, `/redoc` and `/openapi.json` together. `.env.example` sets it to `true`, with a comment on the risk.
+
+- **Off,** FastAPI is built with `docs_url`, `redoc_url` and `openapi_url` set to `None`, so the routes are not registered and their paths answer `404` like any unknown path. A `403` or a "documentation disabled" message would tell a caller how the server is configured.
+- **The headers follow.** `SecurityHeadersMiddleware` takes `documentation`: off, the documentation's paths are unknown ones and get the API's policy, so their `404` matches any other, header by header.
+- **On,** the pages keep the policy of stage 343. In development they are opened at `http://127.0.0.1:8000/docs`: a host other than the console's `localhost`, to which the console's cookies are never sent.
+
+No line is logged at startup: `APP_ENV` is not read, so the API cannot tell production from development, and the setting is visible in the environment.
+
+### 348. An application factory
+
+`create_app(settings)` in `app/main.py` builds the application, its lifespan, middleware and routers from the settings it is given. `app = create_app(settings)` stays, so `uvicorn app.main:app` is unchanged.
+
+The shared `app` is built once, from the local `.env`, which turns the documentation on in development and is absent in CI. Tests that need the documentation on or off build their own application with `build_app(**changes)` (`tests/conftest.py`), and the two tests that read the schema call `app.openapi()`, which builds it whether or not it is served. The suite passes the same way with the setting on or off in the environment.
+
+### 349. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations` -> 0 errors
+- pytest -> 577 passed, and the same with `API_DOCS_ENABLED=true` in the environment
+- Gitleaks on `backend` and `docs` -> no leaks found
+
+The new tests cover:
+- the setting off by default;
+- off, each documentation URL unset and each path answering `404`, with the same body and headers as an unknown path;
+- on, each path served.
+
+Reverse check: each of the following changes makes at least one test fail (8 of 8):
+- the setting on by default, or read inverted;
+- Swagger UI, ReDoc or the schema served regardless of the setting;
+- the headers middleware not told the documentation is on, told it is always on, or ignoring it.
+
+Serving Swagger UI or ReDoc regardless of the setting first went unnoticed: FastAPI registers those pages only along with the schema, so the behaviour did not change. A test now checks that each URL is unset in its own right.
+
+Server check: uvicorn with the setting off answered `404` with the API's policy on all four paths; with it on, `200` with the documentation's policy on the pages.
