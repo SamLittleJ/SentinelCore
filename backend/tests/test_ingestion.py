@@ -1,14 +1,18 @@
+import logging
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
-from sqlalchemy import func, select, update
+from pydantic import ValidationError
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.core.config import settings
+from app.core.config import Settings, settings
+from app.core.database import database_now
 from app.main import app
 from app.models.api_key import ApiKey
 from app.models.security_event import (
@@ -17,8 +21,10 @@ from app.models.security_event import (
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
+from app.schemas.ingest import MAX_EVENTS_PER_REQUEST
+from app.services.ingestion_service import take_tokens
 from tests.accounts import create_account, org_id_for_tests, set_role
-from tests.conftest import serve_requests_from
+from tests.conftest import serve_requests_from, system_session
 
 PASSWORD = "testpassword"
 UA = "Mozilla/5.0 (X11; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0"
@@ -31,27 +37,37 @@ def register(client: TestClient, username: str) -> str:
 
 
 @pytest.fixture()
-def key(client: TestClient, db_session: Session) -> str:
-    """A valid key for the "vpn" source, issued by an owner."""
+def owner(client: TestClient, db_session: Session) -> dict[str, str]:
+    """The headers of an owner, who issues the keys."""
     email = register(client, "owneruser")
-    owner = db_session.scalar(select(User).where(User.email == email))
-    assert owner is not None
-    set_role(owner, UserRole.OWNER)
+    account = db_session.scalar(select(User).where(User.email == email))
+    assert account is not None
+    set_role(account, UserRole.OWNER)
     db_session.commit()
     token = client.post(
         "/auth/login", json={"email": email, "password": PASSWORD}
     ).json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def issue_key(client: TestClient, owner: dict[str, str], name: str) -> str:
     response = client.post(
         "/admin/api-keys",
         json={
-            "name": "Corporate VPN",
+            "name": name,
             "source": "vpn",
             "expires_in_days": 30,
             "organization_id": org_id_for_tests(),
         },
-        headers={"Authorization": f"Bearer {token}"},
+        headers=owner,
     )
     return response.json()["key"]
+
+
+@pytest.fixture()
+def key(client: TestClient, owner: dict[str, str]) -> str:
+    """A valid key for the "vpn" source, issued by an owner."""
+    return issue_key(client, owner, "Corporate VPN")
 
 
 def event(event_type: str = "login_failed", **overrides) -> dict:
@@ -315,3 +331,223 @@ def test_this_application_records_the_user_agent_of_sign_ins(
         )
     ).all()
     assert [event.user_agent for event in sign_ins] == [UA, UA]
+
+
+# Rate limit: a token bucket per key
+
+
+@pytest.fixture()
+def small_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A bucket of 4 events that refills one event a second."""
+    monkeypatch.setattr(settings, "ingest_burst_events", 4)
+    monkeypatch.setattr(settings, "ingest_events_per_minute", 60)
+
+
+def move_refill_back(db_session: Session, seconds: int) -> None:
+    """Make the keys' buckets last refill `seconds` earlier."""
+    db_session.execute(
+        update(ApiKey).values(
+            rate_refilled_at=ApiKey.rate_refilled_at - timedelta(seconds=seconds)
+        )
+    )
+    db_session.commit()
+
+
+def test_a_new_key_may_send_its_burst_at_once(
+    client: TestClient, key: str, small_bucket: None
+) -> None:
+    assert ingest(client, key, [event()] * 4).status_code == 202
+    assert ingest(client, key, [event()]).status_code == 429
+
+
+def test_a_batch_over_the_limit_is_refused_whole(
+    client: TestClient, db_session: Session, key: str, small_bucket: None
+) -> None:
+    assert ingest(client, key, [event()] * 3).status_code == 202
+
+    assert ingest(client, key, [event()] * 2).status_code == 429
+
+    # Nothing of the refused batch was stored, and it took no tokens.
+    assert len(ingested(db_session)) == 3
+    assert ingest(client, key, [event()]).status_code == 202
+    assert len(ingested(db_session)) == 4
+
+
+def test_the_refusal_says_how_long_to_wait(
+    client: TestClient, db_session: Session, key: str, small_bucket: None
+) -> None:
+    ingest(client, key, [event()] * 4)
+
+    response = ingest(client, key, [event()] * 3)
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "Too many events. Try again later."}
+    # Three events at one a second, from an empty bucket.
+    assert response.headers["Retry-After"] == "3"
+
+    # With one event back in the bucket, two more seconds.
+    move_refill_back(db_session, 1)
+    assert ingest(client, key, [event()] * 3).headers["Retry-After"] == "2"
+
+
+def test_the_bucket_refills_with_time(
+    client: TestClient, db_session: Session, key: str, small_bucket: None
+) -> None:
+    ingest(client, key, [event()] * 4)
+
+    move_refill_back(db_session, 2)
+
+    assert ingest(client, key, [event()] * 3).status_code == 429
+    assert ingest(client, key, [event()] * 2).status_code == 202
+    assert ingest(client, key, [event()]).status_code == 429
+
+
+def test_the_bucket_never_holds_more_than_its_burst(
+    client: TestClient, db_session: Session, key: str, small_bucket: None
+) -> None:
+    ingest(client, key, [event()])
+
+    move_refill_back(db_session, 3600)
+
+    assert ingest(client, key, [event()] * 5).status_code == 429
+    assert ingest(client, key, [event()] * 4).status_code == 202
+
+
+def test_each_key_has_its_own_bucket(
+    client: TestClient,
+    owner: dict[str, str],
+    key: str,
+    small_bucket: None,
+) -> None:
+    other = issue_key(client, owner, "Identity provider")
+    ingest(client, key, [event()] * 4)
+
+    assert ingest(client, key, [event()]).status_code == 429
+    assert ingest(client, other, [event()] * 4).status_code == 202
+
+
+def test_invalid_batches_take_no_tokens(
+    client: TestClient, key: str, small_bucket: None
+) -> None:
+    invalid = [event(event_type="password_changed")] * 4
+    assert ingest(client, key, invalid).status_code == 422
+
+    assert ingest(client, key, [event()] * 4).status_code == 202
+
+
+def test_only_a_valid_key_learns_it_is_over_its_limit(
+    client: TestClient, key: str, small_bucket: None
+) -> None:
+    ingest(client, key, [event()] * 4)
+    wrong_secret = key[:-1] + ("A" if key[-1] != "A" else "B")
+
+    response = ingest(client, wrong_secret, [event()])
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid API key"}
+    assert "Retry-After" not in response.headers
+
+
+def test_a_refused_batch_still_counts_as_a_use_of_the_key(
+    client: TestClient, db_session: Session, key: str, small_bucket: None
+) -> None:
+    ingest(client, key, [event()] * 4)
+    long_ago = datetime.now(UTC) - timedelta(days=3)
+    db_session.execute(update(ApiKey).values(last_used_at=long_ago))
+    db_session.commit()
+
+    assert ingest(client, key, [event()]).status_code == 429
+
+    db_session.expire_all()
+    api_key = db_session.scalar(select(ApiKey))
+    assert api_key is not None and api_key.last_used_at is not None
+    assert api_key.last_used_at > long_ago
+
+
+def test_refused_events_are_counted_and_logged_without_the_secret(
+    client: TestClient,
+    key: str,
+    small_bucket: None,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    metric = "sentinelcore_ingest_refused_events_total"
+    before = REGISTRY.get_sample_value(metric, {"source": "vpn"}) or 0
+    ingest(client, key, [event()] * 4)
+
+    with caplog.at_level(logging.WARNING):
+        ingest(client, key, [event()] * 3)
+
+    assert REGISTRY.get_sample_value(metric, {"source": "vpn"}) == before + 3
+    [record] = [
+        record
+        for record in caplog.records
+        if record.getMessage() == "Ingestion rate limit reached"
+    ]
+    assert record.levelno == logging.WARNING
+    fields = record.__dict__
+    assert fields["api_key_prefix"] == key.split("_")[1]
+    assert fields["events"] == 3
+    secret = key.split("_", 2)[2]
+    assert secret not in str(fields)
+
+
+def test_two_requests_cannot_spend_the_same_tokens(
+    key: str, small_bucket: None
+) -> None:
+    with system_session() as first, system_session() as second:
+        first_key = first.scalar(select(ApiKey))
+        second_key = second.scalar(select(ApiKey))
+        assert first_key is not None and second_key is not None
+
+        # The first request holds the key while it stores its events.
+        assert take_tokens(first, first_key, 3) == 0
+        # The second waits for it; here it gives up quickly instead.
+        second.execute(text("SET LOCAL lock_timeout = '200ms'"))
+        with pytest.raises(OperationalError):
+            take_tokens(second, second_key, 3)
+        second.rollback()
+
+        first.commit()
+        # Once the first is done, only one token is left.
+        assert take_tokens(second, second_key, 3) > 0
+
+
+def test_the_buckets_clock_never_runs_backwards(
+    db_session: Session, key: str, small_bucket: None
+) -> None:
+    """A request that waited for the key may have started before the request
+    that held it, so its clock reads earlier than the bucket's last refill."""
+    api_key = db_session.scalar(select(ApiKey))
+    assert api_key is not None
+    later = database_now(db_session) + timedelta(seconds=10)
+    api_key.rate_tokens = 0.0
+    api_key.rate_refilled_at = later
+    db_session.commit()
+
+    assert take_tokens(db_session, api_key, 1) > 0
+    # Moving it back would refill those ten seconds a second time.
+    assert api_key.rate_refilled_at == later
+
+
+def test_the_burst_holds_at_least_the_largest_batch() -> None:
+    url, secret_key = "postgresql://unused", "x" * 32
+
+    Settings(
+        database_url=url,
+        secret_key=secret_key,
+        ingest_burst_events=MAX_EVENTS_PER_REQUEST,
+    )
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url=url,
+            secret_key=secret_key,
+            ingest_burst_events=MAX_EVENTS_PER_REQUEST - 1,
+        )
+    with pytest.raises(ValidationError):
+        Settings(database_url=url, secret_key=secret_key, ingest_events_per_minute=0)
+
+
+def test_by_default_a_key_may_send_a_backfill_at_once_then_1000_a_minute() -> None:
+    fields = Settings.model_fields
+    assert fields["ingest_burst_events"].default == 5000
+    assert fields["ingest_events_per_minute"].default == 1000

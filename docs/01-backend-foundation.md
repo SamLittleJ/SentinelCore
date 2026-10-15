@@ -4759,3 +4759,58 @@ Reverse check: each of the following changes makes at least one test fail (8 of 
 Serving Swagger UI or ReDoc regardless of the setting first went unnoticed: FastAPI registers those pages only along with the schema, so the behaviour did not change. A test now checks that each URL is unset in its own right.
 
 Server check: uvicorn with the setting off answered `404` with the API's policy on all four paths; with it on, `200` with the documentation's policy on the pages.
+
+## Ingestion rate limit
+
+### 350. Purpose of the stage
+
+Residual risk 2 of the threat model is the misuse of a valid ingestion key. Its first half, T-38: nothing limited how much one key could send. Detection runs on every event, so a stolen key sending full batches could keep the API busy and fill the event table. Each key now has a rate limit; an alert when a key's volume departs from its usual level (T-34) is the next stage.
+
+### 351. A token bucket per key
+
+- **The settings.** `INGEST_BURST_EVENTS` (default 5,000, at least 500, the largest batch) and `INGEST_EVENTS_PER_MINUTE` (default 1,000, at least 1). A key may send the burst at once, then the rate: `make demo` loads about 3,000 events on one key and the evaluation about 1,270 on a fresh one, both in one burst. The limit counts events, not requests, and cannot be turned off.
+- **The state.** Two columns of `api_keys` (migration `bd90cd9c562a`): `rate_tokens`, the events the key may still send, and `rate_refilled_at`, when they were counted. Both are empty until the key's first batch, which finds the bucket full, so existing keys need no backfill.
+- **Taking tokens.** `take_tokens` in `app/services/ingestion_service.py` reads the key's row under `SELECT ... FOR UPDATE`, so requests with the same key take their tokens one after another and never spend the same ones. It refills the bucket for the time since `rate_refilled_at`, by the database clock, up to the burst; takes the batch's tokens if they are there; otherwise takes none and returns the whole seconds until the batch fits. A request that waited for the lock may have started before the one that held it, so the refill time never moves backwards.
+- **The refusal.** The route takes the tokens once the key is checked and the batch is valid: a wrong key still gets `401`, and an invalid batch (`422`) takes nothing. A batch that does not fit gets `429 Too Many Requests` with `Retry-After` and the same message every time, and nothing of it is stored.
+- **What a refusal leaves.** `refuse_events` updates the key's last use, counts the events in `sentinelcore_ingest_refused_events_total` by source and logs `Ingestion rate limit reached` with the key's prefix. It records no security event: one per refusal would let a flood fill the table the limit protects.
+
+### 352. What it leaves
+
+- A flood of invalid keys from one address costs a lookup by prefix and a hash each; it is left to the per-address limit of residual risk 5 and to the ingress of phase B.
+- Every key has the same limit; a limit per key, chosen by the owner, is not planned yet.
+- A stolen key can still send false events within its limit (T-34); the volume alert is the next stage.
+
+### 353. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations` -> 0 errors
+- pytest -> 591 passed
+- migration on a temporary database: upgrade, `alembic check` (no changes), downgrade, upgrade again
+- Gitleaks on `backend` and `docs` -> no leaks found
+
+The new tests (`tests/test_ingestion.py`) cover:
+- a new key's burst, then a refusal;
+- a batch over the limit refused whole, with nothing stored and no tokens taken;
+- `Retry-After` from an empty and from a partly refilled bucket;
+- the refill over time and its cap at the burst;
+- a bucket per key;
+- invalid batches taking nothing, and a wrong key still answered `401`;
+- the key's last use on a refusal;
+- the metric and the log line, without the key's secret;
+- two requests holding the same key, one after the other;
+- the refill time never moving backwards;
+- the settings' minimums and defaults.
+
+Reverse check: each of the following changes makes at least one test fail (15 of 15):
+- the row lock removed;
+- the bucket not capped at the burst, not refilled, or empty for a new key;
+- a refusal taking tokens, or a wait that ignores the tokens left;
+- the refill time allowed to move backwards;
+- a refusal not updating the last use, not counted or not logged;
+- the limit not enforced, or no `Retry-After`;
+- a burst below the largest batch allowed, a rate of 0 allowed, or a lower default burst.
+
+The refill time moving backwards first went unnoticed; a test now sets the last refill after the request's clock.
+
+Server check: uvicorn on a temporary database with the default limit. A fresh key sent eleven batches of 500: ten were accepted, the eleventh got `429` with `Retry-After: 24`, since the bucket had refilled while the first ten were stored. A wrong secret still got `401`. The metric counted 500 refused events, and the log line named the key's prefix only. The attack simulator then ran as usual: 25 of 25 attacks detected, 3 false positives, 1,045 routine sign-ins in 2.2 s.

@@ -3,12 +3,27 @@
 Ingested events are stored like the application's own, with the key's source,
 and go through the same detection rules. They are kept at the time they
 happened, so the rules judge each against the events around it.
+
+Each key has a rate limit, kept as a token bucket on its row: the bucket
+holds up to INGEST_BURST_EVENTS tokens and refills at INGEST_EVENTS_PER_MINUTE.
+Every event takes a token, and a batch that does not fit is refused whole.
+The state lives in the database, so every API process shares one bucket per
+key, and its time is the database clock.
 """
+
+import logging
+import math
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.metrics import INGESTED_EVENTS, record_security_event
+from app.core.config import settings
+from app.core.database import database_now
+from app.core.metrics import (
+    INGEST_REFUSED_EVENTS,
+    INGESTED_EVENTS,
+    record_security_event,
+)
 from app.models.api_key import ApiKey
 from app.models.security_event import (
     SecurityEvent,
@@ -28,6 +43,60 @@ OUTCOMES = {
     SecurityEventType.LOGIN_SUCCESS: "Successful",
     SecurityEventType.LOGIN_FAILED: "Failed",
 }
+
+logger = logging.getLogger(__name__)
+
+
+def take_tokens(db: Session, api_key: ApiKey, count: int) -> int:
+    """Take `count` tokens from `api_key`'s bucket, if it holds them, and
+    return 0. Otherwise take none and return the whole seconds until it will.
+
+    The key's row stays locked until the transaction ends, so requests with
+    the same key take their tokens one after another and never spend the same
+    ones twice.
+    """
+    db.refresh(api_key, with_for_update=True)
+    now = database_now(db)
+    capacity = settings.ingest_burst_events
+    per_second = settings.ingest_events_per_minute / 60
+
+    if api_key.rate_tokens is None or api_key.rate_refilled_at is None:
+        available = float(capacity)
+    else:
+        # A request that waited for the lock may have started before the one
+        # that held it; time never runs backwards for the bucket.
+        elapsed = max(0.0, (now - api_key.rate_refilled_at).total_seconds())
+        available = min(capacity, api_key.rate_tokens + elapsed * per_second)
+        now = max(now, api_key.rate_refilled_at)
+
+    api_key.rate_refilled_at = now
+    if available >= count:
+        api_key.rate_tokens = available - count
+        return 0
+    api_key.rate_tokens = available
+    return math.ceil((count - available) / per_second)
+
+
+def refuse_events(db: Session, api_key: ApiKey, count: int) -> None:
+    """Record that `api_key` sent `count` events over its rate limit.
+
+    Only a metric and a log line: a security event for every refusal would let
+    a flood fill the event table it is kept out of.
+    """
+    prefix, source = api_key.prefix, api_key.source
+    # The key was used, even if its events were not taken.
+    api_key.last_used_at = func.now()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    INGEST_REFUSED_EVENTS.labels(source=source).inc(count)
+    logger.warning(
+        "Ingestion rate limit reached",
+        extra={"api_key_prefix": prefix, "source": source, "events": count},
+    )
 
 
 def ingest_events(db: Session, api_key: ApiKey, events: list[IngestedEvent]) -> int:

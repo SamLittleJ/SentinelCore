@@ -2,7 +2,7 @@
 
 This document lists what can go wrong with SentinelCore, who could make it happen, what already stops it, and what is left. The boundary between organizations is the main trust boundary and gets the closest analysis.
 
-- **Version:** 2026-10-13, on `main` after the five multi-organization pull requests (#29 to #33); updated 2026-10-14 for the security headers (#35) and the API documentation setting (T-58).
+- **Version:** 2026-10-13, on `main` after the five multi-organization pull requests (#29 to #33); updated 2026-10-14 for the security headers (#35) and the API documentation setting (T-58), and 2026-10-15 for the ingestion rate limit (T-38).
 - **Scope:** the system as it runs today: the browser application, the API with ingestion, PostgreSQL with row-level security, the session cleanup task, the command line, the simulator and `make demo`, local monitoring (Prometheus, Grafana) and the GitHub workflows. Containers, Kubernetes, the supply chain and cloud infrastructure (phases B to E of the roadmap) are out of scope; each phase adds its own section here.
 - **Updates:** a change that adds an element, a data flow or a trust boundary updates this document in the same pull request.
 
@@ -229,7 +229,7 @@ Backend tests are in `backend/tests/`, frontend tests next to the code they test
 | T-35 | E | Ingested events pose as the application itself, or lock people out of it. | P4 | `backend` and `detection` are reserved sources; reported failures never count toward this application's lockout, nor do reported successes reset it. | `test_reported_failures_never_lock_this_application`, `test_reported_successes_never_reset_this_applications_count`, `test_invalid_keys_are_refused` (reserved sources) | - | L / M → Low | Mitigated |
 | T-36 | I | The ingestion answer reveals what the rules concluded, so a sender can tune an attack. | P4 | The answer is only the number of events accepted. | `test_events_are_stored_with_the_key_source_and_their_own_time` (`{"accepted": 2}`) | - | L / M → Low | Mitigated |
 | T-37 | T | Events dated in the future or long ago distort the rules' windows. | P4 | `occurred_at` must carry a time zone, not lie in the future, and be within a year; rules judge each event at its own time. | `test_invalid_events_are_refused`, `test_ingested_sign_ins_are_judged_at_their_own_time` | - | L / L → Low | Mitigated |
-| T-38 | D | Floods of requests or large batches. | P4, P1 | Batch size and field lengths are bounded. No rate limit per key or address. | `test_batch_size_is_bounded`, `test_invalid_events_are_refused` | T1499 | M / M → Medium | Partly mitigated |
+| T-38 | D | Floods of requests or large batches. | P4, P1 | Batch size and field lengths are bounded. Each key has a rate limit, a token bucket kept on its row in the database and shared by every API process: 5,000 events at once, then 1,000 a minute by default (`INGEST_BURST_EVENTS`, `INGEST_EVENTS_PER_MINUTE`; it cannot be turned off). A batch over the limit is refused whole with `429` and `Retry-After`, stored nowhere, and counted in a metric and a log line rather than as security events, so a flood cannot fill the event table. The limit applies once the key is checked, so a wrong key still gets `401` (`app/services/ingestion_service.py`). Floods of invalid keys from one address are left to a per-address limit (residual risk 5) and to phase B's ingress. | `test_a_batch_over_the_limit_is_refused_whole`, `test_the_refusal_says_how_long_to_wait`, `test_the_bucket_never_holds_more_than_its_burst`, `test_each_key_has_its_own_bucket`, `test_two_requests_cannot_spend_the_same_tokens`, `test_only_a_valid_key_learns_it_is_over_its_limit`, `test_batch_size_is_bounded` | T1499 | L / M → Low | Mitigated |
 
 ### E5. Detection
 
@@ -305,7 +305,7 @@ No threat is rated high. The table below is the most important residual risk, ch
 | # | Risk | Threats | Planned mitigation | Estimate |
 |---|---|---|---|---|
 | 1 | No security headers | T-01, T-03 | **Done** (2026-10-14): a Content Security Policy, `frame-ancestors 'none'` and `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy` and `Cache-Control: no-store` on the API, its documentation and the console's build; phase B's server must send the console's headers too. | 1 day |
-| 2 | Misuse of a valid ingestion key | T-34, T-38 | A rate limit per key, and an alert when a key's volume departs from its usual level. | 1.5 days |
+| 2 | Misuse of a valid ingestion key | T-34, T-38 | A rate limit per key, and an alert when a key's volume departs from its usual level. **Rate limit done** (2026-10-15): a token bucket per key in the database, `429` with `Retry-After` (T-38). The alert is next. | 1.5 days |
 | 3 | Attacks spread across organizations | T-40 | A platform rule, seen by the owner only, that counts failures from one address across organizations. | 2 days |
 | 4 | History editable by the owner of the tables | T-45 | Tamper evidence: each record carries a hash of the previous one, with a command that checks the chain. | 2-3 days |
 | 5 | Lockout abuse and spray evasion at sign-in | T-12, T-10 | A limit per address on sign-in attempts, which slows a spray and keeps a victim's lockout from being renewed forever by one address. | 1.5 days |

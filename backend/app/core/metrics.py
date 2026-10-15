@@ -40,6 +40,12 @@ INGESTED_EVENTS = Counter(
     ["source"],
 )
 
+INGEST_REFUSED_EVENTS = Counter(
+    "sentinelcore_ingest_refused_events_total",
+    "Events refused because their API key was over its rate limit, by source.",
+    ["source"],
+)
+
 
 def record_http_request(
     method: str,

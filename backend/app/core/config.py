@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     # of this many days is flagged, once it has this many to compare with.
     detection_unfamiliar_lookback_days: int = Field(default=90, ge=1)
     detection_unfamiliar_min_sign_ins: int = Field(default=3, ge=1)
+    # Ingestion rate limit, per API key: a key may send this many events at
+    # once, then this many a minute (services/ingestion_service.py). The burst
+    # holds at least the largest batch (MAX_EVENTS_PER_REQUEST in
+    # schemas/ingest.py), so every valid batch fits sooner or later.
+    ingest_burst_events: int = Field(default=5000, ge=500)
+    ingest_events_per_minute: int = Field(default=1000, ge=1)
     # How long an invitation link works before it must be issued again.
     invitation_expire_hours: int = Field(default=72, ge=1, le=30 * 24)
     # Expired or revoked sessions are kept this long for investigations.
