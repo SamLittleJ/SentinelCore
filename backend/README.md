@@ -116,6 +116,8 @@ curl -X POST http://localhost:8000/ingest/events \
 
 Accepted types are `login_success` and `login_failed`, up to 500 per request. Events keep the time they happened (at most a year ago), are stored with the key's source and go through the detection rules. The answer is `202 {"accepted": N}`. Revoke a key with `POST /admin/api-keys/{id}/revoke`.
 
+Each key has a rate limit: it may send `INGEST_BURST_EVENTS` events at once (default 5,000, at least 500), then `INGEST_EVENTS_PER_MINUTE` (default 1,000). A batch that does not fit is refused whole with `429 Too Many Requests` and `Retry-After`, the seconds to wait before sending it again; nothing of it is stored. Refused events are counted in `sentinelcore_ingest_refused_events_total` and logged with the key's prefix.
+
 ## Attack simulator
 
 `simulator/` measures the detection rules. It drives a running instance through its public API, as an outside system would, and writes `docs/evaluation/report.md` and `report.json`.

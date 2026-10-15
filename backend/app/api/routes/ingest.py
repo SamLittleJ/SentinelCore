@@ -9,7 +9,7 @@ from app.core.row_security import restrict_rows
 from app.models.api_key import ApiKey
 from app.schemas.ingest import IngestRequest, IngestResult
 from app.services.api_key_service import authenticate_api_key
-from app.services.ingestion_service import ingest_events
+from app.services.ingestion_service import ingest_events, refuse_events, take_tokens
 from app.services.tenancy import Scope
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -19,6 +19,15 @@ api_key_scheme = HTTPBearer(
     description="An API key issued by the owner, as `Bearer sck_...`.",
     auto_error=False,
 )
+
+
+def too_many_events(retry_after_seconds: int) -> HTTPException:
+    # The same answer for every refusal; only a valid key ever gets it.
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Too many events. Try again later.",
+        headers={"Retry-After": str(retry_after_seconds)},
+    )
 
 
 def get_ingestion_key(
@@ -50,5 +59,11 @@ def ingest_security_events(
     api_key: Annotated[ApiKey, Depends(get_ingestion_key)],
 ) -> IngestResult:
     """Receive sign-ins from another system. They are stored with the key's
-    source and go through the detection rules."""
+    source and go through the detection rules. A batch over the key's rate
+    limit is refused whole, with the seconds to wait before sending it again."""
+    count = len(request.events)
+    retry_after = take_tokens(db, api_key, count)
+    if retry_after:
+        refuse_events(db, api_key, count)
+        raise too_many_events(retry_after)
     return IngestResult(accepted=ingest_events(db, api_key, request.events))

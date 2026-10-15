@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -36,5 +36,12 @@ class ApiKey(Base):
         DateTime(timezone=True), nullable=True
     )
     last_used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # The rate limit's token bucket: the events the key may still send, as
+    # counted at `rate_refilled_at`. Empty until the key's first batch, which
+    # finds the bucket full.
+    rate_tokens: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rate_refilled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
