@@ -90,6 +90,7 @@ Every recorded security event goes through the detection rules in `app/services/
 | `dormant_account_login` (warn) | T1078 | a sign-in after a long time without one |
 | `unfamiliar_sign_in` (warn) | T1078 | a sign-in from a network (/24, /64) and a device the account has not used in its recent sign-ins |
 | `privileged_role_granted` (warn) | T1098 | an account given the `admin` or `security_analyst` role, by a role change or an invitation |
+| `api_key_volume_spike` (warn) | T1499 | an API key sending, within one clock hour, three times its usual busiest hour and at least 100 events (see Event ingestion) |
 
 The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds are configurable in `.env`:
 
@@ -99,6 +100,10 @@ DETECTION_SPRAY_WINDOW_MINUTES=15
 DETECTION_DORMANT_DAYS=90
 DETECTION_UNFAMILIAR_LOOKBACK_DAYS=90
 DETECTION_UNFAMILIAR_MIN_SIGN_INS=3
+DETECTION_VOLUME_FACTOR=3
+DETECTION_VOLUME_MIN_EVENTS=100
+DETECTION_VOLUME_LOOKBACK_DAYS=14
+DETECTION_VOLUME_MIN_DAYS=7
 ```
 
 
@@ -117,6 +122,8 @@ curl -X POST http://localhost:8000/ingest/events \
 Accepted types are `login_success` and `login_failed`, up to 500 per request. Events keep the time they happened (at most a year ago), are stored with the key's source and go through the detection rules. The answer is `202 {"accepted": N}`. Revoke a key with `POST /admin/api-keys/{id}/revoke`.
 
 Each key has a rate limit: it may send `INGEST_BURST_EVENTS` events at once (default 5,000, at least 500), then `INGEST_EVENTS_PER_MINUTE` (default 1,000). A batch that does not fit is refused whole with `429 Too Many Requests` and `Retry-After`, the seconds to wait before sending it again; nothing of it is stored. Refused events are counted in `sentinelcore_ingest_refused_events_total` and logged with the key's prefix.
+
+Every valid batch, refused or not, is counted in the key's current UTC hour by the time it arrives (`api_key_usage`). The volume spike rule compares that hour with the key's usual busiest hour, the median of each day's busiest hour over the last `DETECTION_VOLUME_LOOKBACK_DAYS` days with traffic, today left out. It raises `api_key_volume_spike` once per hour, with the sending address, and only once the key has `DETECTION_VOLUME_MIN_DAYS` days of traffic. The counts are kept `API_KEY_USAGE_RETENTION_DAYS` days (default 30).
 
 ## Attack simulator
 
@@ -186,7 +193,7 @@ Every login creates a session, revocable through `/auth/logout`, `/auth/logout-a
 
 Users can sign out of their other devices while staying signed in on the current one with `DELETE /users/me/sessions`. The security history of one's own account is at `GET /users/me/activity`. `GET /users/me` also names the account's organization (`organization`: id, name and slug; `null` for the platform owner).
 
-Expired sessions, or sessions revoked more than `SESSION_RETENTION_DAYS` days ago, are deleted by the API every `SESSION_CLEANUP_INTERVAL_MINUTES` minutes. The cleanup can also run by hand or from cron:
+Expired sessions, or sessions revoked more than `SESSION_RETENTION_DAYS` days ago, are deleted by the API every `SESSION_CLEANUP_INTERVAL_MINUTES` minutes, together with the API keys' hourly counts older than `API_KEY_USAGE_RETENTION_DAYS` days. The cleanup can also run by hand or from cron:
 
 ```bash
 python -m app.cli cleanup-sessions

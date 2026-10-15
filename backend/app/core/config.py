@@ -1,6 +1,6 @@
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,12 +32,24 @@ class Settings(BaseSettings):
     # of this many days is flagged, once it has this many to compare with.
     detection_unfamiliar_lookback_days: int = Field(default=90, ge=1)
     detection_unfamiliar_min_sign_ins: int = Field(default=3, ge=1)
+    # An API key's volume spike: an hour in which the key sent at least FACTOR
+    # times its usual busiest hour, and at least MIN_EVENTS events. The usual
+    # busiest hour is the median of each day's busiest hour, over the days of
+    # the last LOOKBACK_DAYS on which the key sent anything; with fewer than
+    # MIN_DAYS such days, the key is still learning and is not judged.
+    detection_volume_factor: float = Field(default=3.0, gt=1)
+    detection_volume_min_events: int = Field(default=100, ge=1)
+    detection_volume_lookback_days: int = Field(default=14, ge=1)
+    detection_volume_min_days: int = Field(default=7, ge=1)
     # Ingestion rate limit, per API key: a key may send this many events at
     # once, then this many a minute (services/ingestion_service.py). The burst
     # holds at least the largest batch (MAX_EVENTS_PER_REQUEST in
     # schemas/ingest.py), so every valid batch fits sooner or later.
     ingest_burst_events: int = Field(default=5000, ge=500)
     ingest_events_per_minute: int = Field(default=1000, ge=1)
+    # Each key's hourly event counts are kept this many whole days, for the
+    # volume spike rule's lookback.
+    api_key_usage_retention_days: int = Field(default=30, ge=1)
     # How long an invitation link works before it must be issued again.
     invitation_expire_hours: int = Field(default=72, ge=1, le=30 * 24)
     # Expired or revoked sessions are kept this long for investigations.
@@ -67,6 +79,22 @@ class Settings(BaseSettings):
         if len(value.encode()) < 32:
             raise ValueError("SECRET_KEY must be at least 32 bytes long")
         return value
+
+    @model_validator(mode="after")
+    def check_volume_days(self) -> Self:
+        # Otherwise the rule would never have enough days to judge a key, or
+        # the cleanup would delete days it still compares with.
+        if self.detection_volume_min_days > self.detection_volume_lookback_days:
+            raise ValueError(
+                "DETECTION_VOLUME_MIN_DAYS must not exceed "
+                "DETECTION_VOLUME_LOOKBACK_DAYS"
+            )
+        if self.api_key_usage_retention_days < self.detection_volume_lookback_days:
+            raise ValueError(
+                "API_KEY_USAGE_RETENTION_DAYS must be at least "
+                "DETECTION_VOLUME_LOOKBACK_DAYS"
+            )
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

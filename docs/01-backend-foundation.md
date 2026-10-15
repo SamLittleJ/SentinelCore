@@ -4814,3 +4814,58 @@ Reverse check: each of the following changes makes at least one test fail (15 of
 The refill time moving backwards first went unnoticed; a test now sets the last refill after the request's clock.
 
 Server check: uvicorn on a temporary database with the default limit. A fresh key sent eleven batches of 500: ten were accepted, the eleventh got `429` with `Retry-After: 24`, since the bucket had refilled while the first ten were stored. A wrong secret still got `401`. The metric counted 500 refused events, and the log line named the key's prefix only. The attack simulator then ran as usual: 25 of 25 attacks detected, 3 false positives, 1,045 routine sign-ins in 2.2 s.
+
+## API key volume alert
+
+### 354. Purpose of the stage
+
+The second half of residual risk 2, T-34: a stolen key could send events within its rate limit and nobody would notice that the key behaved differently. A key that sends far more than it usually does within one hour now raises an alert, `api_key_volume_spike` (T1499, Endpoint Denial of Service). With the rate limit of the previous stage, residual risk 2 is done.
+
+### 355. Counting arrivals, then comparing
+
+- **The counts.** A new table, `api_key_usage` (migration `8975371eccc3`), holds one row per key and UTC clock hour: `received` (every event of a valid batch, refused or not), `refused`, the key's `organization_id` and `alerted_at`. Its primary key is the key and the hour. The API's role may select, insert, update and delete its rows, and the `organization_boundary` policy keeps them to their organization like every other table.
+- **Counted at arrival.** `record_arrival` in `app/services/api_key_usage_service.py` adds each batch to the current hour with `INSERT ... ON CONFLICT DO UPDATE`, by the database clock (`date_trunc('hour', now(), 'UTC')`), in the same transaction that stores or refuses the batch. The times the events claim are not used: a sender chooses them, and a flood stamped last week still arrives now. A wrong key (`401`) or an invalid batch (`422`) is never counted.
+- **The usual level.** `usual_busiest_hour` in `app/services/detection_service.py` takes the busiest hour of each UTC day on which the key sent anything, over the `DETECTION_VOLUME_LOOKBACK_DAYS` (14) days before today, and returns their median. With fewer than `DETECTION_VOLUME_MIN_DAYS` (7) such days, the key is still learning and is not judged.
+- **The rule.** `detect_volume_spike` runs after every batch, accepted or refused, with the hour it was counted in. The hour alerts when it holds at least `DETECTION_VOLUME_FACTOR` (3) times the usual level and at least `DETECTION_VOLUME_MIN_EVENTS` (100) events. It then claims the hour with an `UPDATE ... WHERE alerted_at IS NULL`: a batch that waited for the row finds it claimed, so an hour raises one alert at most. The alert is a `warn` from the `detection` source, in the key's organization, with the sending address, and a message naming the key's prefix and name, the hour's count and the usual level; the ingestion answer does not mention it. A failing rule is logged and never fails the batch.
+- **Keeping the counts.** `API_KEY_USAGE_RETENTION_DAYS` (30, at least the lookback) whole UTC days are kept. `delete_old_usage` runs in the periodic cleanup next to the stale sessions, and its count is logged.
+- **The settings.** The five values are validated together: the minimum number of days cannot exceed the lookback, nor the lookback the retention, and the factor must be above 1.
+
+### 356. What it leaves
+
+- Fake events at the key's usual volume are not caught (T-34 stays partly mitigated), and events record the key's source, not the key.
+- A key that falls silent raises nothing (T-59, accepted).
+- The alert's message gives the count when the hour crossed the threshold; later batches of that hour raise no new alert, and the full count stays in `api_key_usage`.
+- The demo and the simulator cannot show the rule: a baseline counted at arrival cannot be backfilled, so their keys stay in learning. The evaluation report says so.
+
+### 357. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations` -> 0 errors
+- pytest -> 616 passed
+- migration on a temporary database: upgrade, `alembic check` (no changes), downgrade (table and alert type gone), upgrade again; row-level security, the policy and the four privileges checked in the catalog
+- Gitleaks on `backend`, `frontend`, `docs` and `README.md` -> no leaks found
+
+The new tests (`tests/test_api_key_volume.py`, and `api_key_usage` added to the row-level security tests) cover:
+- each batch counted in its key's current UTC hour, at arrival, refused ones included, and nothing for a wrong key or an invalid batch;
+- a key counted apart from another;
+- the alert's fields, the factor, the minimum events, the learning period, the lookback, today left out of the usual level, the median and the busiest hour;
+- one alert per hour, and a new one in the next hour;
+- a flood refused by the rate limit still alerting;
+- a failing rule not failing the batch, and the alert not returned to the sender;
+- the retention by whole days and the periodic cleanup;
+- the settings' validation and defaults.
+
+Reverse check: each of the following changes makes at least one test fail (21 of 21):
+- refused events not counted, or counts replaced instead of added;
+- accepted or refused batches not judged;
+- today in the usual level, or no lookback bound;
+- a mean instead of the median, or a day's total instead of its busiest hour;
+- no learning period, no minimum of events, no factor, or no once-per-hour claim;
+- the alert without the sending address or outside the key's organization;
+- a rule failure not contained;
+- the retention off by a day, or the cleanup skipping the counts;
+- either settings check removed;
+- the table without row-level security, or the API without the right to delete old counts.
+
+Server check: uvicorn on a temporary database seeded by the attack simulator (25 of 25 attacks detected, 3 false positives, no volume alert: its key is new). Two new keys got seven earlier days of 30 events an hour, written into the table. On the first, 99 events raised nothing, the 100th raised the alert, and 50 more in the same hour raised no second one. A third key, with no history, sent 500 events and raised nothing. The second key sent eleven batches of 500: ten were accepted, the eleventh refused with `429`, and one alert was raised; its hour counted 5,500 received and 500 refused. A wrong secret still got `401`. No alert message held a key's secret.

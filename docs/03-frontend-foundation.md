@@ -714,3 +714,21 @@ End-to-end check, on a temporary database filled by the attack simulator, with `
 - **Every page, no violation.** Headless Firefox, driven over WebDriver BiDi, signed in through the login page. It opened every page of both scopes, dark and light, at desktop and phone width: the owner's overview, both logs, the users and one user, API keys, organizations with the creation form, the account menu and the 404 page, plus `/login` and `/invite`. Across 58 checks there was no policy violation and no horizontal overflow.
 - **The check itself.** A second run with inline styles forbidden blocked the account menu each time it opened (`style-src-elem`, from `react-remove-scroll`). So the check does see violations, and Radix does need inline styles.
 - **Framing.** A page on another origin that framed the console got Firefox's refusal.
+
+## Stage 14: API key volume alert
+
+### 74. The new alert in the console
+
+The backend's new alert, `api_key_volume_spike`, is one more security event type (`SECURITY_EVENT_TYPES` in `features/account/api.ts`), so the type filter offers it with no other change. It is labelled "Unusual volume on an API key" ("Volum neobișnuit pe o cheie API"), and its technique, T1499, is named "Endpoint Denial of Service" in `features/org/mitre.ts`, which gives it the badge, the tooltip and the link to attack.mitre.org. The API keys page is unchanged: the alert is read in Security events, like every detection.
+
+### 75. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 244 passed
+- build -> successful
+- npm audit -> 0 vulnerabilities
+
+The new test checks the alert's row (badge and technique name), its details (technique, link, sending address, message) and the absence of an account link; `mitre.test.ts` names the new technique. Reverse check (3 of 3): the technique name removed, the label changed, or the type removed from the list (caught by the type check).
+
+End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check. Signed in as the owner, it opened Security events filtered to the new type, in both themes, both languages, at desktop and phone width, and opened the alert's details each time: 64 of 64 checks passed (two alerts listed, the T1499 badge and its name, the details and the MITRE link, no account link, the theme, no horizontal overflow, no policy violation). The screenshots were viewed.

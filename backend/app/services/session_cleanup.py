@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.metrics import SESSIONS_DELETED
 from app.core.row_security import restrict_rows
+from app.services.api_key_usage_service import delete_old_usage
 from app.services.session_service import delete_stale_sessions
 from app.services.tenancy import SYSTEM
 
@@ -12,11 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def run_session_cleanup() -> int:
-    """Delete stale sessions, of every account, in a database session of its
-    own."""
+    """Delete stale sessions, of every account, and the API keys' old hourly
+    counts, in a database session of its own. Returns the sessions deleted."""
     with SessionLocal() as db:
         restrict_rows(db, SYSTEM)
         deleted = delete_stale_sessions(db, settings.session_retention_days)
+        deleted_usage = delete_old_usage(db, settings.api_key_usage_retention_days)
 
     SESSIONS_DELETED.inc(deleted)
     logger.info(
@@ -24,6 +26,8 @@ def run_session_cleanup() -> int:
         extra={
             "deleted_sessions": deleted,
             "retention_days": settings.session_retention_days,
+            "deleted_api_key_usage_hours": deleted_usage,
+            "api_key_usage_retention_days": settings.api_key_usage_retention_days,
         },
     )
     return deleted

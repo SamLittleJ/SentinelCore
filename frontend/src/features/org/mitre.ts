@@ -5,6 +5,7 @@ const TECHNIQUE_NAMES: Record<string, string> = {
   'T1098': 'Account Manipulation',
   'T1110.001': 'Brute Force: Password Guessing',
   'T1110.003': 'Brute Force: Password Spraying',
+  'T1499': 'Endpoint Denial of Service',
 }
 
 // "T1110" or "T1110.003": anything else is not used to build a link.

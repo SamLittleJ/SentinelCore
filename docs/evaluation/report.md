@@ -109,3 +109,4 @@ Evasive variants are marked *(evasive)*.
 - The evasive variants are the ones this project chose; a real attacker has more. Slow brute force is not among them: its lockout counts only this application's own sign-ins, in real time, so it cannot be replayed in seconds.
 - Five attacks per rule and per variant against one synthetic organization: the rates describe this scenario, not real attacks in general.
 - The seed fixes the people, devices and behaviour; the calendar follows the day of the run, so counts can differ slightly from one day to the next.
+- The API key volume rule (T1499) is not measured: it compares a key's hours by the time its events arrive, and a run of a few seconds on a fresh key cannot build the week of history it needs.
