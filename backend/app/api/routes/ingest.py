@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_system_db
+from app.api.deps import get_client_ip, get_db, get_system_db
 from app.core.row_security import restrict_rows
 from app.models.api_key import ApiKey
 from app.schemas.ingest import IngestRequest, IngestResult
 from app.services.api_key_service import authenticate_api_key
+from app.services.api_key_usage_service import record_arrival
+from app.services.detection_service import detect_volume_spike
 from app.services.ingestion_service import ingest_events, refuse_events, take_tokens
 from app.services.tenancy import Scope
 
@@ -57,13 +59,19 @@ def ingest_security_events(
     request: IngestRequest,
     db: Annotated[Session, Depends(get_db)],
     api_key: Annotated[ApiKey, Depends(get_ingestion_key)],
+    client_ip: Annotated[str | None, Depends(get_client_ip)],
 ) -> IngestResult:
     """Receive sign-ins from another system. They are stored with the key's
     source and go through the detection rules. A batch over the key's rate
-    limit is refused whole, with the seconds to wait before sending it again."""
+    limit is refused whole, with the seconds to wait before sending it again.
+    Either way, the batch counts toward the key's volume spike rule."""
     count = len(request.events)
     retry_after = take_tokens(db, api_key, count)
+    hour = record_arrival(db, api_key, count, refused=retry_after > 0)
     if retry_after:
         refuse_events(db, api_key, count)
+        detect_volume_spike(db, api_key, hour, client_ip)
         raise too_many_events(retry_after)
-    return IngestResult(accepted=ingest_events(db, api_key, request.events))
+    accepted = ingest_events(db, api_key, request.events)
+    detect_volume_spike(db, api_key, hour, client_ip)
+    return IngestResult(accepted=accepted)

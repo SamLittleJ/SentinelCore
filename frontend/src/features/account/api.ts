@@ -36,6 +36,7 @@ export const SECURITY_EVENT_TYPES = [
   'dormant_account_login',
   'privileged_role_granted',
   'unfamiliar_sign_in',
+  'api_key_volume_spike',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 

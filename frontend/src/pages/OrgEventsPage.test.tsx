@@ -242,6 +242,43 @@ describe('organization security events page', () => {
     expect(panel).toHaveTextContent('T1078 · Valid Accounts')
   })
 
+  it('shows an API key volume spike with its technique and the sending address', async () => {
+    const user = userEvent.setup()
+    const spike = makeSecurityEvent({
+      id: 506,
+      event_type: 'api_key_volume_spike',
+      severity: 'warn',
+      user_id: null,
+      email: null,
+      ip_address: '203.0.113.9',
+      source: 'detection',
+      message:
+        'API key a1b2c3d4 (Corporate VPN) sent 1200 events in the hour from 14:00 UTC, ' +
+        '4.0 times its usual busiest hour (300 events)',
+      mitre_technique: 'T1499',
+      created_at: '2026-10-06T14:20:00Z',
+      occurred_at: '2026-10-06T14:20:00Z',
+    })
+    serveEvents(() => [spike])
+    const { table } = await openEvents()
+
+    const [row] = rows(table)
+    expect(row).toHaveTextContent('Tehnica MITRE ATT&CK T1499')
+    expect(within(row).getByTitle('Endpoint Denial of Service')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Volum neobișnuit pe o cheie API' }))
+    const panel = await screen.findByRole('dialog', { name: 'Volum neobișnuit pe o cheie API' })
+    expect(panel).toHaveTextContent('T1499 · Endpoint Denial of Service')
+    expect(panel).toHaveTextContent('203.0.113.9')
+    expect(panel).toHaveTextContent('4.0 times its usual busiest hour')
+    expect(within(panel).getByRole('link', { name: /Deschide pe attack\.mitre\.org/ })).toHaveAttribute(
+      'href',
+      'https://attack.mitre.org/techniques/T1499/',
+    )
+    // It names no account to open.
+    expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
+  })
+
   it('opens the accounts an event names', async () => {
     const user = userEvent.setup()
     serveEvents(() => [failed, locked])

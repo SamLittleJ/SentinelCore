@@ -43,6 +43,7 @@ class SecurityEventType(StrEnum):
     DORMANT_ACCOUNT_LOGIN = "dormant_account_login"
     PRIVILEGED_ROLE_GRANTED = "privileged_role_granted"
     UNFAMILIAR_SIGN_IN = "unfamiliar_sign_in"
+    API_KEY_VOLUME_SPIKE = "api_key_volume_spike"
 
 
 # The sources this application stamps on its own events. Ingested events
@@ -63,6 +64,8 @@ MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
     SecurityEventType.UNFAMILIAR_SIGN_IN: "T1078",
     # Account Manipulation
     SecurityEventType.PRIVILEGED_ROLE_GRANTED: "T1098",
+    # Endpoint Denial of Service
+    SecurityEventType.API_KEY_VOLUME_SPIKE: "T1499",
 }
 
 

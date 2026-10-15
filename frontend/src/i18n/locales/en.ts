@@ -178,6 +178,7 @@ const en: typeof ro = {
     dormant_account_login: 'Sign-in after a long period of inactivity',
     privileged_role_granted: 'You granted a privileged role',
     unfamiliar_sign_in: 'Sign-in from a new network on a new device',
+    api_key_volume_spike: 'Unusual event volume on an API key',
   },
   eventsAsTarget: {
     user_role_changed: 'Your role was changed',
@@ -262,6 +263,7 @@ const en: typeof ro = {
       dormant_account_login: 'Sign-in to a long-dormant account',
       privileged_role_granted: 'Privileged role granted',
       unfamiliar_sign_in: 'Sign-in from an unfamiliar network and device',
+      api_key_volume_spike: 'Unusual volume on an API key',
     },
   },
   audit: {

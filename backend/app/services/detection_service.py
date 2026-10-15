@@ -18,20 +18,27 @@ Windows are measured back from the triggering event's own time, so an event
 that arrives late is judged against the events around it. Alerts keep that
 time in `occurred_at`, and rules that look at earlier alerts compare it, never
 `created_at`, which is when an alert was raised.
+
+The volume spike rule is the exception: it watches how much an API key sends,
+not what the events say, so it runs on each batch a key sends
+(`detect_volume_spike`) and measures by the database clock at arrival.
 """
 
 import ipaddress
 import logging
 import re
+import statistics
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.metrics import record_security_event
+from app.models.api_key import ApiKey
+from app.models.api_key_usage import ApiKeyUsage
 from app.models.security_event import (
     DETECTION_SOURCE,
     SecurityEvent,
@@ -329,3 +336,91 @@ def run_detection(db: Session, event: SecurityEvent) -> list[SecurityEvent]:
     for alert in alerts:
         record_security_event(alert.event_type, alert.severity)
     return alerts
+
+
+def usual_busiest_hour(db: Session, api_key: ApiKey, hour: datetime) -> float | None:
+    """The median of the key's busiest hour of each day it sent anything, over
+    the lookback days before `hour`'s UTC day; None while the key has fewer
+    such days than the minimum."""
+    today = hour.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    since = today - timedelta(days=settings.detection_volume_lookback_days)
+    busiest = db.scalars(
+        select(func.max(ApiKeyUsage.received))
+        .where(
+            ApiKeyUsage.api_key_id == api_key.id,
+            ApiKeyUsage.hour >= since,
+            ApiKeyUsage.hour < today,
+        )
+        .group_by(func.date_trunc("day", ApiKeyUsage.hour, "UTC"))
+    ).all()
+    if len(busiest) < settings.detection_volume_min_days:
+        return None
+    return statistics.median(busiest)
+
+
+def detect_volume_spike(
+    db: Session, api_key: ApiKey, hour: datetime, ip_address: str | None
+) -> SecurityEvent | None:
+    """T1499: an API key sending far more than usual within one hour, as a
+    leaked key flooding the ingestion endpoint would.
+
+    Run after each batch the key sends, refused or not, with the hour it was
+    counted in (services/api_key_usage_service.py). An hour alerts at most
+    once. Like the other rules, it only alerts, and a failure is logged
+    without failing the batch.
+    """
+    prefix = api_key.prefix
+    try:
+        received = db.scalar(
+            select(ApiKeyUsage.received).where(
+                ApiKeyUsage.api_key_id == api_key.id, ApiKeyUsage.hour == hour
+            )
+        )
+        if received is None or received < settings.detection_volume_min_events:
+            return None
+        usual = usual_busiest_hour(db, api_key, hour)
+        if usual is None or received < settings.detection_volume_factor * usual:
+            return None
+
+        # Claim the hour's alert; a batch that waited for this row finds it
+        # claimed and raises none.
+        claimed = db.scalar(
+            update(ApiKeyUsage)
+            .where(
+                ApiKeyUsage.api_key_id == api_key.id,
+                ApiKeyUsage.hour == hour,
+                ApiKeyUsage.alerted_at.is_(None),
+            )
+            .values(alerted_at=func.now())
+            .returning(ApiKeyUsage.received)
+        )
+        if claimed is None:
+            db.rollback()
+            return None
+
+        alert = SecurityEvent(
+            event_type=SecurityEventType.API_KEY_VOLUME_SPIKE,
+            severity=SecuritySeverity.WARN,
+            organization_id=api_key.organization_id,
+            ip_address=ip_address,
+            source=DETECTION_SOURCE,
+            message=(
+                f"API key {api_key.prefix} ({api_key.name}) sent {claimed} "
+                f"events in the hour from {hour.astimezone(UTC):%H:00} UTC, "
+                f"{claimed / usual:.1f} times its usual busiest hour "
+                f"({usual:g} events)"
+            ),
+            occurred_at=func.now(),
+        )
+        db.add(alert)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception(
+            "Detection failed",
+            extra={"api_key_prefix": prefix, "rule": "volume spike"},
+        )
+        return None
+
+    record_security_event(alert.event_type, alert.severity)
+    return alert

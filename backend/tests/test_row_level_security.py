@@ -26,6 +26,7 @@ from app.core.row_security import (
 )
 from app.main import app
 from app.models.api_key import ApiKey
+from app.models.api_key_usage import ApiKeyUsage
 from app.models.audit_log import AuditLog
 from app.models.invitation import Invitation
 from app.models.organization import Organization
@@ -62,6 +63,7 @@ TABLES: dict[type, Callable] = {
     AuditLog: lambda: select(AuditLog.organization_id),
     ApiKey: lambda: select(ApiKey.organization_id),
     Invitation: lambda: select(Invitation.organization_id),
+    ApiKeyUsage: lambda: select(ApiKeyUsage.organization_id),
 }
 # How many rows each table has, whoever may see them.
 ROW_COUNT = "SELECT count(*) FROM {}"
@@ -83,8 +85,12 @@ def records(
     records_in_both: None,  # noqa: F811
 ) -> Platform:
     """Rows of both organizations, and of the platform, in every table; a
-    Globex sign-in gives Globex a session too."""
+    Globex sign-in gives Globex a session too, and a batch from each
+    organization's key its hourly count."""
     headers_for(client, "gus")
+    for org_id, email in ((platform.acme, "ada"), (platform.globex, "gus")):
+        key = new_key(client, platform.owner, org_id)
+        assert ingest(client, key, sign_in(f"{email}@example.com")).status_code == 202
     assert all(rows_in(model) for model in TABLES)
     return platform
 
