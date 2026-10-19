@@ -732,3 +732,21 @@ The backend's new alert, `api_key_volume_spike`, is one more security event type
 The new test checks the alert's row (badge and technique name), its details (technique, link, sending address, message) and the absence of an account link; `mitre.test.ts` names the new technique. Reverse check (3 of 3): the technique name removed, the label changed, or the type removed from the list (caught by the type check).
 
 End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check. Signed in as the owner, it opened Security events filtered to the new type, in both themes, both languages, at desktop and phone width, and opened the alert's details each time: 64 of 64 checks passed (two alerts listed, the T1499 badge and its name, the details and the MITRE link, no account link, the theme, no horizontal overflow, no policy violation). The screenshots were viewed.
+
+## Stage 15: Sign-in limit per address
+
+### 76. The new event in the console
+
+The backend's new `login_address_limited` event is one more security event type (`SECURITY_EVENT_TYPES`) and one more audit type (`AUDIT_EVENT_TYPES` in `features/org/api.ts`). It is labelled "Address limited after too many failed sign-ins" ("Adresă limitată după prea multe autentificări eșuate") in the organization view, "Address limited after failed sign-ins" in the audit log, and "Sign-in attempts limited for an address" in the personal view's list, which the type requires though no account's activity shows it. Its technique, T1110, is named "Brute Force" in `features/org/mitre.ts`. The event belongs to the platform, so only the owner sees it. The login page needs nothing new: a refused address gets the same `429` and `Retry-After` as a locked email, which it already shows with the time to wait.
+
+### 77. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 246 passed
+- build -> successful
+- npm audit -> 0 vulnerabilities
+
+The new tests check the event's row (badge and technique name) and its details (technique, link, address, no account link) in Security events, and the record in the audit log with its type offered by the filter; `mitre.test.ts` names T1110. Reverse check (4 of 4): the technique name removed, the label changed, the type removed from the security event types (caught by the type check), or removed from the audit types (first missed, now caught by the audit test).
+
+End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check. Signed in as the owner, in both themes, both languages, at desktop and phone width, it opened Security events filtered to the new type and the event's details, then the audit log filtered to it: 72 of 72 checks passed (one row, the T1110 badge and its name, the address `::1`, the MITRE link, no account link, the audit record, the theme, no horizontal overflow, no policy violation). Once `127.0.0.1` was over its limit, the sign-in page answered the owner's right password with the lockout's message and the minutes left, and stayed on `/login`: 40 of 40 checks. The screenshots were viewed.

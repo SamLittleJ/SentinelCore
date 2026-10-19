@@ -170,6 +170,7 @@ const ro = {
     organization_renamed: 'Ai redenumit o organizație',
     organization_suspended: 'Ai suspendat o organizație',
     organization_reactivated: 'Ai reactivat o organizație',
+    login_address_limited: 'Încercări de autentificare limitate pentru o adresă',
     password_spray_detected: 'Atac de tip password spray detectat',
     dormant_account_login: 'Autentificare după o perioadă lungă de inactivitate',
     privileged_role_granted: 'Ai acordat un rol privilegiat',
@@ -255,6 +256,7 @@ const ro = {
       organization_renamed: 'Organizație redenumită',
       organization_suspended: 'Organizație suspendată',
       organization_reactivated: 'Organizație reactivată',
+      login_address_limited: 'Adresă limitată după prea multe autentificări eșuate',
       password_spray_detected: 'Password spray detectat',
       dormant_account_login: 'Autentificare pe un cont inactiv de mult timp',
       privileged_role_granted: 'Rol privilegiat acordat',
@@ -295,6 +297,7 @@ const ro = {
       organization_suspended: 'Organizație suspendată',
       organization_reactivated: 'Organizație reactivată',
       organizations_viewed: 'Organizații consultate',
+      login_address_limited: 'Adresă limitată după autentificări eșuate',
     },
   },
   users: {

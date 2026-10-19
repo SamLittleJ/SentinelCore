@@ -174,6 +174,7 @@ const en: typeof ro = {
     organization_renamed: 'You renamed an organization',
     organization_suspended: 'You suspended an organization',
     organization_reactivated: 'You reactivated an organization',
+    login_address_limited: 'Sign-in attempts limited for an address',
     password_spray_detected: 'Password spray attack detected',
     dormant_account_login: 'Sign-in after a long period of inactivity',
     privileged_role_granted: 'You granted a privileged role',
@@ -259,6 +260,7 @@ const en: typeof ro = {
       organization_renamed: 'Organization renamed',
       organization_suspended: 'Organization suspended',
       organization_reactivated: 'Organization reactivated',
+      login_address_limited: 'Address limited after too many failed sign-ins',
       password_spray_detected: 'Password spray detected',
       dormant_account_login: 'Sign-in to a long-dormant account',
       privileged_role_granted: 'Privileged role granted',
@@ -299,6 +301,7 @@ const en: typeof ro = {
       organization_suspended: 'Organization suspended',
       organization_reactivated: 'Organization reactivated',
       organizations_viewed: 'Organizations viewed',
+      login_address_limited: 'Address limited after failed sign-ins',
     },
   },
   users: {

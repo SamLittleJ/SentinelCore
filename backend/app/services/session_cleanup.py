@@ -7,18 +7,21 @@ from app.core.metrics import SESSIONS_DELETED
 from app.core.row_security import restrict_rows
 from app.services.api_key_usage_service import delete_old_usage
 from app.services.session_service import delete_stale_sessions
+from app.services.sign_in_limit_service import delete_full_buckets
 from app.services.tenancy import SYSTEM
 
 logger = logging.getLogger(__name__)
 
 
 def run_session_cleanup() -> int:
-    """Delete stale sessions, of every account, and the API keys' old hourly
-    counts, in a database session of its own. Returns the sessions deleted."""
+    """Delete stale sessions, of every account, the API keys' old hourly
+    counts and the sign-in limits of addresses whose buckets filled up again,
+    in a database session of its own. Returns the sessions deleted."""
     with SessionLocal() as db:
         restrict_rows(db, SYSTEM)
         deleted = delete_stale_sessions(db, settings.session_retention_days)
         deleted_usage = delete_old_usage(db, settings.api_key_usage_retention_days)
+        deleted_limits = delete_full_buckets(db)
 
     SESSIONS_DELETED.inc(deleted)
     logger.info(
@@ -28,6 +31,7 @@ def run_session_cleanup() -> int:
             "retention_days": settings.session_retention_days,
             "deleted_api_key_usage_hours": deleted_usage,
             "api_key_usage_retention_days": settings.api_key_usage_retention_days,
+            "deleted_sign_in_address_limits": deleted_limits,
         },
     )
     return deleted

@@ -12,6 +12,7 @@ from app.models import (  # noqa: F401
     invitation,
     organization,
     security_event,
+    sign_in_address_limit,
     user,
     user_session,
 )

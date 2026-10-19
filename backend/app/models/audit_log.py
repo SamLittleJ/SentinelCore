@@ -36,6 +36,7 @@ class AuditEventType(StrEnum):
     ORGANIZATION_SUSPENDED = "organization_suspended"
     ORGANIZATION_REACTIVATED = "organization_reactivated"
     ORGANIZATIONS_VIEWED = "organizations_viewed"
+    LOGIN_ADDRESS_LIMITED = "login_address_limited"
 
 
 class AuditLog(Base):

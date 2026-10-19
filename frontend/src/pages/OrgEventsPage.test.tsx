@@ -279,6 +279,43 @@ describe('organization security events page', () => {
     expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
   })
 
+  it('shows a limited sign-in address with its technique and the address', async () => {
+    const user = userEvent.setup()
+    const limited = makeSecurityEvent({
+      id: 507,
+      event_type: 'login_address_limited',
+      severity: 'warn',
+      user_id: null,
+      email: null,
+      organization_id: null,
+      ip_address: '203.0.113.7',
+      source: 'backend',
+      message:
+        'Sign-in attempts limited for address 203.0.113.7 after too many failed attempts: ' +
+        'at most 20 at once, then 6 an hour',
+      mitre_technique: 'T1110',
+      created_at: '2026-10-06T15:00:00Z',
+      occurred_at: '2026-10-06T15:00:00Z',
+    })
+    serveEvents(() => [limited])
+    const { table } = await openEvents()
+
+    const [row] = rows(table)
+    expect(row).toHaveTextContent('Tehnica MITRE ATT&CK T1110')
+    expect(within(row).getByTitle('Brute Force')).toBeInTheDocument()
+
+    const label = 'Adresă limitată după prea multe autentificări eșuate'
+    await user.click(within(row).getByRole('button', { name: label }))
+    const panel = await screen.findByRole('dialog', { name: label })
+    expect(panel).toHaveTextContent('T1110 · Brute Force')
+    expect(panel).toHaveTextContent('203.0.113.7')
+    expect(within(panel).getByRole('link', { name: /Deschide pe attack\.mitre\.org/ })).toHaveAttribute(
+      'href',
+      'https://attack.mitre.org/techniques/T1110/',
+    )
+    expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
+  })
+
   it('opens the accounts an event names', async () => {
     const user = userEvent.setup()
     serveEvents(() => [failed, locked])

@@ -78,7 +78,16 @@ LOGIN_FAILURE_WINDOW_MINUTES=15
 LOGIN_LOCKOUT_MINUTES=15
 ```
 
-Behind a reverse proxy, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>`; otherwise every event records the proxy's IP.
+Failed sign-ins are also limited per address, whatever email they try, so one address can neither spray a password across many accounts nor keep a victim's email locked. Each address has a token bucket in the database (`sign_in_address_limits`): every attempt takes a token before the password is checked, and only a successful sign-in gives it back, so attempts on an already locked email spend tokens too. An address with none left gets the same `429`, detail and `Retry-After` as a locked email, before its email or password is checked, and writes no event: only the metric `sentinelcore_login_refused_total` and a log line. The failure that spends the last token records one `login_address_limited` event (warn, T1110) and an audit record, both the platform's, seen by the owner. IPv4 addresses count one by one, IPv6 ones by their /64 network, and requests whose address is unknown share one bucket. Buckets that filled up again are deleted by the periodic cleanup. There is no manual unlock: a bucket refills by itself.
+
+```env
+LOGIN_ADDRESS_BURST=20
+LOGIN_ADDRESS_FAILURES_PER_HOUR=6
+```
+
+The API refuses to start unless the burst exceeds `DETECTION_SPRAY_MIN_ACCOUNTS`, so a spray from one address raises its alert before the address is limited, and is at least `LOGIN_MAX_FAILED_ATTEMPTS`.
+
+Behind a reverse proxy, start uvicorn with `--proxy-headers --forwarded-allow-ips=<proxy IP>`; otherwise every event records the proxy's IP, and every client shares the proxy's sign-in limit.
 
 ## Detection rules
 
@@ -130,7 +139,8 @@ Every valid batch, refused or not, is counted in the key's current UTC hour by t
 `simulator/` measures the detection rules. It drives a running instance through its public API, as an outside system would, and writes `docs/evaluation/report.md` and `report.json`.
 
 ```bash
-# a running backend on a fresh database, and its owner (python -m app.cli create-owner)
+# a running backend on a fresh database, and its owner (python -m app.cli create-owner);
+# start it with LOGIN_ADDRESS_BURST=1000, as below
 export SENTINELCORE_OWNER_PASSWORD=...   # or leave it unset to be asked
 python -m simulator --owner-email owner@example.com [--seed 42] [--base-url http://localhost:8000]
 ```
@@ -145,6 +155,8 @@ What it does:
 6. Revokes its key.
 
 Time to detect is given in attack time (from the first step to the one after which the alert appeared, and in steps) and as the latency of the request that raised the alert. What is an attack stays with the simulator; the server only sees sign-ins. The seed fixes the people and their behaviour, and passwords are random and never written anywhere.
+
+Every attacker signs in from the simulator's one address, so its server runs with the limit on failed sign-ins per address raised (`LOGIN_ADDRESS_BURST=1000 python -m uvicorn app.main:app`); with the default, the brute-force attacks after the 20th failure would be refused by that limit before their email locks, and the report would measure the limit instead of the rules. `make demo` starts its server the same way. The limit has its own tests.
 
 Run it on a fresh database. A second run reuses the same attacker addresses at the same times of day, so its sprays overlap the first run's and are caught sooner; its brute force attempts, all from `127.0.0.1`, add up with the first run's into a spray from that address. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
 

@@ -72,7 +72,10 @@ rm -f "$DEMO_DIR/owner-password"
   "$PYTHON" -m app.cli create-owner --email "$OWNER_EMAIL" --username owner)
 
 echo "==> The backend, on 127.0.0.1:8000"
-(cd "$ROOT/backend" && exec "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port 8000) \
+# Every attacker of the demo signs in from this machine's one address, so the
+# limit on failed sign-ins per address is raised for the demo's server only.
+(cd "$ROOT/backend" && LOGIN_ADDRESS_BURST=1000 \
+  exec "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port 8000) \
   >"$DEMO_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 trap 'kill "$BACKEND_PID" 2>/dev/null || true' EXIT

@@ -46,6 +46,11 @@ INGEST_REFUSED_EVENTS = Counter(
     ["source"],
 )
 
+LOGIN_REFUSED = Counter(
+    "sentinelcore_login_refused_total",
+    "Sign-in attempts refused because their address was over its limit.",
+)
+
 
 def record_http_request(
     method: str,

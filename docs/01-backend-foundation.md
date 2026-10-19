@@ -4869,3 +4869,70 @@ Reverse check: each of the following changes makes at least one test fail (21 of
 - the table without row-level security, or the API without the right to delete old counts.
 
 Server check: uvicorn on a temporary database seeded by the attack simulator (25 of 25 attacks detected, 3 false positives, no volume alert: its key is new). Two new keys got seven earlier days of 30 events an hour, written into the table. On the first, 99 events raised nothing, the 100th raised the alert, and 50 more in the same hour raised no second one. A third key, with no history, sent 500 events and raised nothing. The second key sent eleven batches of 500: ten were accepted, the eleventh refused with `429`, and one alert was raised; its hour counted 5,500 received and 500 refused. A wrong secret still got `401`. No alert message held a key's secret.
+
+## Sign-in limit per address
+
+### 358. Purpose of the stage
+
+Residual risk 5 of the threat model: the lockout counts failures per email, so one address could try a common password on every account (T-10, a spray), or lock a victim out again each time the lock ended, with five requests every fifteen minutes (T-12). Failed sign-ins are now limited per address too, whatever email they try.
+
+### 359. A token bucket per address
+
+- **The buckets.** A new table, `sign_in_address_limits` (migration `02ba8f21ff4e`), holds one row per address: `address`, `tokens` and `refilled_at`. An address belongs to no organization, so the table has no `organization_id`; row-level security is on, with a policy that lets only the scope that sees every row reach it. Sign-in and the periodic cleanup are the only callers, and both use that scope. The API's role may select, insert, update and delete rows.
+- **The address.** `address_key` in `app/services/sign_in_limit_service.py` keeps an IPv4 address as it is and an IPv6 address as its /64 network, which one customer usually holds whole; an IPv4 client of an IPv6 socket counts as IPv4. A request whose address is not known counts as `unknown`, one bucket for all of them, so an unknown address is no way around the limit.
+- **Taking a token.** `_log_in` in `app/api/routes/auth.py` calls `take_attempt` first, before the email's lockout and the password. It inserts the row if missing, locks it (`SELECT ... FOR UPDATE`), refills it by the time since `refilled_at` on the database clock, up to `LOGIN_ADDRESS_BURST` (20), at `LOGIN_ADDRESS_FAILURES_PER_HOUR` (6), and takes one token. It commits at once, so the row is not held while the password is checked. As in the ingestion bucket, a request that waited for the lock never moves `refilled_at` back.
+- **Giving it back.** Only a successful sign-in returns its token (`give_back`). A wrong password, an unknown email, an inactive account, a suspended organization, an account locked by an operator and an email already locked all keep it: the last one matters, since each attempt on a locked email writes a `login_blocked` event.
+- **Refusing.** An address with no token gets `429` with the lockout's own detail and a `Retry-After` until the next token, before anything else is checked: even the right password is refused. Nothing tells the address's limit from the email's. The refusal writes no event, only the counter `sentinelcore_login_refused_total` and a log line, so one address cannot fill the event table.
+- **Recording.** The failure that takes the last token still gets its own answer (`401`, `403` or the lockout's `429`), and records one `login_address_limited` security event (`warn`, source `backend`, MITRE T1110, Brute Force) and an audit record of the same type. Both belong to the platform, with the sending address and a message naming the bucket; only the owner sees them. A sign-in event of this kind is a control of the application, not a detection rule, so it runs no rule.
+- **Cleaning up.** A bucket untouched for `burst / rate` hours (3 h 20 min by default) is full again and means the same as no row; `delete_full_buckets` deletes such rows in the periodic cleanup, which logs how many.
+- **The settings.** The API refuses to start unless `LOGIN_ADDRESS_BURST` exceeds `DETECTION_SPRAY_MIN_ACCOUNTS`, so a spray from one address raises its alert before the address is limited, and is at least `LOGIN_MAX_FAILED_ATTEMPTS`, so the email's lockout still works.
+- **The simulator and the demo.** Both play every attacker from one address: five brute-force attacks of eight wrong passwords each would pass the limit and stop reaching the lockout they measure. Their servers run with `LOGIN_ADDRESS_BURST=1000` (`scripts/demo.sh`, the README's simulator section, the tests' fixtures), and the evaluation report says the limit is not measured there.
+
+### 360. What it leaves
+
+- A spray or a lockout spread over many addresses passes the limit (T-10 stays medium; T-12 is low, not closed).
+- One address can still keep a victim locked about 15 minutes in every 50: any refill at all lets it save up five failures.
+- Clients behind one address share its bucket: a company's NAT, or every client behind a proxy that runs without `--proxy-headers` (T-60, accepted). There is no manual unlock.
+- Floods of wrong ingestion keys are not limited per address; they are left to phase B's ingress (T-38).
+
+### 361. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations`, `simulator` -> 0 errors (two settings tests now type their keyword dictionaries, which pyright 1.1.414 flagged)
+- pytest -> 641 passed
+- migration on a temporary database: upgrade, `alembic check` (no changes), downgrade with rows of the new type in both tables (rows deleted, table and type value gone), upgrade again; row-level security, the policy (the scope that sees every row only) and the four privileges checked in the catalog
+- Gitleaks on `backend`, `frontend`, `docs`, `scripts` and `README.md` -> no leaks found
+
+The new tests (`tests/test_sign_in_address_limit.py`, 25) cover:
+- the bucket's key: an IPv4 address alone, an IPv6 address with its /64, an IPv4 client of an IPv6 socket, an unknown address;
+- an address refused after its burst, with the lockout's answer and a `Retry-After` up to ten minutes;
+- a refused attempt not checked (even the right password), writing no event, counted in the metric;
+- one event and one audit record, the platform's, by the failure that spends the last token;
+- a successful sign-in spending nothing, and attempts on a locked email spending tokens;
+- each address apart, an IPv6 network together, unknown addresses together, and the limit on all three sign-in paths;
+- the spray alert before the limit;
+- the refill, the cap, the clock that never runs back, and two attempts that cannot spend one token (a second session waits for the row);
+- the cleanup of full buckets only, also in the periodic task;
+- row-level security on the table;
+- the settings' validation and defaults.
+
+Reverse check: each of the following changes makes at least one test fail (24 of 24):
+- no refusal, or a refusal that writes an event or answers differently;
+- a successful sign-in keeping its token, or a locked email's refusal giving it back;
+- no record when the last token is spent, the record in an organization, or without its audit;
+- an unknown address skipping the limit, IPv6 counted by address, an IPv4-mapped address counted as IPv6;
+- no row lock, no refill, no cap, the clock moved back, the last token never noticed, a wrong `Retry-After`, no metric;
+- the cleanup too early or skipped;
+- either settings check removed;
+- the table's policy open to every scope;
+- the event without its MITRE technique.
+
+Two of them first passed and the tests were strengthened: without the row lock, the concurrency test still saw a wait, on the update rather than the read, so it now lets the second attempt arrive while the first only holds the row and spends the token after; and the settings case for the spray check also broke the lockout check, so each case now breaks one.
+
+Server check: uvicorn on a temporary database, first with `LOGIN_ADDRESS_BURST=1000` for the attack simulator (25 of 25 attacks detected, 3 false positives, as before), then with the defaults, on three processes over the same database: two on `127.0.0.1` and one on `::1`.
+- From `::1`, 20 failed sign-ins got `401` (and two spray alerts), the 21st `429` with `Retry-After: 599`; the owner's right password was refused too, with no token; a forged `X-Forwarded-For` changed nothing. The three refusals wrote no event and raised the metric by 3. One `login_address_limited` event and one audit record were written, both the platform's, with the address `::1`; the bucket was `::/64`.
+- The owner still signed in from `127.0.0.1`.
+- From `127.0.0.1`, ten failures on one process and ten on the other spent one bucket: the 21st was refused on either process.
+- The bucket of `127.0.0.1`, left at 960 tokens by the run with the raised limit, was read capped at the new burst.
+- No server log held the owner's password.
