@@ -75,6 +75,32 @@ describe('organization audit log page', () => {
     expect(router.state.location.search).toBe('')
   })
 
+  it('offers and shows the record of an address limited at sign-in', async () => {
+    const user = userEvent.setup()
+    const limited = makeAuditLog({
+      id: 897,
+      event_type: 'login_address_limited',
+      user_id: null,
+      email: null,
+      ip_address: '203.0.113.7',
+      message:
+        'Sign-in attempts limited for address 203.0.113.7 after too many failed attempts: ' +
+        'at most 20 at once, then 6 an hour',
+    })
+    const requests = serveAudit(() => [limited])
+    const { rows } = await openAudit()
+
+    expect(rows[0]).toHaveTextContent('Adresă limitată după autentificări eșuate')
+    expect(rows[0]).toHaveTextContent('203.0.113.7')
+
+    await user.click(screen.getByRole('button', { name: 'Tipuri de evenimente' }))
+    await user.click(
+      screen.getByRole('menuitemcheckbox', { name: 'Adresă limitată după autentificări eșuate' }),
+    )
+    await user.keyboard('{Escape}')
+    expect(requests.at(-1)?.getAll('event_type')).toEqual(['login_address_limited'])
+  })
+
   it('shows a record without a message and narrows to its target', async () => {
     const user = userEvent.setup()
     const requests = serveAudit(() => [roleChanged, loginFailed])

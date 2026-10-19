@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     login_max_failed_attempts: int = 5
     login_failure_window_minutes: int = 15
     login_lockout_minutes: int = 15
+    # Failed sign-ins per address, of any email: an address may fail this
+    # many times at once, then this many an hour
+    # (services/sign_in_limit_service.py).
+    login_address_burst: int = Field(default=20, ge=1)
+    login_address_failures_per_hour: int = Field(default=6, ge=1)
     # Password spray: failed sign-ins for this many different emails from one
     # address within the window raise an incident.
     detection_spray_min_accounts: int = Field(default=10, ge=2)
@@ -93,6 +98,21 @@ class Settings(BaseSettings):
             raise ValueError(
                 "API_KEY_USAGE_RETENTION_DAYS must be at least "
                 "DETECTION_VOLUME_LOOKBACK_DAYS"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_address_burst(self) -> Self:
+        # Otherwise an address would be stopped before it fails on enough
+        # emails to raise the spray alert, or on one email enough times to
+        # lock it.
+        if self.login_address_burst <= self.detection_spray_min_accounts:
+            raise ValueError(
+                "LOGIN_ADDRESS_BURST must exceed DETECTION_SPRAY_MIN_ACCOUNTS"
+            )
+        if self.login_address_burst < self.login_max_failed_attempts:
+            raise ValueError(
+                "LOGIN_ADDRESS_BURST must be at least LOGIN_MAX_FAILED_ATTEMPTS"
             )
         return self
 

@@ -35,6 +35,13 @@ from app.services.session_service import (
     revoke_session,
     stage_revoke_all_sessions,
 )
+from app.services.sign_in_limit_service import (
+    address_key,
+    give_back,
+    limit_address,
+    refuse_attempt,
+    take_attempt,
+)
 from app.services.user_service import (
     authenticate_user,
     is_account_locked,
@@ -59,7 +66,37 @@ def _log_in(
     user_agent: str | None,
 ) -> tuple[Token, UserSession]:
     """Shared by the JSON and OAuth2 form login endpoints, so both get the
-    same brute-force protection, events and session handling."""
+    same brute-force protection, events and session handling.
+
+    The address's limit comes first, before the email's lockout and the
+    password, and answers as the lockout does, so a refused attempt learns
+    nothing and writes no event.
+    """
+    address = address_key(client_ip)
+    attempt = take_attempt(db, address)
+    if attempt.retry_after:
+        refuse_attempt(address)
+        raise too_many_login_attempts(attempt.retry_after)
+
+    try:
+        token, session = _sign_in(db, user_in, client_ip, user_agent)
+    except HTTPException:
+        if attempt.took_last:
+            limit_address(db, address, client_ip)
+        raise
+
+    give_back(db, address)
+    return token, session
+
+
+def _sign_in(
+    db: Session,
+    user_in: UserLogin,
+    client_ip: str | None,
+    user_agent: str | None,
+) -> tuple[Token, UserSession]:
+    """Check the email's lockout and the password, and open a session; every
+    refusal is an HTTPException."""
     email = user_in.email
 
     # A locked email is rejected before the password is checked, so guesses

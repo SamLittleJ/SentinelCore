@@ -3,6 +3,7 @@
 const TECHNIQUE_NAMES: Record<string, string> = {
   'T1078': 'Valid Accounts',
   'T1098': 'Account Manipulation',
+  'T1110': 'Brute Force',
   'T1110.001': 'Brute Force: Password Guessing',
   'T1110.003': 'Brute Force: Password Spraying',
   'T1499': 'Endpoint Denial of Service',

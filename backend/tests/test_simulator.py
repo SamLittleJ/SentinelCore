@@ -26,10 +26,17 @@ from simulator.runner import AttackRun, Observations, StepResult, simulate
 OWNER_EMAIL = "owner@example.com"
 OWNER_PASSWORD = "owner-password-1"
 NOW = datetime(2026, 10, 9, 12, 0, tzinfo=UTC)
+# As scripts/demo.sh starts the demo's server.
+SIMULATOR_ADDRESS_BURST = 1000
 
 
 @pytest.fixture()
-def api(client: TestClient, db_session: Session) -> SentinelCore:
+def api(
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> SentinelCore:
+    # Every attacker signs in from the simulator's one address, so its server
+    # runs with the per-address limit raised (backend/README.md).
+    monkeypatch.setattr(settings, "login_address_burst", SIMULATOR_ADDRESS_BURST)
     # As `python -m app.cli create-owner` does.
     create_owner(
         db_session,

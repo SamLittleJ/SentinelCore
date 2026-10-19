@@ -42,6 +42,7 @@ from simulator.demo import (
 )
 from simulator.population import build_organization, build_quiet_organization
 from tests.conftest import rewriting_history
+from tests.test_simulator import SIMULATOR_ADDRESS_BURST
 
 OWNER_EMAIL = "owner@sim.example.com"
 OWNER_PASSWORD = "owner-password-1"
@@ -135,8 +136,11 @@ def test_the_demo_routine_reaches_this_morning() -> None:
 
 @pytest.fixture()
 def operators(
-    client: TestClient, db_session: Session
+    client: TestClient, db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> tuple[SentinelCore, SentinelCore, SentinelCore]:
+    # As scripts/demo.sh starts the demo's server: every attacker signs in
+    # from one address.
+    monkeypatch.setattr(settings, "login_address_burst", SIMULATOR_ADDRESS_BURST)
     create_owner(
         db_session,
         UserCreate(username="owner", email=OWNER_EMAIL, password=OWNER_PASSWORD),

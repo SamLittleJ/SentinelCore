@@ -110,3 +110,4 @@ Evasive variants are marked *(evasive)*.
 - Five attacks per rule and per variant against one synthetic organization: the rates describe this scenario, not real attacks in general.
 - The seed fixes the people, devices and behaviour; the calendar follows the day of the run, so counts can differ slightly from one day to the next.
 - The API key volume rule (T1499) is not measured: it compares a key's hours by the time its events arrive, and a run of a few seconds on a fresh key cannot build the week of history it needs.
+- The limit on failed sign-ins per address is not measured: every attacker signs in from the simulator's one address, so its server runs with that limit raised, and the brute-force attacks reach the lockout they measure. The limit has its own tests.

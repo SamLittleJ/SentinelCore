@@ -31,6 +31,7 @@ export const SECURITY_EVENT_TYPES = [
   'organization_renamed',
   'organization_suspended',
   'organization_reactivated',
+  'login_address_limited',
   // Alerts raised by the backend's detection rules.
   'password_spray_detected',
   'dormant_account_login',

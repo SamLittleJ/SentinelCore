@@ -37,6 +37,7 @@ class SecurityEventType(StrEnum):
     ORGANIZATION_RENAMED = "organization_renamed"
     ORGANIZATION_SUSPENDED = "organization_suspended"
     ORGANIZATION_REACTIVATED = "organization_reactivated"
+    LOGIN_ADDRESS_LIMITED = "login_address_limited"
     # Alerts raised by the detection rules (services/detection_service.py).
     # An event type, not a password.
     PASSWORD_SPRAY_DETECTED = "password_spray_detected"  # nosec B105
@@ -57,6 +58,8 @@ RESERVED_SOURCES = frozenset({BACKEND_SOURCE, DETECTION_SOURCE})
 MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
     # Brute Force: Password Guessing
     SecurityEventType.BRUTE_FORCE_DETECTED: "T1110.001",
+    # Brute Force, of any kind: guessing one account or spraying many
+    SecurityEventType.LOGIN_ADDRESS_LIMITED: "T1110",
     # Brute Force: Password Spraying
     SecurityEventType.PASSWORD_SPRAY_DETECTED: "T1110.003",
     # Valid Accounts

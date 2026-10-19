@@ -10,6 +10,7 @@ they write a key's earlier days straight into `api_key_usage`."""
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -405,12 +406,13 @@ def test_the_rule_must_be_able_to_judge_and_keep_its_days() -> None:
         detection_volume_lookback_days=14,
         api_key_usage_retention_days=14,
     )
-    for changes in (
+    invalid: list[dict[str, Any]] = [
         {"detection_volume_min_days": 15},
         {"api_key_usage_retention_days": 13},
         {"detection_volume_factor": 1},
         {"detection_volume_min_events": 0},
-    ):
+    ]
+    for changes in invalid:
         with pytest.raises(ValidationError):
             Settings(
                 database_url=URL,

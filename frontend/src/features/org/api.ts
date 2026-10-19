@@ -31,6 +31,7 @@ export const AUDIT_EVENT_TYPES = [
   'organization_suspended',
   'organization_reactivated',
   'organizations_viewed',
+  'login_address_limited',
 ] as const
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number]
 
