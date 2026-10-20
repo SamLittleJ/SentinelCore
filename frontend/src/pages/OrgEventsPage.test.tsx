@@ -279,6 +279,36 @@ describe('organization security events page', () => {
     expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
   })
 
+  it('shows a spray across organizations with its technique and the address', async () => {
+    const user = userEvent.setup()
+    const spray = makeSecurityEvent({
+      id: 508,
+      event_type: 'cross_organization_spray_detected',
+      severity: 'incident',
+      user_id: null,
+      email: null,
+      organization_id: null,
+      ip_address: '203.0.113.30',
+      source: 'detection',
+      message:
+        'Password spray across organizations from 203.0.113.30: failed sign-ins for ' +
+        '12 different emails within 15 minutes, in 2 organizations and 3 with no account',
+      mitre_technique: 'T1110.003',
+    })
+    serveEvents(() => [spray])
+    const { table } = await openEvents()
+
+    const [row] = rows(table)
+    expect(row).toHaveTextContent('Tehnica MITRE ATT&CK T1110.003')
+
+    await user.click(within(row).getByRole('button', { name: 'Password spray între organizații' }))
+    const panel = await screen.findByRole('dialog', { name: 'Password spray între organizații' })
+    expect(panel).toHaveTextContent('T1110.003 · Brute Force: Password Spraying')
+    expect(panel).toHaveTextContent('203.0.113.30')
+    expect(panel).toHaveTextContent('in 2 organizations and 3 with no account')
+    expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
+  })
+
   it('shows a limited sign-in address with its technique and the address', async () => {
     const user = userEvent.setup()
     const limited = makeSecurityEvent({

@@ -25,6 +25,8 @@ from simulator.attacks import plan_attacks
 from simulator.client import SentinelCore
 from simulator.demo import (
     ACME,
+    CROSS_SPRAY_ADDRESS,
+    CROSS_SPRAY_GUESSES,
     DETECTION_DELAY,
     GLOBEX,
     HISTORY_DAYS,
@@ -42,7 +44,7 @@ from simulator.demo import (
 )
 from simulator.population import build_organization, build_quiet_organization
 from tests.conftest import rewriting_history
-from tests.test_simulator import SIMULATOR_ADDRESS_BURST
+from tests.test_simulator import SIMULATOR_ADDRESS_BURST, from_address
 
 OWNER_EMAIL = "owner@sim.example.com"
 OWNER_PASSWORD = "owner-password-1"
@@ -145,7 +147,8 @@ def operators(
         db_session,
         UserCreate(username="owner", email=OWNER_EMAIL, password=OWNER_PASSWORD),
     )
-    owner, admin, analyst = (SentinelCore(client) for _ in range(3))
+    owner = SentinelCore(client, from_address=from_address)
+    admin, analyst = SentinelCore(client), SentinelCore(client)
     owner.log_in(OWNER_EMAIL, OWNER_PASSWORD)
     return owner, admin, analyst
 
@@ -212,6 +215,18 @@ def test_the_demo_looks_like_ninety_days_watched_live(
     ).all()
     assert len(brute_force) == TODAY["brute-force"]
     assert all(event.created_at >= started for event in brute_force)
+    # A spray across Acme, Globex and emails with no account, from an address
+    # of its own, seen by the platform only.
+    [cross] = [
+        alert
+        for alert in today
+        if alert.event_type == SecurityEventType.CROSS_ORGANIZATION_SPRAY_DETECTED
+    ]
+    assert cross.ip_address == CROSS_SPRAY_ADDRESS
+    assert cross.organization_id is None
+    # Raised at the tenth email, whichever places those came from.
+    assert "for 10 different emails" in cross.message
+    assert "in 2 organizations and " in cross.message
 
     # The operators' response.
     users = db_session.scalars(select(User)).all()
@@ -275,11 +290,12 @@ def test_the_demo_keeps_three_organizations_apart(
             )
         )
 
-    # The quiet organizations raise nothing but their admin joining (T1098);
-    # the platform's failures on unknown emails raise nothing at all.
+    # The quiet organizations raise nothing but their admin joining (T1098):
+    # Globex's share of the spray across organizations stays below its own
+    # spray rule. The platform sees that spray, and nothing else.
     assert alerts_of("globex") == {"privileged_role_granted": 1}
     assert alerts_of("initech") == {"privileged_role_granted": 1}
-    assert alerts_of(None) == {}
+    assert alerts_of(None) == {"cross_organization_spray_detected": 1}
     assert alerts_of("acme")["password_spray_detected"] >= 5
     platform_failures = db_session.scalars(
         select(SecurityEvent.email).where(
@@ -287,7 +303,9 @@ def test_the_demo_keeps_three_organizations_apart(
             SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
         )
     ).all()
-    assert sorted(email or "" for email in platform_failures) == sorted(UNKNOWN_EMAILS)
+    assert sorted(email or "" for email in platform_failures) == sorted(
+        UNKNOWN_EMAILS + CROSS_SPRAY_GUESSES
+    )
 
     # Everything Acme's key reported names its domain, the spray's guessed
     # addresses included.

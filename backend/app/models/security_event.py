@@ -45,6 +45,7 @@ class SecurityEventType(StrEnum):
     PRIVILEGED_ROLE_GRANTED = "privileged_role_granted"
     UNFAMILIAR_SIGN_IN = "unfamiliar_sign_in"
     API_KEY_VOLUME_SPIKE = "api_key_volume_spike"
+    CROSS_ORGANIZATION_SPRAY_DETECTED = "cross_organization_spray_detected"
 
 
 # The sources this application stamps on its own events. Ingested events
@@ -62,6 +63,7 @@ MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
     SecurityEventType.LOGIN_ADDRESS_LIMITED: "T1110",
     # Brute Force: Password Spraying
     SecurityEventType.PASSWORD_SPRAY_DETECTED: "T1110.003",
+    SecurityEventType.CROSS_ORGANIZATION_SPRAY_DETECTED: "T1110.003",
     # Valid Accounts
     SecurityEventType.DORMANT_ACCOUNT_LOGIN: "T1078",
     SecurityEventType.UNFAMILIAR_SIGN_IN: "T1078",

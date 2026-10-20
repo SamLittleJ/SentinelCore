@@ -12,7 +12,9 @@ exception: it blocks the email, and lives in login_protection_service.py.
 
 Rules look within one organization. The account rules do so by their nature:
 an account belongs to one organization, and its events to that one. The
-spray rule, keyed on an address, names the organization in its queries.
+spray rule, keyed on an address, names the organization in its queries. The
+cross-organization spray rule is the one platform rule: it looks across every
+organization, and its alerts are the platform's, seen by the owner only.
 
 Windows are measured back from the triggering event's own time, so an event
 that arrives late is judged against the events around it. Alerts keep that
@@ -32,7 +34,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import ColumnElement, case, cast, func, or_, select, update
+from sqlalchemy.dialects.postgresql import CIDR, INET
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -40,12 +43,14 @@ from app.core.metrics import record_security_event
 from app.models.api_key import ApiKey
 from app.models.api_key_usage import ApiKeyUsage
 from app.models.security_event import (
+    BACKEND_SOURCE,
     DETECTION_SOURCE,
     SecurityEvent,
     SecurityEventType,
     SecuritySeverity,
 )
 from app.models.user import User, UserRole
+from app.services.sign_in_limit_service import address_key
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +71,8 @@ class Rule:
     alert_type: SecurityEventType
     triggers: frozenset[SecurityEventType]
     evaluate: Callable[[Session, SecurityEvent], Alert | None]
+    # The rule looks across organizations, so its alerts are the platform's.
+    platform: bool = False
 
 
 def detect_password_spray(db: Session, event: SecurityEvent) -> Alert | None:
@@ -120,6 +127,86 @@ def detect_password_spray(db: Session, event: SecurityEvent) -> Alert | None:
             f"Password spray from {event.ip_address}: failed sign-ins for "
             f"{accounts} different emails within "
             f"{settings.detection_spray_window_minutes} minutes"
+        ),
+    )
+
+
+def counts_in(key: str) -> ColumnElement[bool]:
+    """Whether an event's address counts in `key`, an address or network as
+    sign_in_limit_service.address_key gives it."""
+    network = ipaddress.ip_network(key)
+    networks = [network]
+    if network.version == 4:
+        # The same client, seen by an IPv6 socket.
+        mapped = f"::ffff:{network.network_address}/128"
+        networks.append(ipaddress.ip_network(mapped))
+    address = cast(SecurityEvent.ip_address, INET)
+    inside = or_(*(address.op("<<=")(cast(str(n), CIDR)) for n in networks))
+    # Other systems' events may name anything: only an address is cast.
+    return case(
+        (func.pg_input_is_valid(SecurityEvent.ip_address, "inet"), inside),
+        else_=False,
+    )
+
+
+def detect_cross_organization_spray(db: Session, event: SecurityEvent) -> Alert | None:
+    """T1110.003: one address failing sign-ins for many emails spread over
+    several organizations, so that each may stay below its own spray rule.
+
+    Counts only this application's own failures. Other systems' logs may name
+    private addresses, which are different machines in different
+    organizations, and a tenant could forge them. An address counts as the
+    limit on sign-ins counts it: an IPv6 address with its /64 network. Emails
+    no account has count as one more place, the platform's; the alert needs
+    two places. Windows and repeats are judged as in detect_password_spray.
+    """
+    if event.source != BACKEND_SOURCE or event.ip_address is None:
+        return None
+
+    key = address_key(event.ip_address)
+    from_key = counts_in(key)
+    window = timedelta(minutes=settings.detection_spray_window_minutes)
+    since = event.created_at - window
+    latest_alert = db.scalar(
+        select(func.max(SecurityEvent.occurred_at)).where(
+            SecurityEvent.event_type
+            == SecurityEventType.CROSS_ORGANIZATION_SPRAY_DETECTED,
+            from_key,
+            SecurityEvent.occurred_at <= event.created_at,
+        )
+    )
+    if latest_alert is not None and latest_alert > since:
+        since = latest_alert
+
+    accounts, organizations, unplaced = db.execute(
+        select(
+            func.count(func.distinct(SecurityEvent.email)),
+            func.count(func.distinct(SecurityEvent.organization_id)),
+            func.count(func.distinct(SecurityEvent.email)).filter(
+                SecurityEvent.organization_id.is_(None)
+            ),
+        ).where(
+            SecurityEvent.source == BACKEND_SOURCE,
+            SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
+            from_key,
+            SecurityEvent.created_at > since,
+            SecurityEvent.created_at <= event.created_at,
+        )
+    ).one()
+    places = organizations + (1 if unplaced else 0)
+    if accounts < settings.detection_spray_min_accounts or places < 2:
+        return None
+
+    spread = f"in {organizations} organization{'' if organizations == 1 else 's'}"
+    if unplaced:
+        spread += f" and {unplaced} with no account"
+    return Alert(
+        severity=SecuritySeverity.INCIDENT,
+        ip_address=event.ip_address,
+        message=(
+            f"Password spray across organizations from {key}: failed sign-ins "
+            f"for {accounts} different emails within "
+            f"{settings.detection_spray_window_minutes} minutes, {spread}"
         ),
     )
 
@@ -270,6 +357,12 @@ RULES: tuple[Rule, ...] = (
         evaluate=detect_password_spray,
     ),
     Rule(
+        alert_type=SecurityEventType.CROSS_ORGANIZATION_SPRAY_DETECTED,
+        triggers=frozenset({SecurityEventType.LOGIN_FAILED}),
+        evaluate=detect_cross_organization_spray,
+        platform=True,
+    ),
+    Rule(
         alert_type=SecurityEventType.DORMANT_ACCOUNT_LOGIN,
         triggers=frozenset({SecurityEventType.LOGIN_SUCCESS}),
         evaluate=detect_dormant_account_login,
@@ -311,8 +404,11 @@ def run_detection(db: Session, event: SecurityEvent) -> list[SecurityEvent]:
                         severity=alert.severity,
                         user_id=alert.user_id,
                         target_user_id=alert.target_user_id,
-                        # The organization of the event that raised it.
-                        organization_id=event.organization_id,
+                        # The organization of the event that raised it, or
+                        # none for a rule that looks across them.
+                        organization_id=(
+                            None if rule.platform else event.organization_id
+                        ),
                         email=alert.email,
                         ip_address=alert.ip_address,
                         user_agent=alert.user_agent,

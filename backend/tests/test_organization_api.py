@@ -611,7 +611,12 @@ def test_summary_counts_alerts_per_technique(
         {
             "technique": "T1110.003",
             "alerts": 1,
-            "event_types": ["password_spray_detected"],
+            # Every alert of the technique, for the link to the events; the
+            # platform's spray across organizations stays out of the count.
+            "event_types": [
+                "password_spray_detected",
+                "cross_organization_spray_detected",
+            ],
         },
     ]
     latest = summary["latest_detection"]

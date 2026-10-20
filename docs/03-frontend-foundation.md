@@ -750,3 +750,21 @@ The backend's new `login_address_limited` event is one more security event type 
 The new tests check the event's row (badge and technique name) and its details (technique, link, address, no account link) in Security events, and the record in the audit log with its type offered by the filter; `mitre.test.ts` names T1110. Reverse check (4 of 4): the technique name removed, the label changed, the type removed from the security event types (caught by the type check), or removed from the audit types (first missed, now caught by the audit test).
 
 End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check. Signed in as the owner, in both themes, both languages, at desktop and phone width, it opened Security events filtered to the new type and the event's details, then the audit log filtered to it: 72 of 72 checks passed (one row, the T1110 badge and its name, the address `::1`, the MITRE link, no account link, the audit record, the theme, no horizontal overflow, no policy violation). Once `127.0.0.1` was over its limit, the sign-in page answered the owner's right password with the lockout's message and the minutes left, and stayed on `/login`: 40 of 40 checks. The screenshots were viewed.
+
+## Stage 16: Sprays across organizations
+
+### 78. The new alert in the console
+
+The backend's new `cross_organization_spray_detected` alert is one more security event type (`SECURITY_EVENT_TYPES`). It is labelled "Password spray across organizations" ("Password spray între organizații") in the organization view and "Password spray across organizations detected" in the personal view's list, which the type requires though no account's activity shows it. Its technique, T1110.003, already had its name in `features/org/mitre.ts`. The alert belongs to the platform, so only the owner sees it, in Security events, the threat band and the overview's technique counts.
+
+### 79. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 247 passed
+- build -> successful
+- npm audit -> 0 vulnerabilities
+
+The new test checks the alert's row (technique badge) and its details (label, technique name, address, the message's spread, no account link) in Security events. Reverse check (2 of 2): the label changed, or the type removed from the security event types (caught by the type check).
+
+End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check. Signed in as the owner, in both themes, both languages, at desktop and phone width, it opened Security events filtered to the new type and an alert's details, then the overview: 75 of 75 checks passed (the label, the T1110.003 badge and its name, the address, the spread, the theme, no horizontal overflow, no policy violation). The screenshots were viewed.
