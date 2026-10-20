@@ -39,6 +39,7 @@ export const SECURITY_EVENT_TYPES = [
   'unfamiliar_sign_in',
   'api_key_volume_spike',
   'cross_organization_spray_detected',
+  'audit_chain_broken',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 

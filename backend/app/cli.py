@@ -4,11 +4,16 @@ Usage, from the backend directory:
 
     python -m app.cli grant-api-login
     python -m app.cli cleanup-sessions
+    python -m app.cli verify-audit-chain
     python -m app.cli create-owner --email owner@example.com --username owner
 
 `grant-api-login` lets the API's database role sign in with the password in
 DATABASE_URL; it runs as the owner of the tables (MIGRATIONS_DATABASE_URL),
 after the migrations have created the role.
+
+`verify-audit-chain` checks every audit chain, prints one line for each with
+its length and head, and exits with 1 if any is broken. It only reads: it
+raises no alert, which the periodic check does.
 
 `create-owner` reads the password from SENTINELCORE_OWNER_PASSWORD, or asks
 for it without echoing it, so it stays out of the shell history.
@@ -30,6 +35,7 @@ from app.core.database import SessionLocal
 from app.core.logging import configure_logging
 from app.core.row_security import APP_ROLE, restrict_rows
 from app.schemas.user import UserCreate
+from app.services.audit_chain_service import verify_chains
 from app.services.session_cleanup import run_session_cleanup
 from app.services.tenancy import SYSTEM
 from app.services.user_service import OwnerExistsError, create_owner
@@ -113,6 +119,28 @@ def _grant_api_login() -> None:
     print(f"The role {api.username} may now sign in with the password in DATABASE_URL.")
 
 
+def _verify_audit_chain() -> None:
+    with SessionLocal() as db:
+        restrict_rows(db, SYSTEM)
+        checks = verify_chains(db)
+    for check in checks:
+        chain = (
+            "platform"
+            if check.organization_id is None
+            else f"organization {check.organization_id}"
+        )
+        state = (
+            "intact"
+            if check.intact
+            else f"BROKEN at record {check.broken_at} ({check.problem})"
+        )
+        print(f"{chain}: {check.records} records, head {check.head}, {state}")
+    if not checks:
+        print("No audit records yet.")
+    if not all(check.intact for check in checks):
+        raise SystemExit(1)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -125,6 +153,10 @@ def main(argv: list[str] | None = None) -> None:
         "cleanup-sessions",
         help="Delete sessions that expired or were revoked before the retention "
         "period (SESSION_RETENTION_DAYS).",
+    )
+    commands.add_parser(
+        "verify-audit-chain",
+        help="Check the seal of every audit record; exits with 1 if a chain is broken.",
     )
     create_owner_parser = commands.add_parser(
         "create-owner",
@@ -142,6 +174,8 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "cleanup-sessions":
         deleted = run_session_cleanup()
         print(f"Deleted {deleted} stale session(s).")
+    elif args.command == "verify-audit-chain":
+        _verify_audit_chain()
     elif args.command == "create-owner":
         _create_owner(args.email, args.username)
 

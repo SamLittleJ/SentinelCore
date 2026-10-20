@@ -23,7 +23,9 @@ time in `occurred_at`, and rules that look at earlier alerts compare it, never
 
 The volume spike rule is the exception: it watches how much an API key sends,
 not what the events say, so it runs on each batch a key sends
-(`detect_volume_spike`) and measures by the database clock at arrival.
+(`detect_volume_spike`) and measures by the database clock at arrival. The
+broken audit history alert (T1070) watches no event either: the periodic
+check of the audit chains raises it (services/audit_chain_service.py).
 """
 
 import ipaddress

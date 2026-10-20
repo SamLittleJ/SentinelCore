@@ -35,7 +35,7 @@ python -m app.cli create-owner --email owner@example.com --username owner
 python -m uvicorn app.main:app --reload
 ```
 
-`create-owner` asks for the owner's password and creates the organization's first account. There is no public sign-up: the owner and admins invite everyone else from the Users page, and the person invited picks a username and a password at `/invite`.
+Before the migrations, set `SECRET_KEY` and `AUDIT_CHAIN_KEY` in `.env` to two different random values: the second seals the audit history (see `backend/README.md`). `create-owner` asks for the owner's password and creates the organization's first account. There is no public sign-up: the owner and admins invite everyone else from the Users page, and the person invited picks a username and a password at `/invite`.
 
 The API runs at `http://localhost:8000`. Its interactive docs, which `API_DOCS_ENABLED=true` in `.env` turns on for development, are at `http://127.0.0.1:8000/docs`: another host than the web app's `localhost`, so the docs' code from a CDN never gets the web app's cookies. PostgreSQL listens on `localhost` only, because the development password in `docker-compose.yml` is public.
 

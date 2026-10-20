@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -531,20 +531,28 @@ def test_the_buckets_clock_never_runs_backwards(
 
 def test_the_burst_holds_at_least_the_largest_batch() -> None:
     url, secret_key = "postgresql://unused", "x" * 32
+    key = SecretStr("y" * 32)
 
     Settings(
         database_url=url,
         secret_key=secret_key,
+        audit_chain_key=key,
         ingest_burst_events=MAX_EVENTS_PER_REQUEST,
     )
     with pytest.raises(ValidationError):
         Settings(
             database_url=url,
             secret_key=secret_key,
+            audit_chain_key=key,
             ingest_burst_events=MAX_EVENTS_PER_REQUEST - 1,
         )
     with pytest.raises(ValidationError):
-        Settings(database_url=url, secret_key=secret_key, ingest_events_per_minute=0)
+        Settings(
+            database_url=url,
+            secret_key=secret_key,
+            audit_chain_key=key,
+            ingest_events_per_minute=0,
+        )
 
 
 def test_by_default_a_key_may_send_a_backfill_at_once_then_1000_a_minute() -> None:

@@ -46,6 +46,7 @@ class SecurityEventType(StrEnum):
     UNFAMILIAR_SIGN_IN = "unfamiliar_sign_in"
     API_KEY_VOLUME_SPIKE = "api_key_volume_spike"
     CROSS_ORGANIZATION_SPRAY_DETECTED = "cross_organization_spray_detected"
+    AUDIT_CHAIN_BROKEN = "audit_chain_broken"
 
 
 # The sources this application stamps on its own events. Ingested events
@@ -71,6 +72,8 @@ MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
     SecurityEventType.PRIVILEGED_ROLE_GRANTED: "T1098",
     # Endpoint Denial of Service
     SecurityEventType.API_KEY_VOLUME_SPIKE: "T1499",
+    # Indicator Removal: history changed or deleted to hide what happened
+    SecurityEventType.AUDIT_CHAIN_BROKEN: "T1070",
 }
 
 

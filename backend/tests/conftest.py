@@ -14,9 +14,18 @@ Two kinds of connection reach it, as in production:
 A request starts with no scope, as in production, and sees no rows until it
 says who is asking. Test code itself, which seeds and inspects, sees
 everything.
+
+The audit chains are checked after every test that used the database, so a
+way of writing audit records that skips the seal fails the test that took it.
 """
 
 import os
+
+# A fixed key, so the tests never depend on the local .env. Set before the
+# settings are read; an environment variable wins over .env.
+TEST_AUDIT_CHAIN_KEY = "test-audit-chain-key-for-sentinelcore-tests"
+os.environ.setdefault("AUDIT_CHAIN_KEY", TEST_AUDIT_CHAIN_KEY)
+
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -33,6 +42,7 @@ from app.api.deps import get_db
 from app.core.config import settings
 from app.core.row_security import APP_ROLE, restrict_rows
 from app.main import app, create_app
+from app.services.audit_chain_service import verify_chains
 from app.services.tenancy import SYSTEM
 
 TEST_DATABASE_URL = os.getenv(
@@ -79,7 +89,7 @@ def schema() -> None:
 
 
 @pytest.fixture()
-def db_session(schema: None) -> Generator[Session]:
+def db_session(schema: None, request: pytest.FixtureRequest) -> Generator[Session]:
     with owner_engine.begin() as connection:
         tables = connection.scalars(
             text(
@@ -96,6 +106,11 @@ def db_session(schema: None) -> Generator[Session]:
         yield db
     finally:
         db.close()
+
+    if request.node.get_closest_marker("breaks_audit_chain") is None:
+        with system_session() as check:
+            broken = [chain for chain in verify_chains(check) if not chain.intact]
+        assert not broken, f"Audit chains broken by the test: {broken}"
 
 
 @contextmanager
