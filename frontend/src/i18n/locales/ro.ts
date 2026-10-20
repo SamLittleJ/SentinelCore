@@ -177,6 +177,7 @@ const ro = {
     unfamiliar_sign_in: 'Autentificare dintr-o rețea nouă, de pe un dispozitiv nou',
     api_key_volume_spike: 'Volum neobișnuit de evenimente pe o cheie API',
     cross_organization_spray_detected: 'Atac de tip password spray între organizații detectat',
+    audit_chain_broken: 'Istoricul de audit nu mai trece verificarea',
   },
   eventsAsTarget: {
     user_role_changed: 'Rolul tău a fost schimbat',
@@ -264,6 +265,7 @@ const ro = {
       unfamiliar_sign_in: 'Autentificare din rețea și de pe dispozitiv nefamiliare',
       api_key_volume_spike: 'Volum neobișnuit pe o cheie API',
       cross_organization_spray_detected: 'Password spray între organizații',
+      audit_chain_broken: 'Istoric de audit rupt',
     },
   },
   audit: {

@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -396,12 +396,14 @@ def test_the_periodic_cleanup_deletes_old_hours(
 
 
 URL, SECRET_KEY = "postgresql://unused", "x" * 32
+AUDIT_CHAIN_KEY = SecretStr("y" * 32)
 
 
 def test_the_rule_must_be_able_to_judge_and_keep_its_days() -> None:
     Settings(
         database_url=URL,
         secret_key=SECRET_KEY,
+        audit_chain_key=AUDIT_CHAIN_KEY,
         detection_volume_min_days=14,
         detection_volume_lookback_days=14,
         api_key_usage_retention_days=14,

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -189,7 +189,11 @@ def test_session_of_another_user_is_rejected(
 @pytest.mark.parametrize("secret_key", ["short", "x" * 31])
 def test_short_secret_key_is_rejected(secret_key: str) -> None:
     with pytest.raises(ValidationError, match="at least 32 bytes"):
-        Settings(database_url="postgresql://unused", secret_key=secret_key)
+        Settings(
+            database_url="postgresql://unused",
+            secret_key=secret_key,
+            audit_chain_key=SecretStr("y" * 32),
+        )
 
 
 @pytest.mark.parametrize("algorithm", ["none", "RS256"])

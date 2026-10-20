@@ -34,6 +34,8 @@ python -m uvicorn app.main:app --reload
 
 The API and the migrations sign in to PostgreSQL as different roles. The migrations run as the owner of the tables (`MIGRATIONS_DATABASE_URL`) and create the API's role, `sentinelcore_app`; `grant-api-login` lets it sign in with the password in `DATABASE_URL`. The API never signs in as the owner: row-level security binds only roles that are neither superusers nor owners of the tables, and `/health/ready` answers `503` on such a role.
 
+`.env.example` holds placeholders: set `SECRET_KEY` and `AUDIT_CHAIN_KEY` to two different random values of at least 32 bytes before the migrations, which seal the existing audit history with the second (see [Audit history](#audit-history)).
+
 `create-owner` creates the organization's first account, the owner, and asks for its password without echoing it (or reads `SENTINELCORE_OWNER_PASSWORD`). It refuses once an owner exists. There is no public sign-up: every other account joins through an invitation.
 
 `.[dev]` also installs the development tools: pytest, httpx, Ruff and Bandit. To only run the application, `python -m pip install -e .` is enough.
@@ -213,6 +215,18 @@ Expired sessions, or sessions revoked more than `SESSION_RETENTION_DAYS` days ag
 ```bash
 python -m app.cli cleanup-sessions
 ```
+
+## Audit history
+
+Each organization's audit records form a chain, and the platform's one more. Every record carries its place in its chain (`chain_seq`) and a seal (`chain_hash`): an HMAC-SHA256 over its fields and the seal before it, keyed with `AUDIT_CHAIN_KEY`, which stays in the API's settings and never in the database. A record changed or deleted in the database, even by the owner of the tables, no longer verifies.
+
+The cleanup task checks every chain at each run. A break raises an `audit_chain_broken` incident (MITRE T1070) on the platform, once per chain and broken record, and each chain's length and head go to the log (`Audit chain checked`) and to the gauges `sentinelcore_audit_chain_records` and `sentinelcore_audit_chain_intact`, outside the database. A chain shorter than at the previous run of the same process is reported as truncated. To check by hand, without raising an alert:
+
+```bash
+python -m app.cli verify-audit-chain   # one line per chain; exits with 1 if any is broken
+```
+
+Security events are not sealed. Changing `AUDIT_CHAIN_KEY` makes the history already sealed fail its check.
 
 ## Organization scope
 

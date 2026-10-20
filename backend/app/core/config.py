@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     database_url: str
     migrations_database_url: str | None = None
     secret_key: str
+    # Seals the audit history (services/audit_chain_service.py). Kept out of
+    # the database, so whoever can change the rows cannot seal them again.
+    audit_chain_key: SecretStr
     # Only HMAC algorithms: tokens are signed and verified with SECRET_KEY.
     algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     jwt_issuer: str = "sentinelcore"
@@ -84,6 +87,20 @@ class Settings(BaseSettings):
         if len(value.encode()) < 32:
             raise ValueError("SECRET_KEY must be at least 32 bytes long")
         return value
+
+    @field_validator("audit_chain_key")
+    @classmethod
+    def check_audit_chain_key_length(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value().encode()) < 32:
+            raise ValueError("AUDIT_CHAIN_KEY must be at least 32 bytes long")
+        return value
+
+    @model_validator(mode="after")
+    def check_audit_chain_key_differs(self) -> Self:
+        # One leaked key must not open both the sessions and the seal.
+        if self.audit_chain_key.get_secret_value() == self.secret_key:
+            raise ValueError("AUDIT_CHAIN_KEY must differ from SECRET_KEY")
+        return self
 
     @model_validator(mode="after")
     def check_volume_days(self) -> Self:

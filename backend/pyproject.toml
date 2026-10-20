@@ -36,6 +36,9 @@ exclude = ["migrations*", "tests*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "breaks_audit_chain: the test breaks an audit chain on purpose, so the chains are not checked after it",
+]
 
 [tool.ruff]
 line-length = 88
@@ -50,6 +53,10 @@ select = [
     "UP",
 ]
 ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# The test key is set before the application's settings are imported.
+"tests/conftest.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

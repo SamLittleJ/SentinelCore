@@ -1,4 +1,4 @@
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 from app.models.security_event import SecurityEventType, SecuritySeverity
 
@@ -49,6 +49,21 @@ INGEST_REFUSED_EVENTS = Counter(
 LOGIN_REFUSED = Counter(
     "sentinelcore_login_refused_total",
     "Sign-in attempts refused because their address was over its limit.",
+)
+
+# Labelled by chain: an organization's id, or "platform"; one series per
+# organization. Prometheus keeps their history outside the database, so a
+# chain that grew shorter shows there even if the database hides it.
+AUDIT_CHAIN_RECORDS = Gauge(
+    "sentinelcore_audit_chain_records",
+    "Records in each audit chain at its last check.",
+    ["chain"],
+)
+
+AUDIT_CHAIN_INTACT = Gauge(
+    "sentinelcore_audit_chain_intact",
+    "1 if each audit chain was intact at its last check, else 0.",
+    ["chain"],
 )
 
 

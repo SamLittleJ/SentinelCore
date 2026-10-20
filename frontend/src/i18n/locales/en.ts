@@ -181,6 +181,7 @@ const en: typeof ro = {
     unfamiliar_sign_in: 'Sign-in from a new network on a new device',
     api_key_volume_spike: 'Unusual event volume on an API key',
     cross_organization_spray_detected: 'Password spray across organizations detected',
+    audit_chain_broken: 'Audit history no longer verifies',
   },
   eventsAsTarget: {
     user_role_changed: 'Your role was changed',
@@ -268,6 +269,7 @@ const en: typeof ro = {
       unfamiliar_sign_in: 'Sign-in from an unfamiliar network and device',
       api_key_volume_spike: 'Unusual volume on an API key',
       cross_organization_spray_detected: 'Password spray across organizations',
+      audit_chain_broken: 'Audit history broken',
     },
   },
   audit: {

@@ -309,6 +309,38 @@ describe('organization security events page', () => {
     expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
   })
 
+  it('shows a broken audit history with its technique and the record', async () => {
+    const user = userEvent.setup()
+    const broken = makeSecurityEvent({
+      id: 509,
+      event_type: 'audit_chain_broken',
+      severity: 'incident',
+      user_id: null,
+      email: null,
+      organization_id: null,
+      ip_address: null,
+      source: 'detection',
+      message: 'Audit history of Acme (organization 2) broken at record 17: changed',
+      mitre_technique: 'T1070',
+    })
+    serveEvents(() => [broken])
+    const { table } = await openEvents()
+
+    const [row] = rows(table)
+    expect(row).toHaveTextContent('Tehnica MITRE ATT&CK T1070')
+    expect(within(row).getByTitle('Indicator Removal')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Istoric de audit rupt' }))
+    const panel = await screen.findByRole('dialog', { name: 'Istoric de audit rupt' })
+    expect(panel).toHaveTextContent('T1070 · Indicator Removal')
+    expect(panel).toHaveTextContent('broken at record 17: changed')
+    expect(within(panel).getByRole('link', { name: /Deschide pe attack\.mitre\.org/ })).toHaveAttribute(
+      'href',
+      'https://attack.mitre.org/techniques/T1070/',
+    )
+    expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
+  })
+
   it('shows a limited sign-in address with its technique and the address', async () => {
     const user = userEvent.setup()
     const limited = makeSecurityEvent({

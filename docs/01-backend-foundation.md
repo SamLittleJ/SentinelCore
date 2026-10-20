@@ -4996,3 +4996,63 @@ Reverse check: each of the following changes makes at least one test fail (16 of
 - the demo's spray from the owner's address.
 
 Server check: uvicorn on `127.0.0.1:8100` over a temporary database, with `LOGIN_ADDRESS_BURST=1000`. `python -m simulator` detected 30 of 30 attacks with 3 false positives; the database held this application's failures from `127.0.0.1` (25), `127.0.0.11` to `127.0.0.15` (10, 10, 10, 13, 13) and `127.0.0.20` (4), so the server saw each attacker's own address.
+
+## Sealed audit history
+
+### 367. Purpose of the stage
+
+Residual risk 4 of the threat model, the last of the five (T-45): the API may only add to the history, but the owner of the tables, a superuser, can change or delete any audit record without trace. The audit log is now sealed, so such a change shows when it is checked.
+
+### 368. The seal
+
+- **One chain per organization, one for the platform.** Every audit record carries its place in its chain (`chain_seq`, from 1) and a seal (`chain_hash`, 64 hex characters). A unique constraint on `organization_id` and `chain_seq`, with `NULLS NOT DISTINCT` so the platform's chain is unique too, keeps one record per place (migration `40600bbb2d90`).
+- **What the seal is.** `seal` in `app/core/audit_seal.py`: an HMAC-SHA256, keyed with the new required setting `AUDIT_CHAIN_KEY`, over canonical JSON (sorted keys, no spaces, UTF-8) of the place, the previous record's seal (64 zeros for the first), the type as the database stores it, the actor, the target, the organization, the email, the address, the message and the time in UTC with microseconds. The id is left out: the database assigns it on insert, and the API's role may not update the row afterwards. The key is at least 32 bytes and may not equal `SECRET_KEY`.
+- **Sealed on flush.** A `before_flush` listener in `app/models/audit_log.py` groups the new records by chain, takes each chain's transaction-scoped advisory lock (`pg_advisory_xact_lock`, in one order so two writers cannot deadlock), reads the chain's head, sets the time from the database clock when the record has none, and seals the records in order. A concurrent writer of the same chain waits for the commit and continues from the new head; a request inside one organization sees, under row-level security, exactly the chain it writes. None of the nine places that write audit records changed.
+- **The existing history.** The migration adds the columns, seals the records already there in the order they were written, then makes the columns required; the downgrade removes them and recreates the security event type without the new alert.
+
+### 369. The check
+
+- **`verify_chains`** (`app/services/audit_chain_service.py`) reads every chain, the platform's first, and reports for each its length, its head and the first place that does not verify: `changed` when the seal does not match, `missing` when a place is skipped.
+- **The periodic check.** `check_audit_chains` runs in the cleanup task, after its deletions; a failure is logged as `Audit chain check failed` and leaves them done. It remembers each chain's length in the process, so a chain shorter than at the last run is `truncated`. Each chain's length and head go to the log (`Audit chain checked`, an error when broken) and to the gauges `sentinelcore_audit_chain_records{chain}` and `sentinelcore_audit_chain_intact{chain}`, both outside the database.
+- **The alert.** A break raises `audit_chain_broken`: an incident with source `detection`, MITRE T1070 (Indicator Removal), on the platform. The message names the chain and the place, for example "Audit history of Acme (organization 2) broken at record 17: changed", never the record's contents. An advisory lock and a lookup of the same message keep it to one alert per break, whichever process finds it.
+- **The command.** `python -m app.cli verify-audit-chain` prints one line per chain with its length and head, and exits with 1 when one is broken. It only reads and raises no alert.
+- **The demo and the report.** `make demo` checks the seal after seeding. The evaluation report's Scope says the simulator, a client of the public API, cannot break a chain, so the alert is not measured there.
+
+### 370. What it leaves
+
+- Security events are not sealed.
+- Whoever holds both `AUDIT_CHAIN_KEY` and the database can seal a new history.
+- The newest records deleted while no process remembers the chain's length show only against the logged lengths or Prometheus's history; there is no Prometheus alerting rule yet.
+- The check runs at the cleanup's interval and is off with it (`SESSION_CLEANUP_INTERVAL_MINUTES=0`), when `cleanup-sessions` from cron runs it instead.
+- There is no key rotation: a new key makes the sealed history fail its check.
+- `AUDIT_CHAIN_KEY` is required, so an existing `.env` needs it before the API starts or the migration runs.
+
+### 371. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` and `simulator` -> No issues identified
+- pyright on `app`, `tests`, `migrations` -> 0 errors
+- pytest -> 700 passed, with every audit chain checked after every test that used the database
+- migration on a temporary database holding 3,000 unsealed records in three chains: upgrade (sealed in under a second), `alembic check` (no changes), `verify-audit-chain` intact; with another key, every chain broken at record 1; downgrade with a row of the new type (columns, type value and row gone), upgrade again, intact; a message changed with `psql` found at its exact place
+- Gitleaks on `backend`, `frontend`, `docs`, `scripts` and `README.md` -> no leaks found
+
+The new tests (`tests/test_audit_chain.py`, 36) cover:
+- one chain per organization and one for the platform, each seal recomputed; records added together; an account's creation, written outside `create_audit_log`, sealed too;
+- the database clock of the transaction in the seal; an organization sealing its chain under row-level security; four concurrent writers with 60 records and no shared place;
+- each sealed field changed, a record moved to another organization, a deleted record, a deleted first record, a record forged with another key or none;
+- the periodic check: no alert and the heads in the log and gauges when intact; one platform incident (T1070) for two checks of one break, its message free of the record's contents; a new alert for a new break; a truncated chain and a chain deleted whole; two processes raising one alert; the cleanup task running the check, and its deletions kept when the check fails;
+- the command's output and exit codes, without an alert;
+- the key required, at least 32 bytes and not `SECRET_KEY`;
+- the migration sealing records written before it, in the order they were written.
+
+Reverse check: each of the following changes makes at least one test fail (21 of 21):
+- the message, the previous seal or the time left out of the seal; a plain SHA-256 instead of the HMAC;
+- no advisory lock; one chain for every organization; the application's clock for the time;
+- skipped places or wrong seals not reported; no memory of the lengths;
+- no lookup or no lock before the alert; the alert in the chain's organization, a warning, or without its technique; the gauge never at 0;
+- the cleanup without the check; the command exiting with 0 on a break;
+- a short key, or `SECRET_KEY`, accepted; the migration sealing in reverse order.
+
+The deadlock-free lock order has no test of its own.
+
+Server check: uvicorn on `127.0.0.1:8100` over a temporary database, with the cleanup every minute. `python -m simulator` detected 30 of 30 attacks with 3 false positives, and the 560 audit records it caused in three chains verified. A message changed with `psql` in the simulated organization's chain was reported at the next run (`changed` at record 3, an error log line, the gauge at 0) and raised one platform incident over two runs. The platform chain's two newest records deleted were reported at the next run as `truncated` at record 78, with a second alert and the records gauge at 77.

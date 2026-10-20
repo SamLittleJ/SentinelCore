@@ -1,6 +1,7 @@
 // The MITRE ATT&CK techniques SentinelCore detects. Their names are proper
 // names, kept in English in every language, as MITRE publishes them.
 const TECHNIQUE_NAMES: Record<string, string> = {
+  'T1070': 'Indicator Removal',
   'T1078': 'Valid Accounts',
   'T1098': 'Account Manipulation',
   'T1110': 'Brute Force',

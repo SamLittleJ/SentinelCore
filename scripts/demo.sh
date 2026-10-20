@@ -91,6 +91,9 @@ echo "==> Ninety days of three synthetic organizations"
   "$PYTHON" -m simulator.demo --owner-email "$OWNER_EMAIL" --accounts-dir "$DEMO_DIR")
 unset OWNER_PASSWORD
 
+echo "==> The audit history's seal"
+(cd "$ROOT/backend" && "$PYTHON" -m app.cli verify-audit-chain) || fail "the audit history does not verify"
+
 cat <<INFO
 
 SentinelCore demo: http://localhost:5173

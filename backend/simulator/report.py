@@ -184,5 +184,8 @@ def to_markdown(evaluation: Evaluation) -> str:
         "server they are left out. The rule counts only this application's own "
         "sign-ins: a spray split across organizations in ingested logs is not "
         "detected, and is not played.",
+        "- The broken audit history alert (T1070) is not measured: breaking a "
+        "chain takes the database's own tables, which the simulator, a client "
+        "of the public API, cannot reach. The seal has its own tests.",
     ]
     return "\n".join(lines) + "\n"

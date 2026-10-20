@@ -17,6 +17,7 @@ describe('MITRE ATT&CK techniques', () => {
   it('names the techniques the rules detect', () => {
     expect(techniqueName('T1110.003')).toBe('Brute Force: Password Spraying')
     expect(techniqueName('T1499')).toBe('Endpoint Denial of Service')
+    expect(techniqueName('T1070')).toBe('Indicator Removal')
     expect(techniqueName('T1110')).toBe('Brute Force')
     expect(techniqueName('T9999')).toBeUndefined()
   })

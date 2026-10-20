@@ -768,3 +768,21 @@ The backend's new `cross_organization_spray_detected` alert is one more security
 The new test checks the alert's row (technique badge) and its details (label, technique name, address, the message's spread, no account link) in Security events. Reverse check (2 of 2): the label changed, or the type removed from the security event types (caught by the type check).
 
 End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check. Signed in as the owner, in both themes, both languages, at desktop and phone width, it opened Security events filtered to the new type and an alert's details, then the overview: 75 of 75 checks passed (the label, the T1110.003 badge and its name, the address, the spread, the theme, no horizontal overflow, no policy violation). The screenshots were viewed.
+
+## Stage 17: Sealed audit history
+
+### 80. The new alert in the console
+
+The backend's new `audit_chain_broken` alert is one more security event type (`SECURITY_EVENT_TYPES`). It is labelled "Audit history broken" ("Istoric de audit rupt") in the organization view and "Audit history no longer verifies" ("Istoricul de audit nu mai trece verificarea") in the personal view's list, which the type requires though no account's activity shows it. Its technique, T1070, gets its name in `features/org/mitre.ts`: Indicator Removal. The alert belongs to the platform, so only the owner sees it, in Security events, the threat band and the overview's technique counts. There is no page for the chains themselves: the command line checks them on demand.
+
+### 81. Local validation
+
+- eslint -> no problems
+- tsc -> no errors
+- vitest -> 248 passed
+- build -> successful
+- npm audit -> 0 vulnerabilities
+
+The new test checks the alert's row (technique badge and name) and its details (label, technique, the record in the message, the link to attack.mitre.org, no account link) in Security events; the technique test checks the new name. Reverse check (2 of 2): the label changed, or the technique's name removed.
+
+End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check, holding a changed record and a truncated chain. Signed in as the owner, in both themes, both languages, at desktop and phone width, it opened Security events filtered to the new type and an alert's details, then the overview: 81 of 81 checks passed (the label, the T1070 badge and its name, the details, the theme, the technique counts once the overview had loaded, no horizontal overflow, no policy violation). The screenshots were viewed. A first run took its overview screenshots while the page was still loading; the check was changed to wait for the technique section itself.
