@@ -96,12 +96,13 @@ Every recorded security event goes through the detection rules in `app/services/
 | Alert | Technique | When |
 | --- | --- | --- |
 | `password_spray_detected` (incident) | T1110.003 | failed sign-ins for many different emails from one address |
+| `cross_organization_spray_detected` (incident) | T1110.003 | the same, counted across every organization, when the emails come from at least two places (organizations, or emails no account has); only this application's own sign-ins count, an IPv6 address with its /64 network, and the alert belongs to the platform, seen by the owner only |
 | `dormant_account_login` (warn) | T1078 | a sign-in after a long time without one |
 | `unfamiliar_sign_in` (warn) | T1078 | a sign-in from a network (/24, /64) and a device the account has not used in its recent sign-ins |
 | `privileged_role_granted` (warn) | T1098 | an account given the `admin` or `security_analyst` role, by a role change or an invitation |
 | `api_key_volume_spike` (warn) | T1499 | an API key sending, within one clock hour, three times its usual busiest hour and at least 100 events (see Event ingestion) |
 
-The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds are configurable in `.env`:
+Every rule but one counts within one organization, so one tenant's events never raise or silence another's alerts. The spray across organizations is the platform's: it leaves ingested logs out, whose private addresses mean different machines in different organizations, and uses the spray's threshold and window. The brute-force incident, `brute_force_detected`, is T1110.001. The thresholds are configurable in `.env`:
 
 ```env
 DETECTION_SPRAY_MIN_ACCOUNTS=10
@@ -147,16 +148,18 @@ python -m simulator --owner-email owner@example.com [--seed 42] [--base-url http
 
 What it does:
 
-1. Creates an API key with the `simulator` source, and invites 36 synthetic people, accepting each invitation on their behalf.
-2. Reports 30 days of their routine through ingestion, oldest first: office sign-ins behind one address on workdays, with an occasional typo, evenings and weekends from home, a browser update, and benign cases that a rule could take for an attack (a trip with a known laptop, a new phone, a new laptop on a trip, a return from a long leave, a password change day at the office).
+1. Creates an API key with the `simulator` source, and invites 36 synthetic people, accepting each invitation on their behalf. When it can send from other addresses (below), it also creates a second organization of ten people, for the sprays across organizations.
+2. Reports 30 days of their routine through ingestion, oldest first: office sign-ins behind one address on workdays, with an occasional typo, evenings and weekends from home, a browser update, and benign cases that a rule could take for an attack (a trip with a known laptop, a new phone, a new laptop on a trip, a return from a long leave, a password change day at the office, and four people of both organizations mistyping their password behind one VPN address).
 3. Plays five of each evasive variant, built to pass under one rule: a spray slower than its window, a spray spread over many addresses, a stolen password used with the victim's own user agent, and an account left unused for 85 days, under the 90-day threshold. Any alert that names them counts as catching them; they are reported apart, with the reason each one passes.
-4. Plays five attacks per rule, one step at a time: password sprays (T1110.003), sign-ins to dormant accounts and from an attacker's network and computer (T1078) through ingestion; brute force (T1110.001) through the real sign-in, since the lockout counts only this application's own sign-ins; admin roles granted by the owner (T1098) through the real API.
+4. Plays five attacks per rule, one step at a time: password sprays (T1110.003), sign-ins to dormant accounts and from an attacker's network and computer (T1078) through ingestion; brute force (T1110.001) through the real sign-in, since the lockout counts only this application's own sign-ins; sprays across both organizations and emails no account has (T1110.003), through the real sign-in too, each from a loopback address of its own (`127.0.0.11` to `127.0.0.15`), fewer than ten emails in each place; admin roles granted by the owner (T1098) through the real API.
 5. After each step, reads the new alerts. An attack is detected when an alert it would raise appears; every other alert is a false positive, put down to the benign case it names.
 6. Revokes its key.
 
 Time to detect is given in attack time (from the first step to the one after which the alert appeared, and in steps) and as the latency of the request that raised the alert. What is an attack stays with the simulator; the server only sees sign-ins. The seed fixes the people and their behaviour, and passwords are random and never written anywhere.
 
-Every attacker signs in from the simulator's one address, so its server runs with the limit on failed sign-ins per address raised (`LOGIN_ADDRESS_BURST=1000 python -m uvicorn app.main:app`); with the default, the brute-force attacks after the 20th failure would be refused by that limit before their email locks, and the report would measure the limit instead of the rules. `make demo` starts its server the same way. The limit has its own tests.
+The sprays across organizations need their own addresses: Linux lets a client send from any address of `127.0.0.0/8` towards a server on the same machine, so they are played only when `--base-url` is `localhost` or `127.0.0.1` (reached as `127.0.0.1`). Against any other server they are left out, and the report shows that rule with no attacks.
+
+The brute-force attackers sign in from the simulator's own address, so its server runs with the limit on failed sign-ins per address raised (`LOGIN_ADDRESS_BURST=1000 python -m uvicorn app.main:app`); with the default, the brute-force attacks after the 20th failure would be refused by that limit before their email locks, and the report would measure the limit instead of the rules. `make demo` starts its server the same way. The limit has its own tests.
 
 Run it on a fresh database. A second run reuses the same attacker addresses at the same times of day, so its sprays overlap the first run's and are caught sooner; its brute force attempts, all from `127.0.0.1`, add up with the first run's into a spray from that address. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
 
@@ -165,7 +168,7 @@ Run it on a fresh database. A second run reuses the same attacker addresses at t
 `python -m simulator.demo` fills the `sentinelcore_demo` database with ninety days of three organizations; `make demo` at the repository root runs it, with a fresh database and the servers (see the main README). Acme, the attacked one, has the simulator's people, routine and attacks, with the differences below. Globex (12 people) and Initech (6) keep to the plain routine only, with nobody back from leave, travelling, on a new device or changing a password (`build_quiet_organization` in `simulator/population.py`), so the only alert each raises is its admin's role (T1098); Initech is suspended at the end. Each organization has its own email domain, office address and VPN key, and usernames are drawn so that none repeats across them. A few sign-ins fail on unknown emails, which belong to the platform. With `--accounts-dir`, each admin's password is written to `<organization>-admin.txt` there (mode 600). Acme's differences from the simulator:
 
 - The routine covers 90 days and runs up to the moment of the run, not to the previous midnight.
-- Attacks are spread across the history (`WINDOWS` in `simulator/demo.py`): sprays on any day, stolen passwords from unknown places after a few weeks of the victim's habits, sign-ins to dormant accounts only in the last ten days, when those accounts have been unused for over 90 days. Each burst keeps its shape, every gap stretched or shrunk by up to 30 %. Brute force and role grants happen live, two and one of them.
+- Attacks are spread across the history (`WINDOWS` in `simulator/demo.py`): sprays on any day, stolen passwords from unknown places after a few weeks of the victim's habits, sign-ins to dormant accounts only in the last ten days, when those accounts have been unused for over 90 days. Each burst keeps its shape, every gap stretched or shrunk by up to 30 %. Brute force and role grants happen live, two and one of them, and so does one spray across Acme, Globex and guessed emails, from `127.0.0.11`, which only the platform sees.
 - Afterwards, every alert raised from the history gets the time of its event plus 2 to 40 seconds as its `created_at`, written directly to the database. Lists, ranges and the summary order and count alerts by detection time; without this step they would all fall on the day of the run. It refuses any database but `sentinelcore_demo`, and any host but `localhost`.
 
 ## Observability

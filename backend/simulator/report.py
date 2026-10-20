@@ -166,16 +166,23 @@ def to_markdown(evaluation: Evaluation) -> str:
         "this application's own sign-ins, in real time, so it cannot be "
         "replayed in seconds.",
         "- Five attacks per rule and per variant against one synthetic "
-        "organization: the rates "
+        "organization, and for the sprays across organizations a second one "
+        "with ten people and no routine: the rates "
         "describe this scenario, not real attacks in general.",
         "- The seed fixes the people, devices and behaviour; the calendar follows "
         "the day of the run, so counts can differ slightly from one day to the next.",
         "- The API key volume rule (T1499) is not measured: it compares a key's "
         "hours by the time its events arrive, and a run of a few seconds on a "
         "fresh key cannot build the week of history it needs.",
-        "- The limit on failed sign-ins per address is not measured: every "
-        "attacker signs in from the simulator's one address, so its server runs "
-        "with that limit raised, and the brute-force attacks reach the lockout "
-        "they measure. The limit has its own tests.",
+        "- The limit on failed sign-ins per address is not measured: the "
+        "brute-force attackers sign in from the simulator's own address, so its "
+        "server runs with that limit raised, and they reach the lockout they "
+        "measure. The limit has its own tests.",
+        "- The sprays across organizations sign in for real, each from a "
+        "loopback address of its own (127.0.0.11 to 127.0.0.15), which Linux "
+        "allows only towards a server on the same machine; against another "
+        "server they are left out. The rule counts only this application's own "
+        "sign-ins: a spray split across organizations in ingested logs is not "
+        "detected, and is not played.",
     ]
     return "\n".join(lines) + "\n"

@@ -2,9 +2,13 @@
 
 Each attack is a list of steps. Most are sign-ins reported through
 ingestion, dated during the hour before the run, so their pace is that of a
-real attack. Brute force and role changes cannot be reported: the lockout
-counts only this application's own sign-ins, and roles change only through
-its API. Those steps happen for real, when they are sent.
+real attack. Brute force, role changes and sprays across organizations cannot
+be reported: the lockout and the cross-organization rule count only this
+application's own sign-ins, and roles change only through its API. Those
+steps happen for real, when they are sent. Each spray across organizations
+comes from a loopback address of its own (127.0.0.11 to 127.0.0.15), which
+Linux lets a client use towards a server on the same machine; against any
+other server the simulator leaves those sprays out.
 
 An attack also says which alert would mean it was caught, and which emails,
 addresses or accounts that alert would name.
@@ -23,7 +27,9 @@ from typing import Literal
 from simulator.population import (
     ATTACKER_DEVICE,
     IDLE_DAYS,
+    BenignCase,
     Organization,
+    Person,
     SignIn,
     user_agent,
 )
@@ -39,17 +45,29 @@ BRUTE_FORCE_ATTEMPTS = 8
 # Slow enough that at most eight attempts fall in the 15-minute window.
 SLOW_SPRAY_INTERVAL = timedelta(minutes=2)
 DISTRIBUTED_SPRAY_ADDRESSES = 12
+# The second organization of a run, whose people the sprays across
+# organizations try too. Each spray tries three of the simulated
+# organization's people, four of the neighbour's and guesses no account has,
+# fewer than ten in each place, so no organization's own spray rule fires.
+NEIGHBOUR_PEOPLE = 10
+CROSS_SPRAY_OURS = 3
+CROSS_SPRAY_THEIRS = 4
+CROSS_SPRAY_GUESSES = ("admin", "it", "hr", "support", "finance", "sales", "office")
+# A VPN that people of both organizations sign in through.
+SHARED_VPN_ADDRESS = "127.0.0.20"
 
 
 @dataclass(frozen=True)
 class Step:
     """`ingest` reports a sign-in; `wrong_password` signs in for real with a
-    wrong password; `grant_admin` makes an account an admin, as the owner."""
+    wrong password, from `address` if given, else from the simulator's own;
+    `grant_admin` makes an account an admin, as the owner."""
 
     kind: Literal["ingest", "wrong_password", "grant_admin"]
     sign_in: SignIn | None = None
     email: str | None = None
     user_id: int | None = None
+    address: str | None = None
 
 
 @dataclass(frozen=True)
@@ -87,11 +105,13 @@ def plan_attacks(
     now: datetime,
     organization: Organization,
     user_ids: dict[str, int],
+    neighbour: list[Person] | None = None,
 ) -> list[Attack]:
     """The attacks, in the order they are played: the evasive variants, which
     happen earlier, then the attacks the rules are built for. Each targets
     people or addresses of its own, so no attack prepares the ground for
-    another."""
+    another. The sprays across organizations need the `neighbour`
+    organization's people, and come last."""
     active = organization.active
     attacker_agent = user_agent(ATTACKER_DEVICE, 0)
     attacks = plan_evasions(rng, now, organization)
@@ -204,7 +224,83 @@ def plan_attacks(
                 target_user_ids=frozenset({user_id}),
             )
         )
+
+    if neighbour is not None:
+        attacks += plan_cross_organization_sprays(rng, organization, neighbour)
     return attacks
+
+
+def take_turns(people: list[Person], first: int, count: int) -> list[str]:
+    """`count` emails of `people`, from `first` on and round to the start."""
+    return [people[(first + k) % len(people)].email for k in range(count)]
+
+
+def plan_cross_organization_sprays(
+    rng: random.Random, organization: Organization, neighbour: list[Person]
+) -> list[Attack]:
+    """Sprays that try a few emails in each organization, so each stays
+    below that organization's spray rule.
+
+    The people take turns, so none fails more than three times, the shared
+    VPN's typo included: the lockout's five failures would turn later attempts
+    into blocked ones, which no rule counts as failures.
+    """
+    ours = organization.active[15:20]
+    attacks = []
+    for n in range(ATTACKS_PER_TECHNIQUE):
+        ip = f"127.0.0.{11 + n}"
+        count = rng.randint(*SPRAY_EMAILS)
+        guesses = [
+            f"{name}.{n + 1}@{organization.domain}"
+            for name in CROSS_SPRAY_GUESSES[
+                : count - CROSS_SPRAY_OURS - CROSS_SPRAY_THEIRS
+            ]
+        ]
+        emails = rng.sample(
+            take_turns(ours, n, CROSS_SPRAY_OURS)
+            + take_turns(neighbour, 2 * n, CROSS_SPRAY_THEIRS)
+            + guesses,
+            count,
+        )
+        attacks.append(
+            Attack(
+                name=f"cross-org-spray-{n + 1}",
+                technique="T1110.003",
+                alert_type="cross_organization_spray_detected",
+                description=(
+                    f"{count} emails in two organizations and with no account, "
+                    f"one attempt each from {ip}, through the application's "
+                    "own sign-in"
+                ),
+                steps=[
+                    Step("wrong_password", email=email, address=ip) for email in emails
+                ],
+                ip_addresses=frozenset({ip}),
+            )
+        )
+    return attacks
+
+
+def plan_shared_vpn(
+    organization: Organization, neighbour: list[Person]
+) -> tuple[BenignCase, list[Step]]:
+    """People of both organizations mistype their password once, behind one
+    VPN address: too few emails for a spray across organizations."""
+    emails = [person.email for person in organization.active[20:22]] + [
+        person.email for person in neighbour[-2:]
+    ]
+    case = BenignCase(
+        "shared_vpn",
+        f"{len(emails)} people of two organizations type a wrong password "
+        "once, through one VPN address",
+        None,
+        ip_addresses=frozenset({SHARED_VPN_ADDRESS}),
+    )
+    steps = [
+        Step("wrong_password", email=email, address=SHARED_VPN_ADDRESS)
+        for email in emails
+    ]
+    return case, steps
 
 
 def spray_targets(

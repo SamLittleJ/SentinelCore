@@ -4936,3 +4936,63 @@ Server check: uvicorn on a temporary database, first with `LOGIN_ADDRESS_BURST=1
 - From `127.0.0.1`, ten failures on one process and ten on the other spent one bucket: the 21st was refused on either process.
 - The bucket of `127.0.0.1`, left at 960 tokens by the run with the raised limit, was read capped at the new burst.
 - No server log held the owner's password.
+
+## Sprays across organizations
+
+### 362. Purpose of the stage
+
+Residual risk 3 of the threat model (T-40): every detection rule counts within one organization, so an address that tries a few emails in each organization stays below every organization's spray threshold. One platform rule now counts across all of them.
+
+### 363. One rule for the platform
+
+- **What it counts.** `detect_cross_organization_spray` in `app/services/detection_service.py` runs on each `login_failed` event of this application's own sign-in (source `backend`). It counts the distinct emails that failed from the same address in the spray window, across every organization, and the places they belong to: each organization, plus the platform for emails no account has. Ten emails (`DETECTION_SPRAY_MIN_ACCOUNTS`) in 15 minutes (`DETECTION_SPRAY_WINDOW_MINUTES`) from at least two places raise an alert; no setting is new.
+- **Own sign-ins only.** Ingested logs are left out. Their private addresses mean different machines in different organizations, a tenant could forge events to raise or hide an alert, and ingestion runs inside its key's organization under row-level security, where other organizations' rows cannot be read. This application's sign-in runs before the caller is known, in the scope that sees every row.
+- **The address.** It counts as the limit on sign-ins counts it (`address_key`): an IPv4 address alone, an IPv6 address with its /64 network, an IPv4 client of an IPv6 socket as its IPv4 address. `counts_in` turns that into a PostgreSQL condition (`inet <<= cidr`). Since other systems' events may name anything as their address, only values that `pg_input_is_valid` accepts as `inet` are converted: the database may test the address before the other conditions.
+- **The alert.** `cross_organization_spray_detected` (migration `a5eaa2f50fd1`), an incident with source `detection`, MITRE T1110.003 (Brute Force: Password Spraying), the exact address of the failure that raised it and its time in `occurred_at`. A new `platform` flag on `Rule` makes `run_detection` store it with no organization, so only the owner sees it. The message gives the address or /64 network, the number of emails, the number of organizations and of emails with no account, never an organization's name or an email.
+- **Repeats.** As for the spray rule, only failures after the latest such alert for the same address count, so a continuing spray alerts again only after ten new emails, and a failure seen twice raises nothing.
+- **Next to the organizations' rule.** A spray that stays in one organization is left to that organization's own rule. One that reaches an organization's threshold and also another place raises both alerts: the organization learns of its own spray, and only the owner learns that the address tried others too.
+
+### 364. Measured by the simulator, shown in the demo
+
+- **The simulator.** Five `cross-org-spray` attacks sign in for real, each from a loopback address of its own (`127.0.0.11` to `127.0.0.15`). Each tries 10 to 14 emails: three people of the simulated organization, four of a second one created in the run (`add_neighbour`, ten people, no routine) and guesses no account has, fewer than ten in each place. People take turns, so no email fails five times and turns into blocked attempts. A benign case, `shared_vpn`, has four people of both organizations mistype their password once behind one address, and must stay quiet.
+- **Sending from other addresses.** `SentinelCore` takes a `from_address` factory. The command line makes it with `loopback_senders`, an httpx client bound to the chosen local address, which Linux allows anywhere in `127.0.0.0/8`; `localhost` is reached as `127.0.0.1`, since an IPv4 source cannot reach `::1`. Against any other server the factory is missing and the sprays across organizations are left out; the tests pass a `TestClient` with the address as its client.
+- **The demo.** Today's work adds one spray across Acme, Globex and four guessed emails, from `127.0.0.11`, after the morning's other failures, which stay below the rule (two emails of Acme and three with no account, from `127.0.0.1`). The platform's view shows the incident; Globex sees nothing of it.
+- **The report.** `docs/evaluation/report.md` was generated again: 30 of 30 attacks detected, 5 of 5 for the new rule at the tenth email, the same 3 false positives, and `shared_vpn` quiet. The Scope section says the sprays need a server on the same machine and that ingested sprays across organizations are not played.
+
+### 365. What it leaves
+
+- A spray split across organizations in ingested logs passes: T-40 is partly mitigated, rated low.
+- A spray over many addresses passes this rule as it passes the organizations' (T-10).
+- The overview's technique counts list the new type under T1110.003 for every scope, for the link to the events; an organization's count never includes the platform's alerts.
+
+### 366. Local validation
+
+- ruff check, ruff format --check -> passed
+- bandit on `app` -> No issues identified
+- pyright on `app`, `tests`, `migrations`, `simulator` -> 0 errors
+- pytest -> 664 passed
+- migration on a temporary database: upgrade, `alembic check` (no changes), downgrade with a row of the new type (deleted, the other rows kept, the type value gone), upgrade again
+- Gitleaks on `backend`, `frontend`, `docs` and `README.md` -> no leaks found
+
+The new tests (`tests/test_cross_organization_spray.py`, 17) cover:
+- a spray across two organizations raising one platform incident with its message, and no organization's alert;
+- a spray inside one organization, or on emails no account has, left to the organizations' rule;
+- emails no account has counting as a place;
+- an organization's own alert next to the platform's;
+- each address apart, an IPv6 /64 together, an IPv4 client of an IPv6 socket together with its IPv4 address;
+- the window, the repeats, the threshold from the settings;
+- ingested failures, a value that is no address, and a failure without an address;
+- the alert seen by the owner and not by an organization's admin.
+
+`tests/test_simulator.py` checks the five new attacks caught at the tenth email, the shared VPN quiet with its four failures in two organizations, the run without other addresses (25 attacks, none of the new kind), and the loopback senders; `tests/test_demo.py` checks the demo's incident, the platform's only alert.
+
+Reverse check: each of the following changes makes at least one test fail (16 of 16):
+- ingested failures counted, one place enough, emails with no account no place;
+- the exact address instead of its /64, an IPv4-mapped address not matched;
+- no repeat rule, no window, a fixed threshold, the rule not registered;
+- the alert stored in the event's organization;
+- the `inet` check removed (first missed: the database filtered the other conditions first; a test of the address condition alone now catches it);
+- the simulator's sprays from its own address, or inside one organization, the shared VPN not played (first missed: the case was listed but not played; the test now counts its failures), `localhost` not reached as `127.0.0.1`;
+- the demo's spray from the owner's address.
+
+Server check: uvicorn on `127.0.0.1:8100` over a temporary database, with `LOGIN_ADDRESS_BURST=1000`. `python -m simulator` detected 30 of 30 attacks with 3 false positives; the database held this application's failures from `127.0.0.1` (25), `127.0.0.11` to `127.0.0.15` (10, 10, 10, 13, 13) and `127.0.0.20` (4), so the server saw each attacker's own address.

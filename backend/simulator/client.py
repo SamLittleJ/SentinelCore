@@ -5,6 +5,7 @@ code drives the application in-process and over the network.
 """
 
 import time
+from collections.abc import Callable
 
 import httpx
 
@@ -12,6 +13,11 @@ import httpx
 ALERTS = (
     ("brute_force_detected", "T1110.001", "Brute force"),
     ("password_spray_detected", "T1110.003", "Password spray"),
+    (
+        "cross_organization_spray_detected",
+        "T1110.003",
+        "Password spray across organizations",
+    ),
     ("dormant_account_login", "T1078", "Dormant account"),
     ("unfamiliar_sign_in", "T1078", "Unfamiliar network and device"),
     ("privileged_role_granted", "T1098", "Privileged role granted"),
@@ -36,12 +42,37 @@ def check(response: httpx.Response, action: str) -> httpx.Response:
 
 class SentinelCore:
     """The API as one signed-in operator: the owner, or for the demo an
-    admin or an analyst too."""
+    admin or an analyst too.
 
-    def __init__(self, http: httpx.Client) -> None:
+    `from_address`, when given, makes a client whose requests come from
+    another address, for attackers that are not the simulator itself.
+    """
+
+    def __init__(
+        self,
+        http: httpx.Client,
+        from_address: Callable[[str], httpx.Client] | None = None,
+    ) -> None:
         self.http = http
+        self.from_address = from_address
+        self.senders: dict[str, httpx.Client] = {}
         self.operator_token: str | None = None
         self.api_key: str | None = None
+
+    def sender(self, address: str | None) -> httpx.Client:
+        """The client whose requests come from `address`, or ours for None."""
+        if address is None:
+            return self.http
+        if self.from_address is None:
+            raise SimulatorError(f"Cannot send from {address}")
+        if address not in self.senders:
+            self.senders[address] = self.from_address(address)
+        return self.senders[address]
+
+    def close_senders(self) -> None:
+        for sender in self.senders.values():
+            sender.close()
+        self.senders.clear()
 
     @property
     def as_operator(self) -> dict[str, str]:
@@ -149,10 +180,12 @@ class SentinelCore:
             check(response, "Ingesting events")
         return (time.perf_counter() - started) * 1000
 
-    def sign_in_with_wrong_password(self, email: str) -> float:
+    def sign_in_with_wrong_password(
+        self, email: str, address: str | None = None
+    ) -> float:
         started = time.perf_counter()
         # 401 while the guesses count, then 429 once the email is locked.
-        self.http.post(
+        self.sender(address).post(
             "/auth/login",
             json={"email": email, "password": WRONG_PASSWORD},
         )

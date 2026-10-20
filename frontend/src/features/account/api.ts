@@ -38,6 +38,7 @@ export const SECURITY_EVENT_TYPES = [
   'privileged_role_granted',
   'unfamiliar_sign_in',
   'api_key_volume_spike',
+  'cross_organization_spray_detected',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 

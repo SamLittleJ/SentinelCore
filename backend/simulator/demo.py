@@ -14,8 +14,9 @@ through the API of a SentinelCore running on it:
 3. Today's work: attacks on Acme that can only happen live (brute force
    against this application's own sign-in, an admin role granted), the
    operators' response to what was detected, a few sign-ins failing on
-   emails no account has, which belong to the platform, and Initech
-   suspended by the owner.
+   emails no account has, which belong to the platform, a password spray
+   split across Acme, Globex and such emails, which only the platform sees,
+   and Initech suspended by the owner.
 4. Every alert raised from the history is then placed at the moment its
    event happened, plus a few seconds, as if SentinelCore had watched the
    ninety days live. This step writes to the database directly, so it
@@ -55,7 +56,7 @@ from app.models import (  # noqa: F401
     user_session,
 )
 from app.models.security_event import DETECTION_SOURCE, SecurityEvent
-from simulator.__main__ import LOCAL_HOSTS
+from simulator.__main__ import LOCAL_HOSTS, loopback_senders
 from simulator.attacks import Attack, plan_attacks
 from simulator.client import SentinelCore, SimulatorError
 from simulator.population import (
@@ -132,6 +133,17 @@ UNKNOWN_EMAILS = (
     "admin@acme-corp.example",
     "root@globex-it.example",
     "it.support@initech-mail.example",
+)
+# Today's spray across organizations: four people of Acme, four of Globex
+# and these guesses, below each organization's spray rule, from a loopback
+# address of its own so the morning's other failures do not add to it.
+CROSS_SPRAY_ADDRESS = "127.0.0.11"
+CROSS_SPRAY_PEOPLE = 4
+CROSS_SPRAY_GUESSES = (
+    "admin@globex.example",
+    "it@globex.example",
+    "hr@acme.example",
+    "finance@acme.example",
 )
 
 
@@ -251,6 +263,7 @@ def seed_demo(
     taken = {person.handle for person in organization.people}
     taken |= {ADMIN.username, ANALYST.username}
     quiet: dict[Tenant, int] = {}
+    globex_people: list[str] = []
     for tenant, admin_of in ((GLOBEX, GLOBEX_ADMIN), (INITECH, INITECH_ADMIN)):
         quiet_organization = build_quiet_organization(
             rng,
@@ -279,6 +292,8 @@ def seed_demo(
         )
         owner.ingest([sign_in.payload() for sign_in in quiet_organization.sign_ins])
         history += quiet_organization.sign_ins
+        if tenant == GLOBEX:
+            globex_people = [person.email for person in quiet_organization.people]
         people[tenant.name] = len(quiet_organization.people) + 1
 
     for attack in live:
@@ -291,6 +306,15 @@ def seed_demo(
 
     for email in UNKNOWN_EMAILS:
         owner.sign_in_with_wrong_password(email)
+    # From the owner's own address when the server is not on IPv4 loopback.
+    address = CROSS_SPRAY_ADDRESS if owner.from_address is not None else None
+    spray = (
+        [person.email for person in organization.active[15 : 15 + CROSS_SPRAY_PEOPLE]]
+        + globex_people[:CROSS_SPRAY_PEOPLE]
+        + list(CROSS_SPRAY_GUESSES)
+    )
+    for email in rng.sample(spray, len(spray)):
+        owner.sign_in_with_wrong_password(email, address)
     # Last: its members are signed out and its key refused from now on.
     owner.suspend_organization(quiet[INITECH])
 
@@ -299,7 +323,8 @@ def seed_demo(
         people=sum(people.values()),
         sign_ins=len(history),
         backfilled_attacks=len(backfilled),
-        live_attacks=len(live),
+        # The spray across organizations too.
+        live_attacks=len(live) + 1,
         organizations=people,
         accounts=accounts,
     )
@@ -431,13 +456,16 @@ def main(argv: list[str] | None = None) -> int:
         f"Password for {args.owner_email}: "
     )
     with httpx.Client(base_url=args.base_url, timeout=60) as http:
-        owner, admin, analyst = (SentinelCore(http) for _ in range(3))
+        owner = SentinelCore(http, from_address=loopback_senders(args.base_url))
+        admin, analyst = SentinelCore(http), SentinelCore(http)
         try:
             owner.log_in(args.owner_email, password)
             seeded = seed_demo(owner, admin, analyst, args.seed)
         except (SimulatorError, httpx.HTTPError) as error:
             print(error, file=sys.stderr)
             return 1
+        finally:
+            owner.close_senders()
 
     engine = create_engine(args.database_url)
     try:

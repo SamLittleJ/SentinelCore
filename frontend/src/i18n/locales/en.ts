@@ -180,6 +180,7 @@ const en: typeof ro = {
     privileged_role_granted: 'You granted a privileged role',
     unfamiliar_sign_in: 'Sign-in from a new network on a new device',
     api_key_volume_spike: 'Unusual event volume on an API key',
+    cross_organization_spray_detected: 'Password spray across organizations detected',
   },
   eventsAsTarget: {
     user_role_changed: 'Your role was changed',
@@ -266,6 +267,7 @@ const en: typeof ro = {
       privileged_role_granted: 'Privileged role granted',
       unfamiliar_sign_in: 'Sign-in from an unfamiliar network and device',
       api_key_volume_spike: 'Unusual volume on an API key',
+      cross_organization_spray_detected: 'Password spray across organizations',
     },
   },
   audit: {

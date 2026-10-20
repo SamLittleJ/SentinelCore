@@ -8,11 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.main import app
 from app.models.api_key import ApiKey
+from app.models.security_event import SecurityEvent, SecurityEventType
 from app.schemas.user import UserCreate
 from app.services.user_service import create_owner
-from simulator.__main__ import main
-from simulator.attacks import Attack, Step
+from simulator.__main__ import loopback_senders, main
+from simulator.attacks import SHARED_VPN_ADDRESS, Attack, Step
 from simulator.client import SentinelCore
 from simulator.evaluation import evaluate
 from simulator.population import (
@@ -42,9 +44,14 @@ def api(
         db_session,
         UserCreate(username="owner", email=OWNER_EMAIL, password=OWNER_PASSWORD),
     )
-    api = SentinelCore(client)
+    api = SentinelCore(client, from_address=from_address)
     api.log_in(OWNER_EMAIL, OWNER_PASSWORD)
     return api
+
+
+def from_address(host: str) -> TestClient:
+    """A client whose requests come from `host`, served like `client`'s."""
+    return TestClient(app, client=(host, 50000))
 
 
 # The whole simulation, in-process
@@ -56,10 +63,11 @@ def test_every_attack_is_detected_and_every_false_positive_is_explained(
 ) -> None:
     evaluation = evaluate(simulate(api, seed=7))
 
-    assert evaluation.attacks == 25
-    assert evaluation.detected == 25
+    assert evaluation.attacks == 30
+    assert evaluation.detected == 30
     expected_steps = {
         "password_spray_detected": settings.detection_spray_min_accounts,
+        "cross_organization_spray_detected": settings.detection_spray_min_accounts,
         "brute_force_detected": settings.login_max_failed_attempts,
         "dormant_account_login": 1,
         "unfamiliar_sign_in": 1,
@@ -83,6 +91,15 @@ def test_every_attack_is_detected_and_every_false_positive_is_explained(
         "password_change_day": 1,
     }
     assert all(case.as_expected for case in evaluation.cases)
+    assert "shared_vpn" in {case.name for case in evaluation.cases}
+    vpn_failures = db_session.scalars(
+        select(SecurityEvent).where(
+            SecurityEvent.ip_address == SHARED_VPN_ADDRESS,
+            SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED,
+        )
+    ).all()
+    assert len({event.organization_id for event in vpn_failures}) == 2
+    assert len(vpn_failures) == 4
     # The simulator's key does not outlive the run.
     keys = db_session.scalars(select(ApiKey)).all()
     assert [key.revoked_at is not None for key in keys] == [True]
@@ -316,7 +333,51 @@ def test_a_run_on_a_used_database_says_so_and_a_fresh_one_is_timed(
     assert spray.median_latency_ms is not None
 
 
+def test_without_other_addresses_the_sprays_across_organizations_are_left_out(
+    client: TestClient, api: SentinelCore
+) -> None:
+    """Against a server elsewhere, the simulator can only send from its own
+    address, so it leaves out the attacks that need others."""
+    alone = SentinelCore(client)
+    alone.operator_token = api.operator_token
+
+    evaluation = evaluate(simulate(alone, seed=7))
+
+    assert evaluation.attacks == 25
+    [rule] = [
+        r
+        for r in evaluation.rules
+        if r.alert_type == "cross_organization_spray_detected"
+    ]
+    assert (rule.attacks, rule.detected) == (0, 0)
+    assert "shared_vpn" not in {case.name for case in evaluation.cases}
+
+
 # Command line
+
+
+@pytest.mark.parametrize(
+    ("base_url", "sends_from_others"),
+    [
+        ("http://localhost:8000", True),
+        ("http://127.0.0.1:8100", True),
+        ("http://[::1]:8000", False),
+        ("https://sentinel.example.com", False),
+    ],
+)
+def test_only_a_server_on_ipv4_loopback_gets_other_addresses(
+    base_url: str, sends_from_others: bool
+) -> None:
+    assert (loopback_senders(base_url) is not None) == sends_from_others
+
+
+def test_a_loopback_sender_reaches_localhost_by_its_ipv4_address() -> None:
+    make = loopback_senders("http://localhost:8000")
+    assert make is not None
+
+    with make("127.0.0.11") as sender:
+        assert sender.base_url.host == "127.0.0.1"
+        assert sender.base_url.port == 8000
 
 
 def test_the_simulator_refuses_hosts_other_than_localhost(

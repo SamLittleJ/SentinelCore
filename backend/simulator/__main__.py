@@ -8,6 +8,7 @@ import argparse
 import getpass
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -19,6 +20,9 @@ from simulator.report import to_json, to_markdown
 from simulator.runner import simulate
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+# Hosts reached over IPv4 loopback, from which Linux lets a client send from
+# any address of 127.0.0.0/8.
+IPV4_LOOPBACK_HOSTS = {"localhost", "127.0.0.1"}
 DEFAULT_OUT = Path(__file__).resolve().parents[2] / "docs" / "evaluation"
 
 
@@ -41,6 +45,23 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def loopback_senders(base_url: str) -> Callable[[str], httpx.Client] | None:
+    """Clients whose requests come from a loopback address of their choice,
+    for the attackers that need an address of their own; None when the
+    server is not on this machine's IPv4 loopback."""
+    url = httpx.URL(base_url)
+    if url.host not in IPV4_LOOPBACK_HOSTS:
+        return None
+    # localhost may resolve to ::1 first, which an IPv4 address cannot reach.
+    url = url.copy_with(host="127.0.0.1")
+
+    def make(address: str) -> httpx.Client:
+        transport = httpx.HTTPTransport(local_address=address)
+        return httpx.Client(base_url=url, timeout=30, transport=transport)
+
+    return make
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     host = urlsplit(args.base_url).hostname
@@ -55,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         f"Password for {args.owner_email}: "
     )
     with httpx.Client(base_url=args.base_url, timeout=30) as http:
-        api = SentinelCore(http)
+        api = SentinelCore(http, from_address=loopback_senders(args.base_url))
         try:
             api.log_in(args.owner_email, password)
             observations = simulate(api, args.seed)

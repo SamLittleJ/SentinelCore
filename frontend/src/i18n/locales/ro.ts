@@ -176,6 +176,7 @@ const ro = {
     privileged_role_granted: 'Ai acordat un rol privilegiat',
     unfamiliar_sign_in: 'Autentificare dintr-o rețea nouă, de pe un dispozitiv nou',
     api_key_volume_spike: 'Volum neobișnuit de evenimente pe o cheie API',
+    cross_organization_spray_detected: 'Atac de tip password spray între organizații detectat',
   },
   eventsAsTarget: {
     user_role_changed: 'Rolul tău a fost schimbat',
@@ -262,6 +263,7 @@ const ro = {
       privileged_role_granted: 'Rol privilegiat acordat',
       unfamiliar_sign_in: 'Autentificare din rețea și de pe dispozitiv nefamiliare',
       api_key_volume_spike: 'Volum neobișnuit pe o cheie API',
+      cross_organization_spray_detected: 'Password spray între organizații',
     },
   },
   audit: {
