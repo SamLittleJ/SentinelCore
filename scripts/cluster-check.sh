@@ -99,8 +99,10 @@ ingest_limit() {
 }
 check "nginx limits ingestion per address" ingest_limit
 
-# Inside the pods
+# Inside the pods. The commands are in single quotes on purpose: they expand
+# in the pod's shell, not here.
 
+# shellcheck disable=SC2016
 for entry in "${pods[@]}"; do
   read -r pod container <<<"$entry"
   check "$container runs as a user other than root" in_pod "$pod" "$container" '[ "$(id -u)" != 0 ]'
@@ -116,6 +118,7 @@ for entry in "${pods[@]}"; do
     '[ ! -e /var/run/secrets/kubernetes.io/serviceaccount/token ]'
 done
 
+# shellcheck disable=SC2016
 check "the API pods lack the owner's database URL" in_pod "$backend" backend '[ -z "${MIGRATIONS_DATABASE_URL:-}" ]'
 
 app_role() { [[ "$(sql "SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = 'sentinelcore_app'")" == f ]]; }

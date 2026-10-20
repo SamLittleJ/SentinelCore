@@ -10,7 +10,10 @@ An API-first platform for identity and access management, audit logging and secu
 ├── frontend/             # web app (React, TypeScript, Vite, Tailwind CSS, shadcn/ui)
 ├── docs/                 # project documentation, by stage, and the detection evaluation
 ├── infra/                # Prometheus and Grafana configuration
-├── .github/workflows/    # backend CI (Ruff, Bandit, pytest, Gitleaks) and frontend CI
+├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
+├── kind/                 # the local kind cluster's configuration
+├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, pinned tools
+├── .github/workflows/    # backend, frontend, deployment and cluster CI
 └── docker-compose.yml    # PostgreSQL, Prometheus and Grafana for local development
 ```
 
@@ -110,9 +113,12 @@ Base images are pinned by digest and the images are tagged with the commit (`-di
 make up              # the images, a kind cluster and both Helm charts; then http://localhost:8080
 make cluster-check   # the running cluster's security properties, one line each
 make down            # deletes the cluster and its data, after typing its name
+make deploy-lint     # the charts, rendered manifests, Dockerfiles and scripts, without a cluster
 ```
 
 Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned versions, checked against their SHA-256, into `.tools/`, and keeps the cluster's kubeconfig in `.kind/kubeconfig`, leaving `~/.kube/config` alone (`export KUBECONFIG=$PWD/.kind/kubeconfig` to use `kubectl` on it). It installs `charts/postgresql`, then `charts/sentinelcore`, whose migrations run first as a Job, and creates the first owner, `owner@example.com`, with a random password written only to `.kind/owner.txt`. The secret key, the audit chain key, the database passwords and the metrics token are generated once as Kubernetes Secrets and never printed. Run `make up` again after a change: it rebuilds the images and replaces the pods whose image changed.
+
+CI checks the deployment twice: `make deploy-lint` on every pull request (Helm lint, the rendered manifests against Kubernetes 1.35's schemas with kubeconform, hadolint and shellcheck, all at pinned versions), and `make up` followed by `make cluster-check` on a real kind cluster when a pull request changes the charts, the images or the scripts.
 
 ## Monitoring
 

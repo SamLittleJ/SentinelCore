@@ -5128,3 +5128,34 @@ Phase B runs SentinelCore on a local Kubernetes cluster. Its first step builds t
 - `make up` from nothing: 1 min 36 s to a ready cluster; a second run replaced no pod. `make cluster-check`: 21 of 21.
 - Reverse check: 15 of 15 changes caught, 10 on the running cluster (a writable root filesystem for the console and PostgreSQL, the backend as root, capabilities kept by the backend and PostgreSQL, a token for the console, the owner's URL in the API pods, no proxy trusted, the API's role with `BYPASSRLS`, a changed audit record), 3 in the scripts (a partial set of secrets, a wrong checksum, no image tag) and 2 on `--if-missing`. Three first passed: a user other than root cannot write to `/` or hold effective capabilities anyway, so the checks now read the mount's `ro` flag and the bounding set of capabilities.
 - Firefox, headless, through `http://localhost:8080`: sign-in through the form, the session cookies kept with `Secure` and `HttpOnly` on plain-HTTP localhost, and four pages in both themes, both languages, at desktop and phone width, with no policy violation and no horizontal overflow: 132 of 132.
+
+## Deployment checks in CI (phase B, B3)
+
+### 383. Purpose of the stage
+
+The last step of phase B checks the deployment automatically: its files on every pull request, and a real cluster whenever the deployment changes. It also brings the threat model up to date with the cluster.
+
+### 384. `make deploy-lint`
+
+`scripts/deploy-lint.sh` runs, without a cluster: `helm lint --strict` on both charts; `helm template` of both, validated by kubeconform in strict mode against Kubernetes 1.35.0's schemas, pinned to one commit of `yannh/kubernetes-json-schema`, with no resource allowed to lack a schema; hadolint on both Dockerfiles, failing on warnings; and shellcheck on every script. kubeconform 0.8.0, hadolint 2.15.1 and shellcheck 0.11.0 join `scripts/tools.sh`, checked by SHA-256. Exceptions are written next to the line they excuse, with the reason: three single-quoted commands in `cluster-check.sh` expand in the pod, not on the host. `make verify` runs it as the check `deploy`.
+
+### 385. CI
+
+- **Deployment CI** (`.github/workflows/deploy-ci.yml`): `make deploy-lint` on every pull request, and on pushes to `main` that change the deployment.
+- **Cluster CI** (`.github/workflows/cluster-ci.yml`): `make up`, then `make cluster-check`, on a GitHub runner, when a pull request changes the charts, kind's configuration, the Dockerfiles, the console's nginx and headers, the lockfile, the migrations, the command line or the scripts, and on demand. A newer push cancels a run still going. When a step fails, the job prints the cluster's pods, their descriptions, recent logs and events, never the Secrets.
+- Both run with read-only permissions and use only GitHub's own actions (`checkout`, `setup-node`); every other tool comes from `scripts/tools.sh`.
+
+### 386. The threat model
+
+`docs/04` gains a diagram of the cluster (§5.3) with its boundary, TB6, and a new element, E11, with five threats: the Secrets unencrypted in the cluster's store (T-61) and the lack of NetworkPolicies (T-62), both accepted for phase E; a tool, image or schema changed at its source (T-63), mitigated by checksums and digests; the owner of the tables still a superuser (T-64), accepted, with its credentials kept from the API pods; and an escape from a pod (T-65), mitigated by the pods' hardening and checked by `make cluster-check` in CI.
+
+### 387. What it leaves
+
+- Policy scanning of the manifests (kube-score, Checkov, Trivy), image scanning, an SBOM, signing, and actions pinned by commit are phase C; so is the Gitleaks image, still `:latest`.
+- The cluster job takes several minutes and runs only when the deployment's files change, so a change elsewhere that breaks the cluster (a new required setting, say) shows only on the next deployment change or a manual run.
+
+### 388. Local validation
+
+- `make verify`: 14 of 14 checks, `deploy` included.
+- `make deploy-lint`: 2 charts linted, 11 of 11 resources valid, both Dockerfiles and every script clean.
+- Reverse check: 5 of 5 changes caught (an unknown field in a pod spec, `replicas` as text, a broken template, `cd` in a Dockerfile's `RUN`, an unquoted argument in a script). A first script change, an unquoted constant, passed rightly: shellcheck knows it cannot split.
