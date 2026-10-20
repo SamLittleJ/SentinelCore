@@ -5056,3 +5056,32 @@ Reverse check: each of the following changes makes at least one test fail (21 of
 The deadlock-free lock order has no test of its own.
 
 Server check: uvicorn on `127.0.0.1:8100` over a temporary database, with the cleanup every minute. `python -m simulator` detected 30 of 30 attacks with 3 false positives, and the 560 audit records it caused in three chains verified. A message changed with `psql` in the simulated organization's chain was reported at the next run (`changed` at record 3, an error log line, the gauge at 0) and raised one platform incident over two runs. The platform chain's two newest records deleted were reported at the next run as `truncated` at record 78, with a second alert and the records gauge at 77.
+
+## Container images (phase B, B1)
+
+### 372. Purpose of the stage
+
+Phase B runs SentinelCore on a local Kubernetes cluster. Its first step builds the two images the cluster will run, hardened, and the server that gives the console its security headers outside Vite.
+
+### 373. The backend image
+
+- **One image** (`backend/Dockerfile`) for the API, its migrations and its command line: `app/`, `migrations/` and `alembic.ini` on `python:3.12-slim`, pinned by digest. The tests, the simulator and any `.env` stay out (`backend/.dockerignore`).
+- **Pinned dependencies.** `backend/requirements.lock` lists every runtime package for Python 3.12 on Linux with its hashes, written by `make lock` (`uv pip compile --generate-hashes`; uv joins the dev dependencies for that). The build installs it with `pip install --require-hashes` into a virtual environment; the application's code is copied next to it rather than installed, which would have fetched setuptools without a hash.
+- **Non-root, read-only.** The final stage runs as UID 10001 with bytecode compiled at build time, so the root filesystem can be read-only and only `/tmp` is written. `uvicorn` starts with `--proxy-headers` and `--no-server-header`; `FORWARDED_ALLOW_IPS` (default `127.0.0.1`) names the proxies it believes.
+- **CI on the same pins.** The backend workflow installs `requirements.lock` before the tests, and a new step fails when the lockfile no longer matches `pyproject.toml`. uv keeps the pins already in the file, so a new release upstream does not fail it.
+
+### 374. `make verify`
+
+`scripts/verify.sh` runs every check due before a commit and prints one line for each, with the full logs in `.verify/` (git-ignored): Ruff, the format check, Bandit, Pyright, the lockfile, the migrations (up, check, down, up on a database of its own, dropped after), the frontend's lint, types, tests, build and audit, Gitleaks on each top-level path, and the backend tests on Python 3.12 with the image's pinned dependencies, in a container, while the rest runs. `VERIFY_SKIP` skips named checks. It exits with 1 if any check failed and shows the failing log's last line.
+
+### 375. What it leaves
+
+- The images are built and tagged locally (`make images`); there is no registry, scanning, SBOM or signature until phase C.
+- The lockfile covers Python 3.12 on x86_64 Linux only.
+- The local virtual environment may hold other versions than the lockfile; `make verify` runs the tests on the locked ones.
+
+### 376. Local validation
+
+- `make verify`: 13 of 13 checks passed (pytest 700 on Python 3.12.15 with the locked versions, vitest 255, Pyright 0 errors, migrations up and down, Gitleaks on 9 paths).
+- The images run as Kubernetes will run them (non-root, read-only root filesystem, no capabilities, `no-new-privileges`) on a temporary network with a temporary PostgreSQL: migrations, `grant-api-login` and `create-owner` from the backend image, then the API behind the console's nginx. An assertion script passed 18 of 18 checks (headers, caching, routes, hidden metrics, the client's address, the ingestion limit, users, read-only filesystem, image defaults).
+- Reverse check: 12 of 12 changes caught. Two image changes (the backend's user set to root, every proxy trusted) first passed, because the test run set both at run time; the script now also checks the images' own configuration. The console's user set to root stopped nginx at startup.

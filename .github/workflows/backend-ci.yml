@@ -54,9 +54,22 @@ jobs:
             
             - name: Install backend dependencies
               working-directory: backend
+              # The image's pinned versions first, so the tests run on them.
               run: |
                 python -m pip install --upgrade pip
+                python -m pip install --require-hashes -r requirements.lock
                 python -m pip install -e ".[dev]"
+
+            - name: Check the lockfile matches pyproject.toml
+              working-directory: backend
+              # uv keeps the pins already in the file, so this fails only when
+              # pyproject.toml changed and `make lock` was not run.
+              run: |
+                cp requirements.lock "$RUNNER_TEMP/requirements.lock"
+                uv pip compile pyproject.toml --generate-hashes \
+                  --python-version 3.12 --python-platform x86_64-manylinux_2_28 \
+                  --no-header --quiet -o "$RUNNER_TEMP/requirements.lock"
+                diff -u requirements.lock "$RUNNER_TEMP/requirements.lock"
 
             - name: Run Ruff Lint
               working-directory: backend

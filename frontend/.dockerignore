@@ -1,0 +1,8 @@
+# Only what the build needs: dependencies are installed fresh from the lockfile.
+node_modules
+dist
+coverage
+*.log
+.env*
+Dockerfile
+.dockerignore

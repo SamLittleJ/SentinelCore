@@ -786,3 +786,22 @@ The backend's new `audit_chain_broken` alert is one more security event type (`S
 The new test checks the alert's row (technique badge and name) and its details (label, technique, the record in the message, the link to attack.mitre.org, no account link) in Security events; the technique test checks the new name. Reverse check (2 of 2): the label changed, or the technique's name removed.
 
 End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with the production policy, against the temporary database of the server check, holding a changed record and a truncated chain. Signed in as the owner, in both themes, both languages, at desktop and phone width, it opened Security events filtered to the new type and an alert's details, then the overview: 81 of 81 checks passed (the label, the T1070 badge and its name, the details, the theme, the technique counts once the overview had loaded, no horizontal overflow, no policy violation). The screenshots were viewed. A first run took its overview screenshots while the page was still loading; the check was changed to wait for the technique section itself.
+
+## Stage 18: The console's server (phase B)
+
+### 82. nginx in the console's image
+
+`frontend/Dockerfile` builds the console with Node 22 and serves `dist/` with the unprivileged nginx image (`nginxinc/nginx-unprivileged:stable-alpine`, pinned by digest), as its user 101, on port 8080 (`frontend/nginx/default.conf`):
+
+- **The same headers as `vite preview`.** `scripts/nginx-headers.ts` turns `productionHeaders` from `security-headers.ts` into `add_header … always;` lines at the image build, included in each location that serves the console; it refuses a value nginx would read differently (a quote, `$`, a backslash, a new line). The API's answers keep the backend's own policy.
+- **One origin.** `/api/` goes to the backend, reached as `sentinelcore-backend:8000`, as the Vite proxy does. nginx replaces `X-Forwarded-For` with the address it saw (`nginx/proxy.conf`).
+- **Kept inside.** `/api/metrics` answers `404` with the API's own body.
+- **Ingestion floods.** Each address may send 20 requests a second to `/api/ingest`, with bursts of 100; beyond that nginx answers `429` with a JSON body.
+- **Caching.** The console's pages are `no-store`; `/assets/`, whose names carry a content hash, are cached for a year as immutable. Static files are compressed.
+- **Probes.** `/nginx-health` answers from nginx itself.
+
+### 83. Local validation
+
+- eslint, tsc, build, npm audit (0) -> passed; vitest -> 255 passed (7 new for the header writer)
+- Reverse check (2 of 2): a header left out, or the guard on values removed.
+- End-to-end check: headless Firefox over WebDriver BiDi on the console's image at `http://localhost:8080`, against the backend's image: 129 of 129 checks passed (sign-in with the `Secure` cookies, overview, security events, audit log and personal overview, in both themes, both languages, desktop and phone, no policy violation, no horizontal overflow). The screenshots were viewed.
