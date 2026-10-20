@@ -1,0 +1,25 @@
+# The official image, pinned by digest: the bytes CI and Docker Compose test
+# against (postgres:17).
+image:
+  repository: postgres
+  digest: sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+  pullPolicy: IfNotPresent
+
+# The owner of the tables, a superuser; only the migration Job signs in as it.
+# Its password is in the Secret below, created by `make up`, never here.
+database: sentinelcore
+user: sentinelcore
+passwordSecret: sentinelcore-postgresql
+
+storage:
+  size: 2Gi
+  # Empty: the cluster's default class (local-path on kind).
+  className: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

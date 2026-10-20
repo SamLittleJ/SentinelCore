@@ -601,6 +601,71 @@ def test_the_cli_refuses_a_second_owner(db_session: Session) -> None:
 
 
 @pytest.mark.usefixtures("cli_database")
+def test_the_cli_skips_an_existing_owner_when_asked(
+    db_session: Session, capsys: pytest.CaptureFixture[str]
+) -> None:
+    create_account("first", role=UserRole.OWNER)
+
+    cli.main(
+        [
+            "create-owner",
+            "--email",
+            "boss@example.com",
+            "--username",
+            "boss",
+            "--if-missing",
+        ]
+    )
+
+    assert count(db_session, User) == 1
+    assert "The organization already has an owner; nothing to do." in (
+        capsys.readouterr().out
+    )
+
+
+@pytest.mark.usefixtures("cli_database")
+def test_the_cli_creates_the_owner_when_missing_and_asked(
+    db_session: Session, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli.main(
+        [
+            "create-owner",
+            "--email",
+            "boss@example.com",
+            "--username",
+            "boss",
+            "--if-missing",
+        ]
+    )
+
+    owner = db_session.scalar(select(User))
+    assert owner is not None
+    assert owner.role == UserRole.OWNER
+    assert "Created the owner boss@example.com" in capsys.readouterr().out
+
+
+@pytest.mark.usefixtures("cli_database")
+def test_the_cli_still_refuses_a_taken_email_when_missing_is_asked(
+    db_session: Session,
+) -> None:
+    create_account("boss")
+
+    with pytest.raises(SystemExit, match="already exists"):
+        cli.main(
+            [
+                "create-owner",
+                "--email",
+                "boss@example.com",
+                "--username",
+                "boss2",
+                "--if-missing",
+            ]
+        )
+
+    assert count(db_session, User) == 1
+
+
+@pytest.mark.usefixtures("cli_database")
 def test_the_cli_refuses_a_taken_email(db_session: Session) -> None:
     create_account("boss")
 

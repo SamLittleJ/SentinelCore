@@ -673,3 +673,14 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **A first limit on ingestion floods.** nginx allows each address 20 requests a second to `/api/ingest`, with bursts of 100, and answers `429` beyond, before the API checks the key: a flood of invalid keys stops there (T-38). Each nginx process counts on its own.
 - **Metrics stay inside.** `/api/metrics` answers `404` at nginx, like any missing route; Prometheus will read the backend directly inside the cluster.
 - **Images tagged by commit.** `make images` tags both with the short commit hash, marked `-dirty` when the tree has changes, and labels them with the OCI source and revision. A registry comes with phase C or D.
+
+## Local cluster (B2)
+
+- **Two charts, one namespace.** PostgreSQL has its own chart, installed and ready before the application's, as a managed database would be; both live in the namespace `sentinelcore`. No PodDisruptionBudget: there is one node.
+- **kubectl pinned to the cluster's version.** kind 0.31.0's node is Kubernetes 1.35, and kubectl is supported within one minor version of the cluster, so `make` uses kubectl 1.35.7 from `.tools/` rather than a newer one from the system.
+- **The owner of the tables stays a superuser.** As in Docker Compose and CI. A separate superuser with an owner limited to `CREATEROLE` would follow least privilege more closely, but needs every migration checked without superuser rights; only the migration Job holds these credentials, and the split is left to phase E.
+- **Three Secrets, the URLs composed by `make up`.** The API pods never receive the owner's URL, which only the migration Job gets. Values are generated with `openssl rand` and written through standard input, never as `--from-literal` arguments, which other processes of the same user could read. A partial set is refused: the audit seal and the database's passwords cannot be replaced by new values.
+- **The first owner from a Job, with `--if-missing`.** `make up` can run it every time: the command line now exits with 0 when an owner exists. The password lives in a Secret only while the Job runs, then only in `.kind/owner.txt`.
+- **Image IDs as pod annotations.** A `-dirty` build reuses its tag, and with `IfNotPresent` the pods would keep the old image; the annotation changes with the image, so its pods, and only those, are replaced.
+- **CPU limits as well as memory.** CPU limits can slow a pod under load, but policy tools of phase C report their absence, and the values leave room for a local cluster.
+- **A smoke test in the repository.** `make cluster-check` checks the cluster's security properties from outside and inside, for B3 and for the dissertation. Its address check signs in as the owner successfully, since failed sign-ins would count towards the one local address's limit and the spray rule.

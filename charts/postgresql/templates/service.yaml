@@ -1,0 +1,15 @@
+# Headless: the name resolves to the one pod, which the StatefulSet keeps.
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinelcore-postgresql
+  labels:
+    {{- include "postgresql.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  selector:
+    {{- include "postgresql.selector" . | nindent 4 }}
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinelcore-backend
+  labels:
+    app.kubernetes.io/name: sentinelcore-backend
+    {{- include "sentinelcore.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sentinelcore-backend
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sentinelcore-backend
+        {{- include "sentinelcore.labels" . | nindent 8 }}
+      annotations:
+        sentinelcore/image-id: {{ .Values.image.ids.backend | quote }}
+    spec:
+      serviceAccountName: sentinelcore-backend
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "sentinelcore.podSecurity" . | nindent 8 }}
+      containers:
+        - name: backend
+          image: "{{ .Values.image.backend }}:{{ include "sentinelcore.tag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # One uvicorn worker: Kubernetes runs more pods instead.
+          env:
+            {{- include "sentinelcore.backendEnv" . | nindent 12 }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secrets.api }}
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # Not ready without the database, or on a role that bypasses
+          # row-level security.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          securityContext:
+            {{- include "sentinelcore.containerSecurity" . | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # The name nginx sends /api to (frontend/nginx/default.conf).
+  name: sentinelcore-backend
+  labels:
+    app.kubernetes.io/name: sentinelcore-backend
+    {{- include "sentinelcore.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: sentinelcore-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

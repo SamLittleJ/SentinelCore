@@ -1,0 +1,6 @@
+apiVersion: v2
+name: postgresql
+description: SentinelCore's database, one PostgreSQL with its own disk. Installed before the application.
+type: application
+version: 0.1.0
+appVersion: "17"

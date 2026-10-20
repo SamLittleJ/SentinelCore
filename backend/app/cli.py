@@ -16,7 +16,9 @@ its length and head, and exits with 1 if any is broken. It only reads: it
 raises no alert, which the periodic check does.
 
 `create-owner` reads the password from SENTINELCORE_OWNER_PASSWORD, or asks
-for it without echoing it, so it stays out of the shell history.
+for it without echoing it, so it stays out of the shell history. With
+`--if-missing` an existing owner is not an error: the command says so and
+exits with 0, so a deployment can run it every time.
 """
 
 import argparse
@@ -54,7 +56,7 @@ def _owner_password() -> str:
     return password
 
 
-def _create_owner(email: str, username: str) -> None:
+def _create_owner(email: str, username: str, if_missing: bool) -> None:
     try:
         owner_in = UserCreate(
             email=email, username=username, password=_owner_password()
@@ -72,6 +74,9 @@ def _create_owner(email: str, username: str) -> None:
         try:
             owner = create_owner(db, owner_in)
         except OwnerExistsError as exc:
+            if if_missing:
+                print(f"{exc}; nothing to do.")
+                return
             raise SystemExit(f"{exc}; invite other accounts from it.") from None
         except IntegrityError:
             raise SystemExit(
@@ -165,6 +170,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     create_owner_parser.add_argument("--email", required=True)
     create_owner_parser.add_argument("--username", required=True)
+    create_owner_parser.add_argument(
+        "--if-missing",
+        action="store_true",
+        help="Exit with 0, creating nothing, when an owner already exists.",
+    )
 
     args = parser.parse_args(argv)
     configure_logging(settings.log_level, settings.log_format)
@@ -177,7 +187,7 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "verify-audit-chain":
         _verify_audit_chain()
     elif args.command == "create-owner":
-        _create_owner(args.email, args.username)
+        _create_owner(args.email, args.username, args.if_missing)
 
 
 if __name__ == "__main__":

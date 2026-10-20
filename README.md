@@ -102,7 +102,17 @@ make images   # sentinelcore-backend:<commit> and sentinelcore-console:<commit>
 - **`sentinelcore-backend`** (`backend/Dockerfile`): the API, its migrations and its command line, on `python:3.12-slim`, with every dependency pinned by hash in `backend/requirements.lock` (`make lock` writes it). It runs as UID 10001 and writes only to `/tmp`. Behind a proxy, `FORWARDED_ALLOW_IPS` names the proxy's addresses.
 - **`sentinelcore-console`** (`frontend/Dockerfile`): the production build served by unprivileged nginx on port 8080, with the same security headers as `vite preview` and `/api` passed to a backend reachable as `sentinelcore-backend:8000`. It replaces the client's `X-Forwarded-For` with the address it saw, keeps `/api/metrics` inside, and limits each address to 20 ingestion requests a second.
 
-Base images are pinned by digest and the images are tagged with the commit (`-dirty` when the tree has changes). Phase B runs them on a local Kubernetes cluster.
+Base images are pinned by digest and the images are tagged with the commit (`-dirty` when the tree has changes).
+
+## Local Kubernetes cluster
+
+```bash
+make up              # the images, a kind cluster and both Helm charts; then http://localhost:8080
+make cluster-check   # the running cluster's security properties, one line each
+make down            # deletes the cluster and its data, after typing its name
+```
+
+Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned versions, checked against their SHA-256, into `.tools/`, and keeps the cluster's kubeconfig in `.kind/kubeconfig`, leaving `~/.kube/config` alone (`export KUBECONFIG=$PWD/.kind/kubeconfig` to use `kubectl` on it). It installs `charts/postgresql`, then `charts/sentinelcore`, whose migrations run first as a Job, and creates the first owner, `owner@example.com`, with a random password written only to `.kind/owner.txt`. The secret key, the audit chain key, the database passwords and the metrics token are generated once as Kubernetes Secrets and never printed. Run `make up` again after a change: it rebuilds the images and replaces the pods whose image changed.
 
 ## Monitoring
 
