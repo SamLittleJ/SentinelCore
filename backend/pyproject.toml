@@ -27,6 +27,8 @@ dev = [
     "httpx>=0.28",
     "ruff==0.15.17",
     "bandit[toml]>=1.9",
+    # Generates requirements.lock, the image's pinned dependencies.
+    "uv==0.13.4",
 ]
 
 [tool.setuptools.packages.find]

@@ -35,3 +35,6 @@ infra/prometheus/metrics_token
 
 # make demo
 .demo/
+
+# make verify logs
+.verify/

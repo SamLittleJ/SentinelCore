@@ -60,7 +60,7 @@ New accounts come from invitations. An admin or the owner creates one on the Use
 - **Production** (`npm run preview`): a Content Security Policy that runs only the bundle's own scripts (`script-src 'self'`) and lets no other site frame the console (`frame-ancestors 'none'`, plus `X-Frame-Options: DENY`), with `nosniff`, `Referrer-Policy: no-referrer`, a `Permissions-Policy` and `Cross-Origin-Opener-Policy`. Inline styles stay allowed, because Radix dialogs and menus add `<style>` elements while they are open. Fonts stay files rather than inlined `data:` URIs, so `font-src 'self'` covers them.
 - **Development** (`npm run dev`): the same, except for the inline React Refresh script and the hot reload websocket, which Vite's dev server needs.
 
-Whatever serves the build in production (nginx, in phase B) must send the production headers.
+The console's image (`Dockerfile`) serves the build with nginx and sends the same production headers: `scripts/nginx-headers.ts` writes them as nginx directives at build time, from `security-headers.ts`, so the two cannot drift apart. Its nginx configuration (`nginx/`) passes `/api` to the backend, replaces the client's `X-Forwarded-For`, keeps `/api/metrics` inside and limits ingestion requests per address.
 
 ## Theme and translations
 

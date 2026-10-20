@@ -85,6 +85,25 @@ What to know about the data:
 - Accounts, invitations and operator actions go through the API at the time of the run, so the accounts show today as their joining date and today's log holds them all. Their sign-ins go back ninety days.
 - Alerts raised from the history are moved, in the demo database only, to the time of the event that raised them plus a few seconds, as if SentinelCore had watched the ninety days live. Without this, every one of them would carry the time of the run. The application itself always keeps the detection time.
 
+## Checks
+
+```bash
+make verify   # every check due before a commit, one line each; logs in .verify/
+```
+
+It runs Ruff, Bandit, Pyright, the lockfile check, the migrations up and down on a database of its own, the frontend's lint, types, tests, build and `npm audit`, Gitleaks, and the backend tests on Python 3.12 with the image's pinned dependencies (in a container, so Docker and the PostgreSQL of `docker-compose.yml` must be running). `VERIFY_SKIP="pytest gitleaks"` skips named checks.
+
+## Container images
+
+```bash
+make images   # sentinelcore-backend:<commit> and sentinelcore-console:<commit>
+```
+
+- **`sentinelcore-backend`** (`backend/Dockerfile`): the API, its migrations and its command line, on `python:3.12-slim`, with every dependency pinned by hash in `backend/requirements.lock` (`make lock` writes it). It runs as UID 10001 and writes only to `/tmp`. Behind a proxy, `FORWARDED_ALLOW_IPS` names the proxy's addresses.
+- **`sentinelcore-console`** (`frontend/Dockerfile`): the production build served by unprivileged nginx on port 8080, with the same security headers as `vite preview` and `/api` passed to a backend reachable as `sentinelcore-backend:8000`. It replaces the client's `X-Forwarded-For` with the address it saw, keeps `/api/metrics` inside, and limits each address to 20 ingestion requests a second.
+
+Base images are pinned by digest and the images are tagged with the commit (`-dirty` when the tree has changes). Phase B runs them on a local Kubernetes cluster.
+
 ## Monitoring
 
 ```bash

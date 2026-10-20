@@ -1,0 +1,11 @@
+# The image copies only requirements.lock, alembic.ini, app/ and migrations/;
+# this keeps the rest, and any secret, out of the build context.
+.env
+.env.*
+.venv
+**/__pycache__
+.pytest_cache
+.ruff_cache
+*.egg-info
+tests
+simulator

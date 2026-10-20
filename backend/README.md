@@ -40,6 +40,12 @@ The API and the migrations sign in to PostgreSQL as different roles. The migrati
 
 `.[dev]` also installs the development tools: pytest, httpx, Ruff and Bandit. To only run the application, `python -m pip install -e .` is enough.
 
+## Container image
+
+`Dockerfile` builds the API, its migrations and its command line into one image: `make images` from the repository root. Dependencies come from `requirements.lock`, every package pinned with its hashes and installed with `--require-hashes`; after changing the dependencies in `pyproject.toml`, run `make lock` (uv, in the dev dependencies) and commit both files. CI installs the same pins before the tests and fails when the lockfile no longer matches `pyproject.toml`.
+
+The image runs `uvicorn` as UID 10001 with `--proxy-headers`; `FORWARDED_ALLOW_IPS` (default `127.0.0.1`) lists the proxies whose `X-Forwarded-For` it believes. The root filesystem may be read-only: only `/tmp` is written. Settings come from the environment, as in `.env.example`; there is no `.env` in the image.
+
 ## Organizations
 
 SentinelCore keeps several organizations apart. The platform owner, created from the command line, belongs to none and manages them all; every other account belongs to exactly one, set by its invitation and never changed.
