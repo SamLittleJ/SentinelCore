@@ -1,0 +1,51 @@
+# Built and loaded into the cluster by `make up` (`make images`), tagged with
+# the short commit. The tag has no default: an install names what it runs.
+image:
+  backend: sentinelcore-backend
+  console: sentinelcore-console
+  tag: ""
+  pullPolicy: IfNotPresent
+  # The images' own IDs, set by `make up`: a rebuild under the same tag
+  # (`-dirty`) changes them, so the pods are replaced.
+  ids:
+    backend: ""
+    console: ""
+
+# Created by `make up` when missing, never written here.
+secrets:
+  # SECRET_KEY, AUDIT_CHAIN_KEY, METRICS_TOKEN, DATABASE_URL (the API's role).
+  api: sentinelcore-api
+  # MIGRATIONS_DATABASE_URL (the owner of the tables): the migration Job only.
+  migrations: sentinelcore-migrations
+
+backend:
+  replicas: 2
+  # The settings the API runs with in the cluster (app/core/config.py).
+  config:
+    APP_ENV: production
+    APP_DEBUG: "false"
+    API_DOCS_ENABLED: "false"
+    LOG_FORMAT: json
+    HSTS_MAX_AGE: "0"
+    # The pod network (kind's default): nginx's address, the only one whose
+    # X-Forwarded-For the API believes.
+    FORWARDED_ALLOW_IPS: 10.244.0.0/16
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+console:
+  replicas: 1
+  # kind maps it to 127.0.0.1:8080 (kind/cluster.yaml).
+  nodePort: 30080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

@@ -17,7 +17,7 @@ PY="$BACKEND/.venv/bin"
 POSTGRES=sentinelcore-postgres
 PYTHON_IMAGE=python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 # What Gitleaks scans, one path per run.
-GITLEAKS_PATHS=(backend frontend docs scripts infra .github README.md Makefile docker-compose.yml)
+GITLEAKS_PATHS=(backend frontend docs scripts infra charts kind .github README.md Makefile docker-compose.yml)
 
 rm -rf "$LOGS"
 mkdir -p "$LOGS"

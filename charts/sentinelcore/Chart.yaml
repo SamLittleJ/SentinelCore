@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sentinelcore
+description: SentinelCore's API and console, with the migrations run before each install or upgrade.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -5085,3 +5085,46 @@ Phase B runs SentinelCore on a local Kubernetes cluster. Its first step builds t
 - `make verify`: 13 of 13 checks passed (pytest 700 on Python 3.12.15 with the locked versions, vitest 255, Pyright 0 errors, migrations up and down, Gitleaks on 9 paths).
 - The images run as Kubernetes will run them (non-root, read-only root filesystem, no capabilities, `no-new-privileges`) on a temporary network with a temporary PostgreSQL: migrations, `grant-api-login` and `create-owner` from the backend image, then the API behind the console's nginx. An assertion script passed 18 of 18 checks (headers, caching, routes, hidden metrics, the client's address, the ingestion limit, users, read-only filesystem, image defaults).
 - Reverse check: 12 of 12 changes caught. Two image changes (the backend's user set to root, every proxy trusted) first passed, because the test run set both at run time; the script now also checks the images' own configuration. The console's user set to root stopped nginx at startup.
+
+## Local Kubernetes cluster (phase B, B2)
+
+### 377. Purpose of the stage
+
+`make up` runs the images of B1 on a local Kubernetes cluster made with kind, from two Helm charts, with the security properties of phase A kept: the API on a role bound by row-level security, the console's headers, the client's real address and the sealed audit history.
+
+### 378. Tools and cluster
+
+- **Pinned tools.** `scripts/tools.sh` downloads kind 0.31.0, Helm 3.19.0 and kubectl 1.35.7 into `.tools/` (git-ignored) and refuses a file whose SHA-256 differs from the one written in the script. `make up` always uses these, whatever the system has; kubectl stays within one minor version of the cluster, as Kubernetes supports.
+- **One node.** `kind/cluster.yaml` creates the cluster `sentinelcore` on `kindest/node:v1.35.0`, pinned by digest, and maps the console's NodePort, 30080, to `127.0.0.1:8080` only.
+- **Its own kubeconfig.** The cluster's credentials go to `.kind/kubeconfig` (mode 600, git-ignored); `~/.kube/config` is left alone.
+
+### 379. The charts
+
+- **`charts/postgresql`**: a StatefulSet of the official `postgres:17`, pinned by digest, with a 2Gi disk, a headless Service and readiness and liveness from `pg_isready`. The owner's password is mounted as a file (`POSTGRES_PASSWORD_FILE`), not passed in the environment.
+- **`charts/sentinelcore`**: the backend Deployment (two replicas, one uvicorn worker each, probes on `/health` and `/health/ready`) behind the Service `sentinelcore-backend`, the name nginx sends `/api` to; the console Deployment behind a NodePort Service with `externalTrafficPolicy: Local`; and the migration Job, a `pre-install,pre-upgrade` hook that runs `alembic upgrade head`, then `grant-api-login`. A failed Job is kept for its logs and not retried.
+- **Settings.** The API runs with `APP_ENV=production`, debug and the API documentation off, JSON logs and `HSTS_MAX_AGE=0` (no HTTPS yet); `FORWARDED_ALLOW_IPS` is the pod network, `10.244.0.0/16`, so the API believes `X-Forwarded-For` from nginx only.
+- **Hardening.** Every pod, PostgreSQL included, runs as a user other than root with seccomp `RuntimeDefault`, a read-only root filesystem with `emptyDir` volumes where it writes, every capability dropped, no privilege escalation, its own ServiceAccount with no token, and CPU and memory requests and limits.
+- **Images.** `image.tag` is required. `make up` also passes each image's ID as a pod annotation, so a rebuild under the same `-dirty` tag replaces the pods that run it, and only those.
+
+### 380. `make up`, `make down`, `make cluster-check`
+
+- **`make up`** builds the images (`make images`), then `scripts/cluster.sh up`: the cluster if missing, the images loaded into it, the secrets if missing, PostgreSQL (`--wait`), the application (`--wait`, migrations first), then the first owner. A second run changes nothing it does not need to.
+- **Secrets.** Three Secrets, generated with `openssl rand` the first time: `sentinelcore-postgresql` (the owner's password), `sentinelcore-api` (`SECRET_KEY`, `AUDIT_CHAIN_KEY`, `METRICS_TOKEN` and the API role's `DATABASE_URL`) and `sentinelcore-migrations` (the owner's `MIGRATIONS_DATABASE_URL`). The values reach `kubectl` on its standard input, never on a command line or on disk. The API pods get the first two only; the migration Job also gets the third. Since the audit history is sealed with `AUDIT_CHAIN_KEY` and the database holds the passwords, a partial set is refused rather than completed with new values.
+- **The first owner.** A Job runs `create-owner --if-missing` (`owner@example.com` by default; `OWNER_EMAIL` and `OWNER_USERNAME` change it), with a random password passed through a Secret that is deleted with the Job. The password is written to `.kind/owner.txt` (mode 600) only when the Job created the owner. `--if-missing` is new in the command line: an existing owner is then not an error.
+- **`make down`** asks for the cluster's name, then deletes the cluster, its data and `.kind/`; `.tools/` stays.
+- **`make cluster-check`** (`scripts/cluster-check.sh`) checks the running cluster, one line each: readiness through nginx, the console's headers against the build's, the console's routes, metrics and API documentation hidden, the sender's address recorded rather than a spoofed one or nginx's, nginx's ingestion limit, and for each pod a user other than root, a read-only root filesystem, no capabilities and no token; then that the API pods lack the owner's URL, that the API's role is bound by row-level security and that the audit history is intact. The address check signs in as the owner, successfully: every local request comes from one address, and failures would count towards its sign-in limit and the spray rule.
+
+### 381. What it leaves
+
+- The owner of the tables is still a superuser, as in Docker Compose and CI; only the migration Job signs in as it. Splitting it from the superuser is left to phase E.
+- Locally, every request reaches nginx from the Docker network's gateway, so all of them share one address for the sign-in limit and the ingestion limit.
+- Kubernetes Secrets are stored unencrypted in the cluster's etcd; External Secrets come with phase E. The secrets are never rotated by `make up`.
+- No NetworkPolicy, Pod Security admission, Ingress or Gateway, and no Prometheus in the cluster (phases D and E). `/api/metrics` is reachable inside the cluster with `METRICS_TOKEN`, but nothing scrapes it yet.
+- Two API replicas both run the session cleanup and the audit chain check; the deletions are idempotent and an alert is raised once.
+
+### 382. Local validation
+
+- `make verify`: 13 of 13 checks passed (pytest 703 on Python 3.12 with the locked versions, vitest 255, Pyright 0 errors, migrations up and down, Gitleaks on 11 paths).
+- `make up` from nothing: 1 min 36 s to a ready cluster; a second run replaced no pod. `make cluster-check`: 21 of 21.
+- Reverse check: 15 of 15 changes caught, 10 on the running cluster (a writable root filesystem for the console and PostgreSQL, the backend as root, capabilities kept by the backend and PostgreSQL, a token for the console, the owner's URL in the API pods, no proxy trusted, the API's role with `BYPASSRLS`, a changed audit record), 3 in the scripts (a partial set of secrets, a wrong checksum, no image tag) and 2 on `--if-missing`. Three first passed: a user other than root cannot write to `/` or hold effective capabilities anyway, so the checks now read the mount's `ro` flag and the bounding set of capabilities.
+- Firefox, headless, through `http://localhost:8080`: sign-in through the form, the session cookies kept with `Secure` and `HttpOnly` on plain-HTTP localhost, and four pages in both themes, both languages, at desktop and phone width, with no policy violation and no horizontal overflow: 132 of 132.

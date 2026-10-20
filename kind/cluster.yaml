@@ -1,0 +1,15 @@
+# The local cluster `make up` creates: one node, with the console's NodePort
+# reachable from this machine only.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: sentinelcore
+nodes:
+  - role: control-plane
+    # kind v0.31.0's own node image, pinned by digest.
+    image: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+    extraPortMappings:
+      # The console Service's nodePort (charts/sentinelcore/values.yaml).
+      - containerPort: 30080
+        hostPort: 8080
+        listenAddress: 127.0.0.1
+        protocol: TCP

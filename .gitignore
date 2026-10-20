@@ -38,3 +38,7 @@ infra/prometheus/metrics_token
 
 # make verify logs
 .verify/
+
+# make up: pinned tools and the cluster's kubeconfig and owner password
+.tools/
+.kind/

@@ -36,7 +36,7 @@ The API and the migrations sign in to PostgreSQL as different roles. The migrati
 
 `.env.example` holds placeholders: set `SECRET_KEY` and `AUDIT_CHAIN_KEY` to two different random values of at least 32 bytes before the migrations, which seal the existing audit history with the second (see [Audit history](#audit-history)).
 
-`create-owner` creates the organization's first account, the owner, and asks for its password without echoing it (or reads `SENTINELCORE_OWNER_PASSWORD`). It refuses once an owner exists. There is no public sign-up: every other account joins through an invitation.
+`create-owner` creates the organization's first account, the owner, and asks for its password without echoing it (or reads `SENTINELCORE_OWNER_PASSWORD`). It refuses once an owner exists; with `--if-missing` it then exits with 0 and creates nothing, as `make up` runs it. There is no public sign-up: every other account joins through an invitation.
 
 `.[dev]` also installs the development tools: pytest, httpx, Ruff and Bandit. To only run the application, `python -m pip install -e .` is enough.
 
