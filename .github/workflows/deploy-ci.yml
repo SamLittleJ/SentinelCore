@@ -1,0 +1,37 @@
+name: Deployment CI
+
+# The charts, rendered manifests, Dockerfiles and scripts, checked without a
+# cluster on every pull request: `make deploy-lint`, as locally.
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - "charts/**"
+            - "kind/**"
+            - "backend/Dockerfile"
+            - "frontend/Dockerfile"
+            - "scripts/**"
+            - ".github/workflows/deploy-ci.yml"
+    pull_request:
+        branches:
+            - main
+
+# The jobs only read the code; the token gets no write access.
+permissions:
+    contents: read
+
+jobs:
+    deploy-lint:
+        name: Lint charts, manifests, Dockerfiles and scripts
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+
+            # helm lint, kubeconform, hadolint and shellcheck, at the versions
+            # and checksums pinned in scripts/tools.sh.
+            - name: Run make deploy-lint
+              run: make deploy-lint

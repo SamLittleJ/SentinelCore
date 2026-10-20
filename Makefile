@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean images lock verify tools up down cluster-check
+.PHONY: help demo demo-clean images lock verify tools up down cluster-check deploy-lint
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -29,6 +29,9 @@ up: images ## SentinelCore on a local kind cluster, at http://localhost:8080 (ru
 
 down: ## Delete the kind cluster and its data (asks first)
 	@./scripts/cluster.sh down
+
+deploy-lint: ## Lint the charts, manifests, Dockerfiles and scripts, without a cluster
+	@./scripts/deploy-lint.sh
 
 cluster-check: ## Check the running cluster's security properties, one line each
 	@./scripts/cluster-check.sh

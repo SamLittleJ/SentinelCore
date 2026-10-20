@@ -684,3 +684,12 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Image IDs as pod annotations.** A `-dirty` build reuses its tag, and with `IfNotPresent` the pods would keep the old image; the annotation changes with the image, so its pods, and only those, are replaced.
 - **CPU limits as well as memory.** CPU limits can slow a pod under load, but policy tools of phase C report their absence, and the values leave room for a local cluster.
 - **A smoke test in the repository.** `make cluster-check` checks the cluster's security properties from outside and inside, for B3 and for the dissertation. Its address check signs in as the owner successfully, since failed sign-ins would count towards the one local address's limit and the spray rule.
+
+## Deployment checks (B3)
+
+- **One command for the deployment's files.** `make deploy-lint` runs the same checks locally, in `make verify` and in CI, so a pull request fails for nothing the developer could not see first.
+- **Tools from `scripts/tools.sh`, not from the Marketplace.** kubeconform, hadolint and shellcheck are downloaded at pinned versions and checked by SHA-256, like kind, Helm and kubectl; container images tagged `:latest` and third-party actions would bring code nobody pinned. The workflows use GitHub's own `checkout` and `setup-node` only.
+- **kubeconform's schemas pinned to a commit.** By default it fetches the latest schemas on each run; pinned, the same manifests always get the same answer. No resource may lack a schema, since there are no custom resources.
+- **Warnings fail.** hadolint fails from `warning` up and shellcheck on any finding; an exception is written on its line with its reason, never in a global configuration.
+- **A real cluster in CI, but not on every pull request.** `make up` and `make cluster-check` take several minutes, so they run when the deployment's files change, and on demand. Two workflows, since GitHub filters paths per workflow, not per job, and a path-filter action from the Marketplace would be third-party code.
+- **Policy scanning waits for phase C.** kube-score, Checkov and Trivy judge configuration against policy; B3 checks correctness, phase C brings the scanners with the rest of the supply chain.

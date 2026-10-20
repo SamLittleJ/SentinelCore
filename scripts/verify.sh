@@ -12,7 +12,6 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGS="$ROOT/.verify"
 BACKEND="$ROOT/backend"
-FRONTEND="$ROOT/frontend"
 PY="$BACKEND/.venv/bin"
 POSTGRES=sentinelcore-postgres
 PYTHON_IMAGE=python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
@@ -122,6 +121,7 @@ check typecheck   'echo ok'                                  -- npm --prefix fro
 check vitest      "grep -E '^ +Tests ' $LOGS/vitest.log | tr -s ' '" -- sh -c "cd frontend && npx vitest run"
 check build       'echo ok'                                  -- npm --prefix frontend run -s build
 check audit       'last audit'                               -- npm --prefix frontend audit
+check deploy      'echo "charts, manifests, Dockerfiles, scripts"' -- ./scripts/deploy-lint.sh
 check gitleaks    "grep -c 'no leaks found' $LOGS/gitleaks.log | sed 's/$/ paths clean/'" -- gitleaks
 
 if ! skipped pytest; then

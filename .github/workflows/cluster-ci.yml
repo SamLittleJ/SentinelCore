@@ -1,0 +1,83 @@
+name: Cluster CI
+
+# SentinelCore on a real kind cluster: `make up`, then `make cluster-check`,
+# its security properties checked from outside and inside. Several minutes,
+# so only when the deployment or what it runs changes.
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+        paths:
+            - "charts/**"
+            - "kind/**"
+            - "backend/Dockerfile"
+            - "backend/requirements.lock"
+            - "frontend/Dockerfile"
+            - "frontend/nginx/**"
+            - "frontend/security-headers.ts"
+            - "frontend/scripts/nginx-headers.ts"
+            - "scripts/**"
+            - "backend/migrations/**"
+            - "backend/app/cli.py"
+            - ".github/workflows/cluster-ci.yml"
+    pull_request:
+        branches:
+            - main
+        # The same paths as for push.
+        paths:
+            - "charts/**"
+            - "kind/**"
+            - "backend/Dockerfile"
+            - "backend/requirements.lock"
+            - "frontend/Dockerfile"
+            - "frontend/nginx/**"
+            - "frontend/security-headers.ts"
+            - "frontend/scripts/nginx-headers.ts"
+            - "scripts/**"
+            - "backend/migrations/**"
+            - "backend/app/cli.py"
+            - ".github/workflows/cluster-ci.yml"
+
+# The jobs only read the code; the token gets no write access.
+permissions:
+    contents: read
+
+# A newer push to the same branch replaces a run still going.
+concurrency:
+    group: cluster-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    cluster:
+        name: Run make up and make cluster-check on kind
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v5
+
+            # The console's header check runs the build's own TypeScript.
+            - name: Set up Node.js
+              uses: actions/setup-node@v5
+              with:
+                  node-version: "22"
+
+            - name: Run make up
+              run: make up
+
+            - name: Run make cluster-check
+              run: make cluster-check
+
+            # The cluster's state for the log, never the Secrets' values.
+            - name: Show the cluster when a step failed
+              if: failure()
+              env:
+                  KUBECONFIG: .kind/kubeconfig
+              run: |
+                  .tools/kubectl get all,jobs,pvc --namespace sentinelcore || true
+                  .tools/kubectl describe pods --namespace sentinelcore || true
+                  .tools/kubectl logs --namespace sentinelcore --all-containers --prefix \
+                    --selector app.kubernetes.io/part-of=sentinelcore --tail 100 || true
+                  .tools/kubectl get events --namespace sentinelcore --sort-by .lastTimestamp || true

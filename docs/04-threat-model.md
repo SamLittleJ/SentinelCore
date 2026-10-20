@@ -2,7 +2,7 @@
 
 This document lists what can go wrong with SentinelCore, who could make it happen, what already stops it, and what is left. The boundary between organizations is the main trust boundary and gets the closest analysis.
 
-- **Version:** 2026-10-13, on `main` after the five multi-organization pull requests (#29 to #33); updated 2026-10-14 for the security headers (#35) and the API documentation setting (T-58), and 2026-10-15 for the ingestion rate limit (T-38), the API key volume alert (T-34, T-59) and the limit on failed sign-ins per address (T-10, T-12, T-60), 2026-10-19 for the platform rule on sprays across organizations (T-40), 2026-10-20 for the sealed audit history (T-45), the container images of phase B (T-01, T-38) and the local kind cluster (TA2, TA3, TA4).
+- **Version:** 2026-10-13, on `main` after the five multi-organization pull requests (#29 to #33); updated 2026-10-14 for the security headers (#35) and the API documentation setting (T-58), and 2026-10-15 for the ingestion rate limit (T-38), the API key volume alert (T-34, T-59) and the limit on failed sign-ins per address (T-10, T-12, T-60), 2026-10-19 for the platform rule on sprays across organizations (T-40), 2026-10-20 for the sealed audit history (T-45), the container images of phase B (T-01, T-38) and the local kind cluster (TA2, TA3, TA4), and with the checks that close phase B (§5.3, E11, T-61 to T-65).
 - **Scope:** the system as it runs today: the browser application, the API with ingestion, PostgreSQL with row-level security, the session cleanup task, the command line, the simulator and `make demo`, local monitoring (Prometheus, Grafana) and the GitHub workflows. Containers, Kubernetes, the supply chain and cloud infrastructure (phases B to E of the roadmap) are out of scope; each phase adds its own section here.
 - **Updates:** a change that adds an element, a data flow or a trust boundary updates this document in the same pull request.
 
@@ -167,6 +167,36 @@ flowchart TB
 
 A member's request is limited twice: by the conditions the service adds to every query, and by the policy PostgreSQL applies to every row. Either one alone keeps organization B's rows out; tests remove the application's filter on purpose to show that the database still holds the boundary (`test_the_database_holds_the_boundary_when_a_listing_forgets_it`, `test_the_database_holds_the_boundary_when_a_lookup_forgets_it`).
 
+### 5.3 Level 1: the local cluster (phase B)
+
+```mermaid
+flowchart LR
+  host(["This machine<br/>browser, make up"])
+  subgraph TB6["TB6 - kind cluster, namespace sentinelcore"]
+    console["Console pod<br/>nginx, NodePort 30080"]
+    backend["Backend pods (2)<br/>role sentinelcore_app"]
+    job["Migration Job<br/>(before each install or upgrade)"]
+    owner["Owner Job<br/>(make up, once)"]
+    secrets[("Secrets<br/>sentinelcore-api, -migrations,<br/>-postgresql")]
+    subgraph TB4["TB4 - Database"]
+      pg[("PostgreSQL StatefulSet")]
+    end
+  end
+
+  host -- "127.0.0.1:8080 only" --> console
+  console -- "/api, X-Forwarded-For replaced" --> backend
+  backend -- "DATABASE_URL (app role)" --> pg
+  job -- "MIGRATIONS_DATABASE_URL (owner)" --> pg
+  owner -- "app role, system scope" --> pg
+  secrets -. "-api" .-> backend
+  secrets -. "-api + -migrations" .-> job
+  host -. "openssl rand, through stdin" .-> secrets
+```
+
+| Boundary | Between | What crosses it |
+|---|---|---|
+| TB6 | This machine and the cluster | Only the console's NodePort, bound to `127.0.0.1:8080`; the secrets, once, from `make up`. Inside, the API pods never hold the owner's credentials, and no pod holds a Kubernetes token. |
+
 ---
 
 ## 6. Threats per element
@@ -283,6 +313,16 @@ Backend tests are in `backend/tests/`, frontend tests next to the code they test
 | T-57 | I | A secret is committed. | P3, P5 | Gitleaks scans the full history in CI and each pull request's directories locally. | CI job "Run Gitleaks secret scan" | T1552.001 | L / H → Medium | Mitigated |
 | T-58 | T | The API's documentation pages (`/docs`, `/redoc`) run code from a public CDN; a compromised package acts as the operator who opens them. | P6 | The documentation is off unless `API_DOCS_ENABLED` turns it on, which only `.env.example` does, for development (`create_app`, `app/main.py`). Off, the pages and the schema (`/openapi.json`) answer like any unknown path, with the API's policy. On, their policy allows only the two packages FastAPI loads (`swagger-ui-dist@5`, `redoc@2`) and Swagger UI's inline script by its hash (`app/api/security_headers.py`); the packages follow their major version, with no integrity hash. Cookies do not separate ports, so on `localhost` such code could use the console's session; in development the documentation is opened at `127.0.0.1`, another host, to which the console's cookies are never sent. The console's own pages load nothing from outside. | `test_the_documentation_is_off_unless_turned_on`, `test_turned_off_the_documentation_is_not_found`, `test_turned_off_the_documentation_answers_like_any_unknown_path`, `test_swagger_ui_runs_its_own_inline_script_and_no_other`, `test_redoc_loads_its_package_and_runs_no_inline_script` | T1195.002 | L / M → Low | Mitigated |
 
+### E11. Deployment (kind + Helm)
+
+| Id | STRIDE | Threat | Who | Mitigation | Evidence | MITRE | Risk | Status |
+|---|---|---|---|---|---|---|---|---|
+| T-61 | I | The Secrets are read from the cluster's store, where Kubernetes keeps them unencrypted. | P5 | Generated by `make up` and passed through standard input, never printed, written to the repository or kept in Helm values; the cluster is reachable only with `.kind/kubeconfig` (mode 600). Encryption at rest or External Secrets come with phase E. | *untested* (configuration) | T1552.007 | L / M → Low | Accepted |
+| T-62 | E, I | A compromised pod reaches PostgreSQL, or another pod, directly over the cluster network. | P1 (after code execution) | Every connection to the database needs a password, and the API's role is bound by row-level security; there is no NetworkPolicy until phase E. | *untested* | T1210 | L / M → Low | Accepted |
+| T-63 | T | A tool, image or schema changed at its source runs in the build or the cluster. | P6 | kind, Helm, kubectl, kubeconform, hadolint and shellcheck are refused unless their SHA-256 matches `scripts/tools.sh`; base images and the node image are pinned by digest; kubeconform's schemas are pinned to one commit. Scanning and signing are phase C. | `scripts/tools.sh` (a wrong checksum is refused), CI job "Lint charts, manifests, Dockerfiles and scripts" | T1195 | L / H → Medium | Mitigated |
+| T-64 | E | The owner of the tables is a superuser in the cluster too (TA2). | P5 | Only the migration Job receives its URL; the API pods and the owner Job do not. Splitting it from the superuser is phase E. | `make cluster-check` ("the API pods lack the owner's database URL") | T1078 | L / H → Medium | Accepted |
+| T-65 | E | Code running in a pod escapes to the node, or acts on the cluster. | P1 (after code execution) | Every pod runs as a user other than root, with a read-only root filesystem, no capabilities, no privilege escalation, seccomp `RuntimeDefault`, no Kubernetes token, and CPU and memory limits. Pod Security admission is phase E. | `make cluster-check` (CI job "Run make up and make cluster-check on kind"), `make deploy-lint` | T1611 | L / H → Medium | Mitigated |
+
 ---
 
 ## 7. The boundary between organizations, layer by layer
@@ -312,4 +352,4 @@ No threat is rated high. The table below is the most important residual risk, ch
 | 4 | History editable by the owner of the tables | T-45 | Tamper evidence: each record carries a hash of the previous one, with a command that checks the chain. **Done** (2026-10-20): one chain per organization and one for the platform, each audit record sealed with an HMAC-SHA256 keyed by `AUDIT_CHAIN_KEY`, kept out of the database; the cleanup task checks the chains, raises `audit_chain_broken` (T1070) and writes their lengths and heads to the log and metrics; `verify-audit-chain` checks them on demand. T-45 is now low; security events stay unsealed. | 2-3 days |
 | 5 | Lockout abuse and spray evasion at sign-in | T-12, T-10 | A limit per address on sign-in attempts, which slows a spray and keeps a victim's lockout from being renewed forever by one address. **Done** (2026-10-15): a token bucket per address in the database, 20 failed sign-ins at once then 6 an hour, checked before the email's lockout and the password and answered as the lockout answers; one `login_address_limited` event (T1110) per address limited. T-12 is now low; T-10 stays medium, since a spray spread over many addresses passes, and an address shared by many clients (T-60) is accepted. | 1.5 days |
 
-Smaller items, kept in view: `/metrics` open when no token is set (T-51), the owner's powers in one account (TA1), the unsigned transaction scope (T-29) and the supply chain (T-56, phase C). The documentation pages' CDN code (T-58) runs in development only since 2026-10-14: the documentation is off unless `API_DOCS_ENABLED` turns it on.
+Smaller items, kept in view: the cluster's accepted risks, unencrypted Secrets (T-61), no NetworkPolicy (T-62) and a superuser owner of the tables (T-64), all for phase E; `/metrics` open when no token is set (T-51), the owner's powers in one account (TA1), the unsigned transaction scope (T-29) and the supply chain (T-56, phase C). The documentation pages' CDN code (T-58) runs in development only since 2026-10-14: the documentation is off unless `API_DOCS_ENABLED` turns it on.
