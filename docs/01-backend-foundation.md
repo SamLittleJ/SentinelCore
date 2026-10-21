@@ -5159,3 +5159,53 @@ The last step of phase B checks the deployment automatically: its files on every
 - `make verify`: 14 of 14 checks, `deploy` included.
 - `make deploy-lint`: 2 charts linted, 11 of 11 resources valid, both Dockerfiles and every script clean.
 - Reverse check: 5 of 5 changes caught (an unknown field in a pod spec, `replicas` as text, a broken template, `cd` in a Dockerfile's `RUN`, an unquoted argument in a script). A first script change, an unquoted constant, passed rightly: shellcheck knows it cannot split.
+- On GitHub, on the pull request: Deployment CI passed (11 of 11 resources valid); Cluster CI passed in 2 min 16 s, `make up` from nothing in 2 min 6 s and `make cluster-check` 21 of 21.
+
+## Phase C, PR C1: supply-chain checks
+
+### 389. Purpose of the stage
+
+Phase C checks what enters the build and what it deploys. C1 pins the tools, actions and images already used, checks dependencies for known vulnerabilities and deployment files for misconfigurations, and adds weekly scans.
+
+### 390. Pinned actions, tools and images
+
+- **Actions pinned to commit SHAs.** Every `uses:` names a full commit SHA, with the version in a comment: checkout v5.1.0, setup-python v6.3.0, setup-node v5.0.0 and codeql-action v4.39.0. `make deploy-lint` checks this as "pinned actions".
+- **Gitleaks v8.30.1.** A binary pinned by SHA-256 in `scripts/tools.sh` replaces the image tagged `:latest`, locally and in CI. The script now takes tool names, so `scripts/tools.sh gitleaks` downloads only that tool; no arguments still means all. Both scans use `--redact` to keep secrets out of logs. The required check name, "Run Gitleaks secret scan", stays the same.
+- **Images pinned by digest.** Docker Compose's PostgreSQL, Prometheus and Grafana images, and the backend CI's PostgreSQL service, now name digests. The service image is updated by hand: Dependabot does not read workflow service images.
+
+### 391. Dependabot and CodeQL
+
+- **Dependabot.** Five ecosystems (`github-actions`, `pip`, `npm`, `docker`, `docker-compose`), checked weekly on Monday, with updates grouped within each ecosystem. A seven-day cooldown keeps a new release out until it has aged; security updates skip the wait. Versions in `scripts/tools.sh` stay manual.
+- **CodeQL.** `.github/workflows/codeql.yml` runs `security-extended` queries for `python`, `javascript-typescript` and `actions`, on pull requests to `main`, pushes to `main`, weekly and on demand. Only the analysis job may write security results; repository contents stay read-only.
+
+### 392. `make scan`
+
+`scripts/scan.sh` runs pip-audit on `backend/requirements.lock` with `--require-hashes --disable-pip`, without installing the application's dependencies, against the default PyPI advisories. Checkov reads both rendered Helm charts, both Dockerfiles and every workflow. `scripts/scan_gate.py` reads their reports and fails on any finding not covered by `security/exceptions.yaml`. `make verify` includes it as `scan`; the local `npm audit` now uses `--audit-level=high`, as CI already did.
+
+Each exception has exactly five fields: `tool` (`checkov` or `pip-audit`), `id` (the check or vulnerability), `resources` (resource or package patterns), `reason` and `expires` (`YYYY-MM-DD`). Expiry may be at most 180 days ahead. An expired exception, a missing field or any pattern that covers no reported finding fails the scan. A match needs both the check and the resource; Checkov's own skip can suppress the same check on other resources too.
+
+### 393. The scanners' own dependencies
+
+Checkov 3.3.29 and pip-audit 2.10.1 are pinned in `security/scanners.in`, with every dependency and its hashes in `security/scanners.lock`. The selected versions are at least seven days old. `scripts/tools.sh` installs the lock with `--require-hashes --only-binary :all:` into `.tools/scanners`, a virtual environment of its own, rebuilt when the lock changes. `make lock-scanners` regenerates the lock. The backend's dev dependencies are not hash-locked, so the scanners stay outside them.
+
+### 394. Fixed and excepted findings
+
+The backend Deployment and migration Job now state `runAsUser: 10001` and `runAsGroup: 10001` in the chart, matching the image. This fixes a Checkov finding instead of excepting it.
+
+The 27 findings accepted for now belong to seven checks, each limited to its resources and with a reason and expiry:
+
+- **C3:** images without a digest (`CKV_K8S_43`) and a pull policy other than `Always` (`CKV_K8S_15`). The local images are built and loaded into kind; C3 brings published images deployed by digest.
+- **E:** no NetworkPolicy (`CKV2_K8S_6`, T-62), secrets passed in the environment rather than mounted as files (`CKV_K8S_35`, T-61), the rendered resources in the default namespace (`CKV_K8S_21`), and nginx and PostgreSQL using their images' users, 101 and 999, below UID 10000 (`CKV_K8S_40`).
+- **Kubernetes probes:** no Dockerfile `HEALTHCHECK` (`CKV_DOCKER_2`). Kubernetes ignores it and uses the charts' startup, liveness and readiness probes. The exception still expires for review.
+
+### 395. CI and private reporting
+
+`.github/workflows/supply-chain-ci.yml` runs `make scan` on pull requests to `main`, pushes to `main`, weekly and on demand, with read-only repository permissions. The weekly run checks unchanged dependencies against new advisories. `SECURITY.md` asks for private reports through GitHub's private vulnerability reporting, gives a seven-day response time and supports the latest commit of `main` only.
+
+### 396. Local validation
+
+- `make scan`: 0 open; pip-audit 0 findings; Checkov 27 findings, 27 excepted.
+- `make deploy-lint`: clean, 11/11 resources valid.
+- Mutations: 7/7 caught (expired exception, expiry beyond 180 days, missing field, stale pattern, new chart finding, unpinned action, vulnerable package `jinja2==3.1.2` in the lock).
+- `make verify`: 15 of 15 checks (pytest 703 passed, vitest 255 passed, `scan` 0 open).
+- `make up` and `make cluster-check` after the chart change: 21 of 21.

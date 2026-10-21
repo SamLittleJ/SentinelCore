@@ -1,0 +1,39 @@
+name: Supply chain CI
+
+# `make scan`, as locally: the backend's locked dependencies against known
+# vulnerabilities (pip-audit) and the deployment's files against
+# misconfigurations (Checkov). Every week as well, since a new advisory can
+# make an unchanged dependency vulnerable.
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+    schedule:
+        - cron: "37 4 * * 1"
+
+# The jobs only read the code; the token gets no write access.
+permissions:
+    contents: read
+
+jobs:
+    scan:
+        name: Scan dependencies and deployment files
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+            # The Python security/scanners.lock was resolved for.
+            - name: Set up Python
+              uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+              with:
+                  python-version: "3.12"
+
+            - name: Run make scan
+              run: make scan

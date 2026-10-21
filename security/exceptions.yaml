@@ -1,0 +1,71 @@
+# Findings of `make scan` accepted for now, each with its reason and an
+# expiry date at most 180 days ahead. An expired entry, or one that no longer
+# covers any finding, fails the scan again (scripts/scan_gate.py).
+#
+#   tool:      checkov or pip-audit
+#   id:        the check or vulnerability id
+#   resources: patterns of the resources (Checkov) or packages (pip-audit)
+#   reason:    why it is accepted, and where it will be fixed
+#   expires:   YYYY-MM-DD
+exceptions:
+  # Phase C3 deploys the published images by digest (`make up FROM=registry`).
+  - tool: checkov
+    id: CKV_K8S_43
+    resources: ["Deployment.default.sentinelcore-*", "Job.default.sentinelcore-migrations"]
+    reason: >-
+      The local cluster runs images built on this machine and loaded into
+      kind, which have no registry digest. The pod annotation
+      sentinelcore/image-id still ties each pod to one image.
+    expires: 2026-12-31
+
+  - tool: checkov
+    id: CKV_K8S_15
+    resources: ["Deployment.default.sentinelcore-*", "Job.default.sentinelcore-migrations"]
+    reason: >-
+      Images loaded into kind cannot be pulled, so the pull policy cannot be
+      Always. Revisit with the registry images of phase C3.
+    expires: 2026-12-31
+
+  # The cluster's accepted risks of docs/04 (TA2, E11), for phase E.
+  - tool: checkov
+    id: CKV2_K8S_6
+    resources: ["Pod.default.sentinelcore-*"]
+    reason: >-
+      No NetworkPolicy yet: threat T-62, accepted for phase E. Every
+      database connection needs a password, and the API's role is bound by
+      row-level security.
+    expires: 2027-03-31
+
+  - tool: checkov
+    id: CKV_K8S_35
+    resources: ["Deployment.default.sentinelcore-backend", "Job.default.sentinelcore-migrations"]
+    reason: >-
+      The settings read secrets from the environment. Moving them to mounted
+      files goes with threat T-61 (unencrypted Secrets), in phase E.
+    expires: 2027-03-31
+
+  - tool: checkov
+    id: CKV_K8S_21
+    resources: ["*.default.sentinelcore-*"]
+    reason: >-
+      One application on a local, single-purpose kind cluster. A namespace
+      of its own comes with the NetworkPolicies of phase E.
+    expires: 2027-03-31
+
+  - tool: checkov
+    id: CKV_K8S_40
+    resources: ["Deployment.default.sentinelcore-console", "StatefulSet.default.sentinelcore-postgresql"]
+    reason: >-
+      The images' own users, nginx 101 and postgres 999, own their files;
+      the backend runs as 10001. Every pod already runs as non-root, without
+      capabilities or privilege escalation (T-65).
+    expires: 2027-03-31
+
+  # Kubernetes ignores a Dockerfile HEALTHCHECK; the charts define probes.
+  - tool: checkov
+    id: CKV_DOCKER_2
+    resources: ["backend/Dockerfile.", "frontend/Dockerfile."]
+    reason: >-
+      The images run only under Kubernetes, which ignores HEALTHCHECK and
+      uses the charts' startup, liveness and readiness probes instead.
+    expires: 2027-03-31

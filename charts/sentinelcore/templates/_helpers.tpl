@@ -17,6 +17,13 @@ seccompProfile:
   type: RuntimeDefault
 {{- end }}
 
+{{- /* The backend image's own user (backend/Dockerfile), stated here so
+the kubelet enforces it, whatever the image says. */ -}}
+{{- define "sentinelcore.backendUser" -}}
+runAsUser: 10001
+runAsGroup: 10001
+{{- end }}
+
 {{- define "sentinelcore.containerSecurity" -}}
 allowPrivilegeEscalation: false
 readOnlyRootFilesystem: true

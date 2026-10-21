@@ -1,0 +1,5 @@
+# The scanners of `make scan`, installed by scripts/tools.sh into their own
+# environment from scanners.lock (hashes for every file). Versions at least
+# 7 days old, like Dependabot's cooldown.
+checkov==3.3.29
+pip-audit==2.10.1

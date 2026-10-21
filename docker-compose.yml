@@ -2,7 +2,7 @@
 
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17@sha256:a63c1ea3f6a3a5a1621f97d2aba3b30faecfab4224c1b0000cc85ced57bb1939
     container_name: sentinelcore-postgres
     restart: unless-stopped
     environment:
@@ -20,7 +20,7 @@ services:
   # backend on localhost:8000 and both listen only on 127.0.0.1. Host
   # networking is fully supported on Linux.
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
     container_name: sentinelcore-prometheus
     restart: unless-stopped
     network_mode: host
@@ -35,7 +35,7 @@ services:
       - sentinelcore_prometheus_data:/prometheus
 
   grafana:
-    image: grafana/grafana:13.2.3
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
     container_name: sentinelcore-grafana
     restart: unless-stopped
     network_mode: host
