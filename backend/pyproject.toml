@@ -25,7 +25,7 @@ dependencies = [
 dev = [
     "pytest>=9.0",
     "httpx>=0.28",
-    "ruff==0.15.17",
+    "ruff==0.17.0",
     "bandit[toml]>=1.9",
     # Generates requirements.lock, the image's pinned dependencies.
     "uv==0.13.4",
