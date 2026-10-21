@@ -2,12 +2,14 @@
 
     python scripts/scan_gate.py checkov <report.json>...
     python scripts/scan_gate.py pip-audit <report.json>
+    python scripts/scan_gate.py grype <image>=<report.json>...
 
 Fails (exit 1) on any finding no exception covers, and on the exceptions
 file itself when an entry is malformed, expired, dated too far ahead or
 covers nothing the scanner reported: an exception outlives its finding only
-until the next scan. Runs with the scanners' own Python (scripts/tools.sh),
-which has PyYAML through Checkov.
+until the next scan. For Grype, only critical and high vulnerabilities with a
+fixed version are findings; the rest are counted, not failed. Runs with the
+scanners' own Python (scripts/tools.sh), which has PyYAML through Checkov.
 """
 
 import datetime
@@ -19,7 +21,9 @@ from pathlib import Path
 import yaml
 
 EXCEPTIONS = Path(__file__).resolve().parent.parent / "security" / "exceptions.yaml"
-TOOLS = {"checkov", "pip-audit"}
+TOOLS = {"checkov", "pip-audit", "grype"}
+# Grype's severities that fail the scan, when a fixed version exists.
+FAILING = {"Critical", "High"}
 FIELDS = {"tool", "id", "resources", "reason", "expires"}
 # An exception is a decision to look at again, not a permanent pass.
 LONGEST = datetime.timedelta(days=180)
@@ -79,6 +83,42 @@ def pip_audit_findings(report: str) -> list[tuple[str, str, str]]:
     return findings
 
 
+def grype_findings(reports: list[str]) -> list[tuple[str, str, str]]:
+    """(vulnerability id, image/package, details) of every failing match.
+
+    Each report is named after its image (`backend=grype-backend.json`), so a
+    resource reads `backend/openssl`. Prints every image's counts by
+    severity, fixable ones in brackets.
+    """
+    findings = {}
+    for named in reports:
+        image, _, report = named.partition("=")
+        counts: dict[str, list[int]] = {}
+        seen = set()
+        for match in json.loads(Path(report).read_text()).get("matches", []):
+            vulnerability, artifact = match["vulnerability"], match["artifact"]
+            key = (vulnerability["id"], artifact["name"], artifact["version"])
+            if key in seen:
+                continue
+            seen.add(key)
+            severity = vulnerability.get("severity", "Unknown")
+            fixed = vulnerability.get("fix", {}).get("state") == "fixed"
+            count = counts.setdefault(severity, [0, 0])
+            count[0] += 1
+            count[1] += fixed
+            if severity in FAILING and fixed:
+                fixes = ", ".join(vulnerability["fix"].get("versions") or [])
+                resource = f"{image}/{artifact['name']}"
+                details = f"{severity}, {artifact['version']}, fixed in: {fixes}"
+                findings[(vulnerability["id"], resource)] = details
+        summary = ", ".join(
+            f"{severity.lower()} {total} ({fixable})"
+            for severity, (total, fixable) in sorted(counts.items())
+        )
+        print(f"grype {image}: {summary or 'no vulnerabilities'}")
+    return [(i, resource, details) for (i, resource), details in findings.items()]
+
+
 def covering(entry: dict, tool: str, finding_id: str, resource: str) -> list[str]:
     """The entry's resource patterns that cover this finding."""
     if entry["tool"] != tool or entry["id"] != finding_id:
@@ -103,6 +143,8 @@ def main(argv: list[str]) -> int:
 
     if tool == "checkov":
         findings = checkov_findings(reports)
+    elif tool == "grype":
+        findings = grype_findings(reports)
     else:
         findings = pip_audit_findings(reports[0])
 

@@ -28,6 +28,12 @@ SHELLCHECK_SHA256=b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6
 # The secret scan of `make verify` and CI.
 GITLEAKS_VERSION=v8.30.1
 GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+# The image scan of `make scan-images` and CI: Syft writes the SBOM, Grype
+# scans it.
+SYFT_VERSION=v1.54.1
+SYFT_SHA256=c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47
+GRYPE_VERSION=v0.120.1
+GRYPE_SHA256=0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d
 
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
@@ -53,7 +59,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -119,6 +125,21 @@ if wanted gitleaks && ! installed gitleaks "$GITLEAKS_VERSION"; then
   chmod 755 "$TOOLS/gitleaks"
   echo "$GITLEAKS_VERSION" >"$TOOLS/gitleaks.version"
 fi
+
+# anchore <name> <version> <sha256>: Syft and Grype, released the same way.
+anchore() {
+  if wanted "$1" && ! installed "$1" "$2"; then
+    archive="$TOOLS/$1.tar.gz"
+    fetch "https://github.com/anchore/$1/releases/download/$2/${1}_${2#v}_linux_amd64.tar.gz" \
+      "$3" "$archive"
+    tar -xzf "$archive" -C "$TOOLS" "$1"
+    rm -f "$archive"
+    chmod 755 "$TOOLS/$1"
+    echo "$2" >"$TOOLS/$1.version"
+  fi
+}
+anchore syft "$SYFT_VERSION" "$SYFT_SHA256"
+anchore grype "$GRYPE_VERSION" "$GRYPE_SHA256"
 
 # The Python scanners of `make scan` (Checkov, pip-audit), in an environment
 # of their own: every file is checked against the hashes of

@@ -58,6 +58,13 @@ updates:
     groups:
       images:
         patterns: ["*"]
+    # A new major version (node 22 to 25) or a new Python (3.12 to 3.14) is
+    # a change of its own, made on purpose; digests and patches still come.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "python"
+        update-types: ["version-update:semver-minor"]
 
   # docker-compose.yml: Postgres, Prometheus and Grafana for development.
   - package-ecosystem: docker-compose
@@ -71,3 +78,7 @@ updates:
     groups:
       compose:
         patterns: ["*"]
+    # PostgreSQL 17 to 18 changes the data format: on purpose, not weekly.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
