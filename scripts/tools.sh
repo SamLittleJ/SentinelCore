@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# The cluster's tools, at pinned versions, in .tools/ (git-ignored): the
-# versions `make up` was tested with, whatever the system has installed.
-# Every download is checked against the SHA-256 written here, so a changed
-# file is refused. Prints the directory, for PATH.
+# The tools of the cluster and of the checks, at pinned versions, in .tools/
+# (git-ignored): the versions `make up` and CI were tested with, whatever the
+# system has installed. Every download is checked against the SHA-256 written
+# here, so a changed file is refused. Takes optional tool names (default:
+# all). Prints the directory, for PATH.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,6 +25,10 @@ HADOLINT_SHA256=c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507
 SHELLCHECK_VERSION=v0.11.0
 SHELLCHECK_SHA256=b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6
 
+# The secret scan of `make verify` and CI.
+GITLEAKS_VERSION=v8.30.1
+GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
 fetch() {
@@ -40,23 +45,36 @@ fetch() {
 # installed <name> <version>: the tool is there, at this version.
 installed() { [[ -x "$TOOLS/$1" && -f "$TOOLS/$1.version" && "$(cat "$TOOLS/$1.version")" == "$2" ]]; }
 
+# wanted <name>: all tools, or one of the names given.
+wanted() {
+  [[ ${#requested[@]} -eq 0 || " ${requested[*]} " == *" $1 "* ]]
+}
+
+requested=("$@")
+for tool in "${requested[@]}"; do
+  case "$tool" in
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|scanners) ;;
+    *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
+  esac
+done
+
 mkdir -p "$TOOLS"
 
-if ! installed kind "$KIND_VERSION"; then
+if wanted kind && ! installed kind "$KIND_VERSION"; then
   fetch "https://github.com/kubernetes-sigs/kind/releases/download/$KIND_VERSION/kind-linux-amd64" \
     "$KIND_SHA256" "$TOOLS/kind"
   chmod 755 "$TOOLS/kind"
   echo "$KIND_VERSION" >"$TOOLS/kind.version"
 fi
 
-if ! installed kubectl "$KUBECTL_VERSION"; then
+if wanted kubectl && ! installed kubectl "$KUBECTL_VERSION"; then
   fetch "https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl" \
     "$KUBECTL_SHA256" "$TOOLS/kubectl"
   chmod 755 "$TOOLS/kubectl"
   echo "$KUBECTL_VERSION" >"$TOOLS/kubectl.version"
 fi
 
-if ! installed helm "$HELM_VERSION"; then
+if wanted helm && ! installed helm "$HELM_VERSION"; then
   archive="$TOOLS/helm.tar.gz"
   fetch "https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz" "$HELM_SHA256" "$archive"
   tar -xzf "$archive" -C "$TOOLS" --strip-components=1 linux-amd64/helm
@@ -65,7 +83,7 @@ if ! installed helm "$HELM_VERSION"; then
   echo "$HELM_VERSION" >"$TOOLS/helm.version"
 fi
 
-if ! installed kubeconform "$KUBECONFORM_VERSION"; then
+if wanted kubeconform && ! installed kubeconform "$KUBECONFORM_VERSION"; then
   archive="$TOOLS/kubeconform.tar.gz"
   fetch "https://github.com/yannh/kubeconform/releases/download/$KUBECONFORM_VERSION/kubeconform-linux-amd64.tar.gz" \
     "$KUBECONFORM_SHA256" "$archive"
@@ -75,14 +93,14 @@ if ! installed kubeconform "$KUBECONFORM_VERSION"; then
   echo "$KUBECONFORM_VERSION" >"$TOOLS/kubeconform.version"
 fi
 
-if ! installed hadolint "$HADOLINT_VERSION"; then
+if wanted hadolint && ! installed hadolint "$HADOLINT_VERSION"; then
   fetch "https://github.com/hadolint/hadolint/releases/download/$HADOLINT_VERSION/hadolint-linux-x86_64" \
     "$HADOLINT_SHA256" "$TOOLS/hadolint"
   chmod 755 "$TOOLS/hadolint"
   echo "$HADOLINT_VERSION" >"$TOOLS/hadolint.version"
 fi
 
-if ! installed shellcheck "$SHELLCHECK_VERSION"; then
+if wanted shellcheck && ! installed shellcheck "$SHELLCHECK_VERSION"; then
   archive="$TOOLS/shellcheck.tar.gz"
   fetch "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.gz" \
     "$SHELLCHECK_SHA256" "$archive"
@@ -90,6 +108,32 @@ if ! installed shellcheck "$SHELLCHECK_VERSION"; then
   rm -f "$archive"
   chmod 755 "$TOOLS/shellcheck"
   echo "$SHELLCHECK_VERSION" >"$TOOLS/shellcheck.version"
+fi
+
+if wanted gitleaks && ! installed gitleaks "$GITLEAKS_VERSION"; then
+  archive="$TOOLS/gitleaks.tar.gz"
+  fetch "https://github.com/gitleaks/gitleaks/releases/download/$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION#v}_linux_x64.tar.gz" \
+    "$GITLEAKS_SHA256" "$archive"
+  tar -xzf "$archive" -C "$TOOLS" gitleaks
+  rm -f "$archive"
+  chmod 755 "$TOOLS/gitleaks"
+  echo "$GITLEAKS_VERSION" >"$TOOLS/gitleaks.version"
+fi
+
+# The Python scanners of `make scan` (Checkov, pip-audit), in an environment
+# of their own: every file is checked against the hashes of
+# security/scanners.lock, and only wheels are accepted, so nothing unpinned
+# is built or fetched on the side. Reinstalled whenever the lock changes.
+LOCK="$ROOT/security/scanners.lock"
+if wanted scanners; then
+  lock_sum="$(sha256sum "$LOCK" | cut -d' ' -f1)"
+  if [[ ! -x "$TOOLS/scanners/bin/checkov" || "$(cat "$TOOLS/scanners.version" 2>/dev/null)" != "$lock_sum" ]]; then
+    rm -rf "$TOOLS/scanners"
+    python3 -m venv "$TOOLS/scanners"
+    "$TOOLS/scanners/bin/pip" install --quiet --disable-pip-version-check \
+      --require-hashes --only-binary :all: -r "$LOCK" >&2
+    echo "$lock_sum" >"$TOOLS/scanners.version"
+  fi
 fi
 
 echo "$TOOLS"

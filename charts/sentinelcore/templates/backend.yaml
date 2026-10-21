@@ -23,6 +23,7 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         {{- include "sentinelcore.podSecurity" . | nindent 8 }}
+        {{- include "sentinelcore.backendUser" . | nindent 8 }}
       containers:
         - name: backend
           image: "{{ .Values.image.backend }}:{{ include "sentinelcore.tag" . }}"

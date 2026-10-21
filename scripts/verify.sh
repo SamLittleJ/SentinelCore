@@ -16,7 +16,7 @@ PY="$BACKEND/.venv/bin"
 POSTGRES=sentinelcore-postgres
 PYTHON_IMAGE=python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 # What Gitleaks scans, one path per run.
-GITLEAKS_PATHS=(backend frontend docs scripts infra charts kind .github README.md Makefile docker-compose.yml)
+GITLEAKS_PATHS=(backend frontend docs scripts infra charts kind security .github README.md SECURITY.md Makefile docker-compose.yml)
 
 rm -rf "$LOGS"
 mkdir -p "$LOGS"
@@ -94,11 +94,12 @@ migrations() {
 }
 
 gitleaks() {
-  local target
+  local bin target
+  bin="$("$ROOT/scripts/tools.sh" gitleaks)/gitleaks"
   for target in "${GITLEAKS_PATHS[@]}"; do
     [ -e "$ROOT/$target" ] || continue
     echo "== $target"
-    docker run --rm -v "$ROOT:/repo:Z" zricethezav/gitleaks:latest dir "/repo/$target" --no-banner || return 1
+    "$bin" dir "$ROOT/$target" --no-banner --redact || return 1
   done
 }
 
@@ -110,8 +111,8 @@ if ! skipped pytest; then
   PYTEST_PID=$!
 fi
 
-check ruff        'echo ok'                                  -- "$PY/ruff" check backend
-check format      'last format'                              -- "$PY/ruff" format --check backend
+check ruff        'echo ok'                                  -- sh -c "'$PY/ruff' check backend && '$PY/ruff' check --config backend/pyproject.toml scripts"
+check format      'last format'                              -- sh -c "'$PY/ruff' format --check backend && '$PY/ruff' format --check --config backend/pyproject.toml scripts"
 check bandit      'echo ok'                                  -- "$PY/bandit" -q -r backend/app backend/simulator -c backend/pyproject.toml
 check pyright     'last pyright'                             -- sh -c "cd backend && npx --yes pyright@1 --pythonpath .venv/bin/python app tests migrations simulator"
 check lock        'echo current'                             -- lock_current
@@ -120,8 +121,9 @@ check lint        'echo ok'                                  -- npm --prefix fro
 check typecheck   'echo ok'                                  -- npm --prefix frontend run -s typecheck
 check vitest      "grep -E '^ +Tests ' $LOGS/vitest.log | tr -s ' '" -- sh -c "cd frontend && npx vitest run"
 check build       'echo ok'                                  -- npm --prefix frontend run -s build
-check audit       'last audit'                               -- npm --prefix frontend audit
+check audit       'last audit'                               -- npm --prefix frontend audit --audit-level=high
 check deploy      'echo "charts, manifests, Dockerfiles, scripts"' -- ./scripts/deploy-lint.sh
+check scan        "grep -E '^(pip-audit|checkov):' $LOGS/scan.log | cut -d: -f2- | paste -sd';'" -- ./scripts/scan.sh
 check gitleaks    "grep -c 'no leaks found' $LOGS/gitleaks.log | sed 's/$/ paths clean/'" -- gitleaks
 
 if ! skipped pytest; then

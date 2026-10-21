@@ -7,6 +7,7 @@ on:
             - main
         paths:
             - "backend/**"
+            - "scripts/tools.sh"
             - ".github/workflows/backend-ci.yml"
     pull_request:
         branches:
@@ -23,7 +24,9 @@ jobs:
 
         services:
             postgres:
-                image: postgres:17
+                # Pinned by digest and updated by hand: Dependabot does not
+                # read the images of workflow services.
+                image: postgres:17@sha256:a63c1ea3f6a3a5a1621f97d2aba3b30faecfab4224c1b0000cc85ced57bb1939
                 env:
                     POSTGRES_USER: sentinelcore
                     POSTGRES_PASSWORD: sentinelcore
@@ -45,10 +48,10 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v5
+              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
             - name: Set up Python
-              uses: actions/setup-python@v6
+              uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
               with:
                     python-version: '3.12'
             
@@ -97,10 +100,13 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v5
+              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
               with:
                 fetch-depth: 0  # Fetch all history for Gitleaks to scan the entire commit history
 
-            - name: Run Gitleaks with Docker
+            # The pinned binary of scripts/tools.sh, as in `make verify`;
+            # --redact keeps any secret found out of the log.
+            - name: Run Gitleaks
               run: |
-                docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:latest detect --source=/repo --verbose
+                PATH="$(./scripts/tools.sh gitleaks):$PATH"
+                gitleaks git --redact --verbose .

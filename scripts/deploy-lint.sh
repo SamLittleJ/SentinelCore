@@ -7,6 +7,7 @@
 #   every rendered manifest, with kubeconform, against Kubernetes 1.35's schemas
 #   both Dockerfiles, with hadolint, warnings included
 #   every script, with shellcheck
+#   every action of the workflows, pinned to a full commit SHA
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -39,5 +40,13 @@ hadolint --failure-threshold warning backend/Dockerfile frontend/Dockerfile
 
 echo "== shellcheck"
 shellcheck scripts/*.sh
+
+echo "== pinned actions"
+# A tag can be moved to other code; a commit SHA cannot. The version stays in
+# a comment, for people and for Dependabot.
+if grep -nE '^\s*(-\s*)?uses:' .github/workflows/*.yml | grep -vE 'uses:\s*[^@[:space:]]+@[0-9a-f]{40} # v[0-9.]+$'; then
+  echo "actions not pinned to a commit SHA with its version in a comment" >&2
+  exit 1
+fi
 
 echo "deploy files clean"

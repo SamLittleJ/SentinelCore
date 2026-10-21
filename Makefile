@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean images lock verify tools up down cluster-check deploy-lint
+.PHONY: help demo demo-clean images lock lock-scanners verify tools up down cluster-check deploy-lint scan
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -21,7 +21,11 @@ lock: ## Pin the backend's runtime dependencies, with hashes, for the image
 		--python-version 3.12 --python-platform x86_64-manylinux_2_28 \
 		--no-header --quiet -o requirements.lock
 
-tools: ## Download kind, helm and kubectl, pinned and checked, into .tools/
+lock-scanners: ## Pin the scanners of `make scan` (security/scanners.in), with hashes
+	backend/.venv/bin/uv pip compile security/scanners.in --universal --generate-hashes \
+		--python-version 3.12 --no-header --quiet -o security/scanners.lock
+
+tools: ## Download the cluster's and the checks' tools, pinned and checked, into .tools/
 	@./scripts/tools.sh >/dev/null
 
 up: images ## SentinelCore on a local kind cluster, at http://localhost:8080 (run again to update)
@@ -32,6 +36,9 @@ down: ## Delete the kind cluster and its data (asks first)
 
 deploy-lint: ## Lint the charts, manifests, Dockerfiles and scripts, without a cluster
 	@./scripts/deploy-lint.sh
+
+scan: ## Scan dependencies and deployment files; open findings fail (security/exceptions.yaml)
+	@./scripts/scan.sh
 
 cluster-check: ## Check the running cluster's security properties, one line each
 	@./scripts/cluster-check.sh

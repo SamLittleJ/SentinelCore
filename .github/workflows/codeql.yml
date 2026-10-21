@@ -1,0 +1,52 @@
+name: CodeQL
+
+# Static analysis of the backend, the console and these workflows, with the
+# security-extended queries. Results go to the repository's Security tab and
+# show on the pull request. Weekly as well: a new query can find an old flaw.
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+    schedule:
+        - cron: "17 4 * * 1"
+
+permissions:
+    contents: read
+
+jobs:
+    analyze:
+        name: Analyze ${{ matrix.language }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        # Only this job may upload results.
+        permissions:
+            contents: read
+            security-events: write
+
+        strategy:
+            fail-fast: false
+            matrix:
+                # actions: the workflows themselves, for example an untrusted
+                # pull request title expanded inside a `run:` step.
+                language: [python, javascript-typescript, actions]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+            # None of the three needs a build: the code is read as written.
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+              with:
+                  languages: ${{ matrix.language }}
+                  build-mode: none
+                  queries: security-extended
+
+            - name: Analyze
+              uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+              with:
+                  category: /language:${{ matrix.language }}

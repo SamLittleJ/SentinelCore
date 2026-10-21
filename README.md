@@ -12,8 +12,10 @@ An API-first platform for identity and access management, audit logging and secu
 ├── infra/                # Prometheus and Grafana configuration
 ├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
 ├── kind/                 # the local kind cluster's configuration
-├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, pinned tools
-├── .github/workflows/    # backend, frontend, deployment and cluster CI
+├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, make scan, pinned tools
+├── security/             # scanners locked by hash and expiring scan exceptions
+├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain and CodeQL
+├── SECURITY.md           # private vulnerability reporting and supported versions
 └── docker-compose.yml    # PostgreSQL, Prometheus and Grafana for local development
 ```
 
@@ -92,9 +94,10 @@ What to know about the data:
 
 ```bash
 make verify   # every check due before a commit, one line each; logs in .verify/
+make scan     # dependencies and deployment files; open findings fail
 ```
 
-It runs Ruff, Bandit, Pyright, the lockfile check, the migrations up and down on a database of its own, the frontend's lint, types, tests, build and `npm audit`, Gitleaks, and the backend tests on Python 3.12 with the image's pinned dependencies (in a container, so Docker and the PostgreSQL of `docker-compose.yml` must be running). `VERIFY_SKIP="pytest gitleaks"` skips named checks.
+It runs Ruff, Bandit, Pyright, the lockfile check, the migrations up and down on a database of its own, the frontend's lint, types, tests, build and `npm audit --audit-level=high`, deployment lint, `make scan`, Gitleaks, and the backend tests on Python 3.12 with the image's pinned dependencies (in a container, so Docker and the PostgreSQL of `docker-compose.yml` must be running). `VERIFY_SKIP="pytest gitleaks"` skips named checks.
 
 ## Container images
 
@@ -118,7 +121,15 @@ make deploy-lint     # the charts, rendered manifests, Dockerfiles and scripts, 
 
 Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned versions, checked against their SHA-256, into `.tools/`, and keeps the cluster's kubeconfig in `.kind/kubeconfig`, leaving `~/.kube/config` alone (`export KUBECONFIG=$PWD/.kind/kubeconfig` to use `kubectl` on it). It installs `charts/postgresql`, then `charts/sentinelcore`, whose migrations run first as a Job, and creates the first owner, `owner@example.com`, with a random password written only to `.kind/owner.txt`. The secret key, the audit chain key, the database passwords and the metrics token are generated once as Kubernetes Secrets and never printed. Run `make up` again after a change: it rebuilds the images and replaces the pods whose image changed.
 
+## Continuous integration
+
+Backend CI runs lint, format, Bandit, the lockfile check, migrations, tests against PostgreSQL and Gitleaks over the full history. Frontend CI runs the dependency audit, lint, type check, tests and build. Actions are pinned by commit SHA; Gitleaks is a pinned binary and images are pinned by digest.
+
 CI checks the deployment twice: `make deploy-lint` on every pull request (Helm lint, the rendered manifests against Kubernetes 1.35's schemas with kubeconform, hadolint and shellcheck, all at pinned versions), and `make up` followed by `make cluster-check` on a real kind cluster when a pull request changes the charts, the images or the scripts.
+
+Supply chain CI (`.github/workflows/supply-chain-ci.yml`) runs `make scan` on pull requests to `main`, pushes to `main` and weekly. pip-audit reads the backend lock without installing it; Checkov checks rendered charts, Dockerfiles and workflows. The scanners have their own hashed, wheel-only lock in `security/`; exceptions name a check and resource, with a reason and expiry. CodeQL (`.github/workflows/codeql.yml`) runs `security-extended` queries for Python, JavaScript/TypeScript and workflows on the same triggers. Both also run on demand.
+
+Dependabot checks actions, Python, npm, Dockerfiles and Compose weekly, with grouped updates and a seven-day cooldown; security updates skip the wait. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## Monitoring
 
