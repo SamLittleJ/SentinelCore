@@ -42,3 +42,4 @@ infra/prometheus/metrics_token
 # make up: pinned tools and the cluster's kubeconfig and owner password
 .tools/
 .kind/
+.scan/

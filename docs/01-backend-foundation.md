@@ -5209,3 +5209,44 @@ The 27 findings accepted for now belong to seven checks, each limited to its res
 - Mutations: 7/7 caught (expired exception, expiry beyond 180 days, missing field, stale pattern, new chart finding, unpinned action, vulnerable package `jinja2==3.1.2` in the lock).
 - `make verify`: 15 of 15 checks (pytest 703 passed, vitest 255 passed, `scan` 0 open).
 - `make up` and `make cluster-check` after the chart change: 21 of 21.
+- On GitHub, on the pull request: #45, all 10 checks green; CodeQL 0 alerts; Gitleaks 81 commits, no leaks; Cluster CI passed in 2 min 43 s; Supply chain CI passed in 39 s.
+
+## Phase C, PR C2: image scans and GHCR
+
+### 397. Purpose of the stage
+
+C2 lists the packages in the two built images, checks them for known vulnerabilities and publishes the scanned images to GHCR. A weekly scan checks main's published images against new advisories without rebuilding them.
+
+### 398. After C1
+
+- **Repository rules.** After #45 merged, `sha_pinning_required` and GitHub-created actions only were turned on. The ruleset "Code scanning on main" blocks CodeQL security alerts rated high or higher, and analysis errors.
+- **Dependabot's first run.** Pull requests for Grafana, Ruff, the actions (v7) and Node 22 to 25. The Node update was closed: 25 is not LTS. Whether Dependabot regenerates `requirements.lock` is still open; Ruff is not in that lock, so its update does not answer it.
+
+### 399. `make scan-images`
+
+- **Pinned tools.** Syft v1.54.1 and Grype v0.120.1 join `scripts/tools.sh`, downloaded by its `anchore` function and checked by SHA-256.
+- **One SBOM per image.** `make scan-images` builds with `make images`, then `scripts/scan-images.sh` has Syft write an SPDX JSON SBOM for each image and Grype scan that SBOM. Grype checks for a fresh vulnerability database on each run. SBOMs, JSON reports and `gate.txt` go to `.scan/`, ignored by git; explicit image arguments scan images already in the local Docker daemon.
+- **The gate.** `scripts/scan_gate.py` gains `grype`: only Critical and High findings with a fixed version fail; the others are counted by severity, with fixable counts in brackets. Exceptions in `security/exceptions.yaml` use `tool: grype`, the vulnerability id and a resource such as `console/zlib` (`<image>/<package>`), with the same reason, expiry and unused-pattern checks as C1.
+- **Outside `make verify`.** Building both images takes minutes, so image scanning has its own command and workflow.
+
+### 400. CI and publication
+
+- **Images CI** (`.github/workflows/images-ci.yml`): on pull requests to `main` touching the images, scan scripts, tools, security files, Makefile or this workflow; on every push to `main`; weekly and on demand. The scan job has read-only repository permissions and checks out with `persist-credentials: false`.
+- **Publish the scanned images.** On a push to `main`, the scan job saves both images with `docker save`. A separate publish job, dependent on a successful scan and the only job with `packages: write`, loads those exact images with `docker load`, tags and pushes them. It does not rebuild. The token reaches only the push step, with `docker login --password-stdin`; plain Docker commands replace `docker/*` actions because only GitHub-created actions are allowed.
+- **Commit tags.** Every main commit publishes `ghcr.io/samlittlej/sentinelcore-backend:<12-char sha>` and `ghcr.io/samlittlej/sentinelcore-console:<12-char sha>`, with no `latest` tag; digests go to the job summary. `REVISION` now uses `git rev-parse --short=12` so local and GHCR tags agree, still marked `-dirty` locally when the tree has changes. Both Dockerfiles already carried OCI source and revision labels since B1.
+- **Weekly rescan.** A separate job with `packages: read` pulls main's published images and scans them again. SBOMs and reports are uploaded as artifacts for 90 days; the saved images for publication are kept for one day.
+
+### 401. The first image finding
+
+The console's nginx-unprivileged base contained zlib 1.3.2-r0 with CVE-2026-85091, fixed in 1.3.2-r1, but the base image had not been rebuilt. `frontend/Dockerfile` now installs `apk add --no-cache zlib=1.3.2-r1`; remove this patch when the base digest includes the fixed package. After the fix the console has one High finding without a fix and three Medium. The backend has 55 High findings, none with a fix: reported, without failing the gate.
+
+### 402. Dependabot limits and what follows
+
+Dependabot ignores Docker major updates, Python image minor updates and Compose major updates; digest and patch updates still come. A new runtime or a PostgreSQL data-format change is reviewed as a change of its own. Signing, build provenance and deployment by digest follow in C3; a commit tag alone does not prevent someone with registry write access from replacing it.
+
+### 403. Local validation
+
+- `make scan-images`: 0 open; backend high 55 (0 fixable), medium 59 (11), low 11 (1), negligible 47 (1); console high 1 (0), medium 3 (0).
+- Mutations: 3/3 caught (Grype checksum changed, refused; zlib fix removed, fixable High fails; the same finding passes only with a valid `grype` exception).
+- `make verify`: 15 of 15 checks (pytest 703 passed, vitest 255 passed).
+- `make up` and `make cluster-check`, with 12-character tags and the patched console: 21 of 21.

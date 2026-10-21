@@ -12,9 +12,9 @@ An API-first platform for identity and access management, audit logging and secu
 ├── infra/                # Prometheus and Grafana configuration
 ├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
 ├── kind/                 # the local kind cluster's configuration
-├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, make scan, pinned tools
+├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, make scan / scan-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
-├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain and CodeQL
+├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain, images and CodeQL
 ├── SECURITY.md           # private vulnerability reporting and supported versions
 └── docker-compose.yml    # PostgreSQL, Prometheus and Grafana for local development
 ```
@@ -93,8 +93,9 @@ What to know about the data:
 ## Checks
 
 ```bash
-make verify   # every check due before a commit, one line each; logs in .verify/
-make scan     # dependencies and deployment files; open findings fail
+make verify        # every check due before a commit, one line each; logs in .verify/
+make scan          # dependencies and deployment files; open findings fail
+make scan-images   # builds, SBOMs and image vulnerabilities; outside make verify
 ```
 
 It runs Ruff, Bandit, Pyright, the lockfile check, the migrations up and down on a database of its own, the frontend's lint, types, tests, build and `npm audit --audit-level=high`, deployment lint, `make scan`, Gitleaks, and the backend tests on Python 3.12 with the image's pinned dependencies (in a container, so Docker and the PostgreSQL of `docker-compose.yml` must be running). `VERIFY_SKIP="pytest gitleaks"` skips named checks.
@@ -102,13 +103,16 @@ It runs Ruff, Bandit, Pyright, the lockfile check, the migrations up and down on
 ## Container images
 
 ```bash
-make images   # sentinelcore-backend:<commit> and sentinelcore-console:<commit>
+make images        # sentinelcore-backend:<12-char sha> and sentinelcore-console:<12-char sha>
+make scan-images   # builds both, writes SBOMs and vulnerability reports to .scan/
 ```
 
 - **`sentinelcore-backend`** (`backend/Dockerfile`): the API, its migrations and its command line, on `python:3.12-slim`, with every dependency pinned by hash in `backend/requirements.lock` (`make lock` writes it). It runs as UID 10001 and writes only to `/tmp`. Behind a proxy, `FORWARDED_ALLOW_IPS` names the proxy's addresses.
 - **`sentinelcore-console`** (`frontend/Dockerfile`): the production build served by unprivileged nginx on port 8080, with the same security headers as `vite preview` and `/api` passed to a backend reachable as `sentinelcore-backend:8000`. It replaces the client's `X-Forwarded-For` with the address it saw, keeps `/api/metrics` inside, and limits each address to 20 ingestion requests a second.
 
-Base images are pinned by digest and the images are tagged with the commit (`-dirty` when the tree has changes).
+Base images are pinned by digest and the images are tagged with the 12-character commit SHA (`-dirty` when the tree has changes). `make scan-images` uses pinned Syft and Grype to write an SPDX JSON SBOM per image and scan it against current advisories. Only Critical and High findings with a fixed version fail unless covered by an expiring exception; the other findings are counted. Results go to `.scan/`, ignored by git. Image builds take minutes, so this target stays outside `make verify`.
+
+Every push to `main` publishes the scanned images as `ghcr.io/samlittlej/sentinelcore-backend:<12-char sha>` and `ghcr.io/samlittlej/sentinelcore-console:<12-char sha>`. There is no `latest` tag; the publication job's summary records the digests.
 
 ## Local Kubernetes cluster
 
@@ -128,6 +132,8 @@ Backend CI runs lint, format, Bandit, the lockfile check, migrations, tests agai
 CI checks the deployment twice: `make deploy-lint` on every pull request (Helm lint, the rendered manifests against Kubernetes 1.35's schemas with kubeconform, hadolint and shellcheck, all at pinned versions), and `make up` followed by `make cluster-check` on a real kind cluster when a pull request changes the charts, the images or the scripts.
 
 Supply chain CI (`.github/workflows/supply-chain-ci.yml`) runs `make scan` on pull requests to `main`, pushes to `main` and weekly. pip-audit reads the backend lock without installing it; Checkov checks rendered charts, Dockerfiles and workflows. The scanners have their own hashed, wheel-only lock in `security/`; exceptions name a check and resource, with a reason and expiry. CodeQL (`.github/workflows/codeql.yml`) runs `security-extended` queries for Python, JavaScript/TypeScript and workflows on the same triggers. Both also run on demand.
+
+Images CI (`.github/workflows/images-ci.yml`) builds and scans on pull requests touching the images and their scan files, and on every push to `main`. A separate publish job loads the scanned images saved by the read-only scan job and pushes them to GHCR; only that job has `packages: write`. A weekly job pulls and rescans main's published images with `packages: read`. SBOMs and reports are kept as artifacts for 90 days; the saved images for one day. The workflow also runs on demand.
 
 Dependabot checks actions, Python, npm, Dockerfiles and Compose weekly, with grouped updates and a seven-day cooldown; security updates skip the wait. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 

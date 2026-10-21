@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean images lock lock-scanners verify tools up down cluster-check deploy-lint scan
+.PHONY: help demo demo-clean images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -6,8 +6,9 @@ help: ## List the targets
 demo: ## A fresh demo database with 90 days of a synthetic organization, then the app on it
 	@./scripts/demo.sh
 
-# The commit the images are built from, marked when the tree has changes.
-REVISION := $(shell git rev-parse --short HEAD)$(shell git diff --quiet HEAD -- || echo -dirty)
+# The commit the images are built from (12 characters, the same everywhere,
+# as GHCR tags them), marked when the tree has changes.
+REVISION := $(shell git rev-parse --short=12 HEAD)$(shell git diff --quiet HEAD -- || echo -dirty)
 
 verify: ## Every check before a commit, one line each (logs in .verify/)
 	@./scripts/verify.sh
@@ -39,6 +40,9 @@ deploy-lint: ## Lint the charts, manifests, Dockerfiles and scripts, without a c
 
 scan: ## Scan dependencies and deployment files; open findings fail (security/exceptions.yaml)
 	@./scripts/scan.sh
+
+scan-images: images ## Build the images, then an SBOM of each and its known vulnerabilities (.scan/)
+	@REVISION=$(REVISION) ./scripts/scan-images.sh
 
 cluster-check: ## Check the running cluster's security properties, one line each
 	@./scripts/cluster-check.sh
