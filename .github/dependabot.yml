@@ -40,9 +40,17 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    # Minor and patch versions come together. A new major version (TypeScript
+    # 5 to 7, eslint 9 to 10) comes in a pull request of its own, so one
+    # breaking change cannot hold back the rest. The Node types follow the
+    # Node the console is built with (22), so their majors are skipped.
     groups:
       npm:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # The base images of both Dockerfiles, pinned by digest.
   - package-ecosystem: docker
