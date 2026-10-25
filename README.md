@@ -12,7 +12,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── infra/                # Prometheus and Grafana configuration
 ├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
 ├── kind/                 # the local kind cluster's configuration
-├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, make scan / scan-images, pinned tools
+├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
 ├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain, images and CodeQL
 ├── SECURITY.md           # private vulnerability reporting and supported versions
@@ -114,16 +114,41 @@ Base images are pinned by digest and the images are tagged with the 12-character
 
 Every push to `main` publishes the scanned images as `ghcr.io/samlittlej/sentinelcore-backend:<12-char sha>` and `ghcr.io/samlittlej/sentinelcore-console:<12-char sha>`. There is no `latest` tag; the publication job's summary records the digests.
 
+### Verifying the images
+
+Each published image is signed with cosign, keyless through Sigstore, and carries two GitHub attestations on its digest: SLSA v1 build provenance (Build Level 2) and the SPDX SBOM Grype scanned. `make verify-images` checks all three for the current commit and pulls the images only if they pass:
+
+```bash
+gh auth login                       # once: gh refuses to verify without a GitHub token
+make verify-images                  # this commit's images; the tree must be clean
+make verify-images REVISION=<sha>   # another commit of main, 12 characters
+```
+
+The same checks by hand, for an image `IMAGE@DIGEST` of commit `SHA` (full 40 characters):
+
+```bash
+cosign verify IMAGE@DIGEST \
+  --certificate-identity https://github.com/SamLittleJ/SentinelCore/.github/workflows/images-ci.yml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://IMAGE@DIGEST --bundle-from-oci --repo SamLittleJ/SentinelCore \
+  --signer-workflow SamLittleJ/SentinelCore/.github/workflows/images-ci.yml \
+  --source-ref refs/heads/main --source-digest SHA --deny-self-hosted-runners
+# again with --predicate-type https://spdx.dev/Document/v2.3 for the SBOM
+```
+
+Images published before signing began (C3) have no signature and are refused.
+
 ## Local Kubernetes cluster
 
 ```bash
 make up              # the images, a kind cluster and both Helm charts; then http://localhost:8080
+make up FROM=registry  # the same, with this commit's signed GHCR images instead of a local build
 make cluster-check   # the running cluster's security properties, one line each
 make down            # deletes the cluster and its data, after typing its name
 make deploy-lint     # the charts, rendered manifests, Dockerfiles and scripts, without a cluster
 ```
 
-Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned versions, checked against their SHA-256, into `.tools/`, and keeps the cluster's kubeconfig in `.kind/kubeconfig`, leaving `~/.kube/config` alone (`export KUBECONFIG=$PWD/.kind/kubeconfig` to use `kubectl` on it). It installs `charts/postgresql`, then `charts/sentinelcore`, whose migrations run first as a Job, and creates the first owner, `owner@example.com`, with a random password written only to `.kind/owner.txt`. The secret key, the audit chain key, the database passwords and the metrics token are generated once as Kubernetes Secrets and never printed. Run `make up` again after a change: it rebuilds the images and replaces the pods whose image changed.
+Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned versions, checked against their SHA-256, into `.tools/`, and keeps the cluster's kubeconfig in `.kind/kubeconfig`, leaving `~/.kube/config` alone (`export KUBECONFIG=$PWD/.kind/kubeconfig` to use `kubectl` on it). It installs `charts/postgresql`, then `charts/sentinelcore`, whose migrations run first as a Job, and creates the first owner, `owner@example.com`, with a random password written only to `.kind/owner.txt`. The secret key, the audit chain key, the database passwords and the metrics token are generated once as Kubernetes Secrets and never printed. Run `make up` again after a change: it rebuilds the images and replaces the pods whose image changed. `make up FROM=registry` builds nothing: it runs `make verify-images` and stops, with nothing loaded, unless the signature and both attestations pass; it needs `gh auth login` and a clean tree, or `REVISION=<sha>`.
 
 ## Continuous integration
 
@@ -133,7 +158,7 @@ CI checks the deployment twice: `make deploy-lint` on every pull request (Helm l
 
 Supply chain CI (`.github/workflows/supply-chain-ci.yml`) runs `make scan` on pull requests to `main`, pushes to `main` and weekly. pip-audit reads the backend lock without installing it; Checkov checks rendered charts, Dockerfiles and workflows. The scanners have their own hashed, wheel-only lock in `security/`; exceptions name a check and resource, with a reason and expiry. CodeQL (`.github/workflows/codeql.yml`) runs `security-extended` queries for Python, JavaScript/TypeScript and workflows on the same triggers. Both also run on demand.
 
-Images CI (`.github/workflows/images-ci.yml`) builds and scans on pull requests touching the images and their scan files, and on every push to `main`. A separate publish job loads the scanned images saved by the read-only scan job and pushes them to GHCR; only that job has `packages: write`. A weekly job pulls and rescans main's published images with `packages: read`. SBOMs and reports are kept as artifacts for 90 days; the saved images for one day. The workflow also runs on demand.
+Images CI (`.github/workflows/images-ci.yml`) builds and scans on pull requests touching the images and their scan files, and on every push to `main`. A separate publish job loads the scanned images saved by the read-only scan job, pushes them to GHCR, signs them with cosign, attests their provenance and SBOM with `actions/attest`, then verifies them back from the registry with `scripts/verify-images.sh`; only that job has `packages: write`, `id-token: write` and `attestations: write`. A weekly job verifies main's published images the same way, then rescans them. SBOMs and reports are kept as artifacts for 90 days; the saved images for one day. The workflow also runs on demand.
 
 Dependabot checks actions, Python, npm, Dockerfiles and Compose weekly, with grouped updates and a seven-day cooldown; security updates skip the wait. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 

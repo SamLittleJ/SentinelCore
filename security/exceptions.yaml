@@ -8,7 +8,9 @@
 #   reason:    why it is accepted, and where it will be fixed
 #   expires:   YYYY-MM-DD
 exceptions:
-  # Phase C3 deploys the published images by digest (`make up FROM=registry`).
+  # `make up FROM=registry` (C3) verifies the published images by digest,
+  # then loads them into kind under the commit tag, so the chart still names
+  # a tag; deploying by digest, behind an admission policy, is phase E.
   - tool: checkov
     id: CKV_K8S_43
     resources: ["Deployment.default.sentinelcore-*", "Job.default.sentinelcore-migrations"]
@@ -23,7 +25,8 @@ exceptions:
     resources: ["Deployment.default.sentinelcore-*", "Job.default.sentinelcore-migrations"]
     reason: >-
       Images loaded into kind cannot be pulled, so the pull policy cannot be
-      Always. Revisit with the registry images of phase C3.
+      Always, also after `make up FROM=registry` loads the verified
+      registry images. Revisit with the admission policy of phase E.
     expires: 2026-12-31
 
   # The cluster's accepted risks of docs/04 (TA2, E11), for phase E.

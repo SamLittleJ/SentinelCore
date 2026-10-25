@@ -34,6 +34,11 @@ SYFT_VERSION=v1.54.1
 SYFT_SHA256=c069905b391cc4c20a5ba65ad5c10be2a7ba074f8ea6ad203e24d14e303dad47
 GRYPE_VERSION=v0.120.1
 GRYPE_SHA256=0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d
+# The image signatures of CI and `make verify-images`: keyless, through
+# Sigstore. 3.1.3, not 3.1.4: that one was five days old, inside the
+# seven-day cooldown.
+COSIGN_VERSION=v3.1.3
+COSIGN_SHA256=4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71
 
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
@@ -59,7 +64,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -140,6 +145,13 @@ anchore() {
 }
 anchore syft "$SYFT_VERSION" "$SYFT_SHA256"
 anchore grype "$GRYPE_VERSION" "$GRYPE_SHA256"
+
+if wanted cosign && ! installed cosign "$COSIGN_VERSION"; then
+  fetch "https://github.com/sigstore/cosign/releases/download/$COSIGN_VERSION/cosign-linux-amd64" \
+    "$COSIGN_SHA256" "$TOOLS/cosign"
+  chmod 755 "$TOOLS/cosign"
+  echo "$COSIGN_VERSION" >"$TOOLS/cosign.version"
+fi
 
 # The Python scanners of `make scan` (Checkov, pip-audit), in an environment
 # of their own: every file is checked against the hashes of

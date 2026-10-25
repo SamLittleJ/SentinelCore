@@ -4,8 +4,10 @@ name: Images CI
 # SBOM by Syft and scanned by Grype (`make scan-images`). On pull requests
 # that change them, nothing is published. On every push to main, the scanned
 # images are published to GHCR under the commit's short SHA, so each commit
-# of main has its images. Weekly, main's published images are scanned again
-# against the newest vulnerabilities.
+# of main has its images, then signed (cosign, keyless) and attested (SLSA
+# build provenance and the SBOM Grype scanned), and checked back from the
+# registry with scripts/verify-images.sh. Weekly, main's published images
+# are verified and scanned again against the newest vulnerabilities.
 on:
     workflow_dispatch:
     push:
@@ -19,6 +21,7 @@ on:
             - "frontend/**"
             - "scripts/scan-images.sh"
             - "scripts/scan_gate.py"
+            - "scripts/verify-images.sh"
             - "scripts/tools.sh"
             - "security/**"
             - "Makefile"
@@ -26,7 +29,8 @@ on:
     schedule:
         - cron: "47 4 * * 1"
 
-# The jobs only read the code; only the publish job may write packages.
+# The jobs only read the code; only the publish job may write packages,
+# request an OIDC token (for the keyless signature) and write attestations.
 permissions:
     contents: read
 
@@ -87,28 +91,48 @@ jobs:
                   retention-days: 1
 
     publish:
-        name: Publish the images to GHCR
+        name: Publish, sign and attest the images
         needs: scan
         if: github.event_name == 'push'
         runs-on: ubuntu-latest
-        timeout-minutes: 15
+        timeout-minutes: 20
         permissions:
             contents: read
             packages: write
+            # The OIDC token Sigstore exchanges for a short-lived signing
+            # certificate: the workflow's identity, with no key to keep.
+            id-token: write
+            attestations: write
 
         steps:
+            # For cosign (scripts/tools.sh) and scripts/verify-images.sh.
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
             - name: Get the scanned images
               uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: images
+                  path: .scan
 
-            # The token reaches only this step, through standard input.
+            # The SBOMs Grype scanned, to attest exactly those.
+            - name: Get their SBOMs
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: image-scan
+                  path: .scan
+
+            # The token reaches only this step, through standard input; the
+            # login stays for the next steps and is removed at the end.
             - name: Push to GHCR
+              id: push
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  revision="$(cat revision)"
-                  docker load -i images.tar
+                  revision="$(cat .scan/revision)"
+                  docker load -i .scan/images.tar
                   echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
                   {
                       echo "### Published images"
@@ -118,18 +142,84 @@ jobs:
                       target="$REGISTRY/sentinelcore-$image:$revision"
                       docker tag "sentinelcore-$image:$revision" "$target"
                       docker push --quiet "$target"
-                      echo "- \`$(docker inspect --format '{{index .RepoDigests 0}}' "$target")\`" >> "$GITHUB_STEP_SUMMARY"
+                      digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$target")"
+                      digest="${digest#*@}"
+                      echo "$image=$digest" >> "$GITHUB_OUTPUT"
+                      echo "- \`$REGISTRY/sentinelcore-$image@$digest\`" >> "$GITHUB_STEP_SUMMARY"
                   done
-                  docker logout ghcr.io
+                  echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
+            # Keyless: the certificate names this workflow, ref and commit,
+            # and the signature is logged in Rekor. On the digest, not the
+            # tag, so a moved tag cannot carry it to other bytes.
+            - name: Sign the images
+              env:
+                  BACKEND: ${{ steps.push.outputs.backend }}
+                  CONSOLE: ${{ steps.push.outputs.console }}
+              run: |
+                  cosign="$(./scripts/tools.sh cosign)/cosign"
+                  "$cosign" sign --yes "$REGISTRY/sentinelcore-backend@$BACKEND"
+                  "$cosign" sign --yes "$REGISTRY/sentinelcore-console@$CONSOLE"
+
+            # SLSA v1 build provenance and the SBOM, each a signed in-toto
+            # statement on the digest, stored in GHCR next to the image and
+            # in the repository's attestations. No storage record: GitHub
+            # makes those only for organization-owned repositories.
+            - name: Attest the backend's provenance
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-backend
+                  subject-digest: ${{ steps.push.outputs.backend }}
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Attest the backend's SBOM
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-backend
+                  subject-digest: ${{ steps.push.outputs.backend }}
+                  sbom-path: .scan/sbom-backend.spdx.json
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Attest the console's provenance
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-console
+                  subject-digest: ${{ steps.push.outputs.console }}
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Attest the console's SBOM
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-console
+                  subject-digest: ${{ steps.push.outputs.console }}
+                  sbom-path: .scan/sbom-console.spdx.json
+                  push-to-registry: true
+                  create-storage-record: false
+
+            # From the registry, as `make up FROM=registry` will: what was
+            # published is what was signed and attested.
+            - name: Verify the published images
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REVISION: ${{ steps.push.outputs.revision }}
+              run: ./scripts/verify-images.sh "$REVISION"
+
+            - name: Log out of GHCR
+              if: always()
+              run: docker logout ghcr.io
+
+    # Also on a manual run, to check the verification outside the publish
+    # job.
     rescan:
-        name: Scan main's published images again
-        if: github.event_name == 'schedule'
+        name: Verify and scan main's published images again
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         runs-on: ubuntu-latest
         timeout-minutes: 20
         permissions:
             contents: read
-            packages: read
 
         steps:
             - name: Checkout repository
@@ -142,22 +232,18 @@ jobs:
               with:
                   python-version: "3.12"
 
-            - name: Pull the images
+            # Signature and attestations first, on the digest; the images
+            # are pulled by that digest only if they pass.
+            - name: Verify and pull the images
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  revision="$(git rev-parse --short=12 HEAD)"
-                  echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-                  for image in backend console; do
-                      docker pull --quiet "$REGISTRY/sentinelcore-$image:$revision"
-                  done
-                  docker logout ghcr.io
+                  GH_TOKEN: ${{ github.token }}
+              run: ./scripts/verify-images.sh "$(git rev-parse --short=12 HEAD)"
 
             - name: Scan them
               run: |
                   revision="$(git rev-parse --short=12 HEAD)"
                   ./scripts/scan-images.sh \
-                      "$REGISTRY/sentinelcore-backend:$revision" "$REGISTRY/sentinelcore-console:$revision"
+                      "sentinelcore-backend:$revision" "sentinelcore-console:$revision"
 
             - name: Keep the SBOMs and reports
               if: always()
