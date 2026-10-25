@@ -805,3 +805,14 @@ End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with t
 - eslint, tsc, build, npm audit (0) -> passed; vitest -> 255 passed (7 new for the header writer)
 - Reverse check (2 of 2): a header left out, or the guard on values removed.
 - End-to-end check: headless Firefox over WebDriver BiDi on the console's image at `http://localhost:8080`, against the backend's image: 129 of 129 checks passed (sign-in with the `Secure` cookies, overview, security events, audit log and personal overview, in both themes, both languages, desktop and phone, no policy violation, no horizontal overflow). The screenshots were viewed.
+
+## Stage 19: Development dependency advisories
+
+### 84. undici and zod
+
+Two new high-severity advisories made `npm audit --audit-level=high` fail on `main`. Both packages are transitive development dependencies, not part of the console's build: undici 8.11.2 (through jsdom, for the tests; denial of service in the EventSource parser and on excessive content encodings, and a Subresource Integrity bypass) and zod 4.3.6 (through `eslint-plugin-react-hooks`; memory exhaustion on oversized constrained collections). `npm audit fix` moves them to undici 8.12.3 and zod 4.6.7 in `package-lock.json` only; `package.json` is unchanged. undici 8.12.3 is six days old, inside the seven-day cooldown, which security fixes skip as Dependabot's do. This supersedes Dependabot's #59.
+
+### 85. Local validation
+
+- `make verify`: 15 of 15 checks (vitest 255 passed, npm audit 0 vulnerabilities, pytest 703 passed).
+- Reverse check: on `main`, without the change, `npm audit` fails with the two advisories.
