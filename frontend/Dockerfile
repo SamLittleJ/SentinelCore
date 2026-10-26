@@ -15,11 +15,13 @@ LABEL org.opencontainers.image.title="sentinelcore-console" \
       org.opencontainers.image.source="https://github.com/SamLittleJ/SentinelCore" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.licenses="MIT"
-# A fixed package the base image does not have yet (`make scan-images`):
-# zlib 1.3.2-r1 fixes CVE-2026-85091. Remove once the base image's digest
-# includes it.
+# Fixed packages the base image does not have yet (`make scan-images`):
+# zlib 1.3.2-r1 fixes CVE-2026-85091, brotli-libs 1.2.1-r0 fixes
+# CVE-2026-111497, curl and libcurl 8.23.0-r0 fix CVE-2026-92392. Remove
+# each once the base image's digest includes it.
 USER root
-RUN apk add --no-cache zlib=1.3.2-r1
+RUN apk add --no-cache zlib=1.3.2-r1 brotli-libs=1.2.1-r0 \
+        curl=8.23.0-r0 libcurl=8.23.0-r0
 # The image's own default site is replaced, not added to.
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/proxy.conf /etc/nginx/snippets/proxy.conf

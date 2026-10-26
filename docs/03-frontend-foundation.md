@@ -805,3 +805,28 @@ End-to-end check: headless Firefox over WebDriver BiDi, on `vite preview` with t
 - eslint, tsc, build, npm audit (0) -> passed; vitest -> 255 passed (7 new for the header writer)
 - Reverse check (2 of 2): a header left out, or the guard on values removed.
 - End-to-end check: headless Firefox over WebDriver BiDi on the console's image at `http://localhost:8080`, against the backend's image: 129 of 129 checks passed (sign-in with the `Secure` cookies, overview, security events, audit log and personal overview, in both themes, both languages, desktop and phone, no policy violation, no horizontal overflow). The screenshots were viewed.
+
+## Stage 19: New advisories
+
+### 84. undici and zod
+
+Two new high-severity advisories made `npm audit --audit-level=high` fail on `main`. Both packages are transitive development dependencies, not part of the console's build: undici 8.11.2 (through jsdom, for the tests; denial of service in the EventSource parser and on excessive content encodings, and a Subresource Integrity bypass) and zod 4.3.6 (through `eslint-plugin-react-hooks`; memory exhaustion on oversized constrained collections). `npm audit fix` moves them to undici 8.12.3 and zod 4.6.7 in `package-lock.json` only; `package.json` is unchanged. undici 8.12.3 is six days old, inside the seven-day cooldown, which security fixes skip as Dependabot's do. This supersedes Dependabot's #59.
+
+### 85. brotli-libs in the console's image
+
+Images CI then failed on the same pull request: Grype found CVE-2026-111497, rated Critical, in the console's brotli-libs 1.2.0-r1, fixed in 1.2.1-r0. The nginx-unprivileged base was already at its newest digest (rebuilt 2026-10-19) and still carried 1.2.0-r1, while Alpine 3.24's repository had the fix. As with zlib in C2, `frontend/Dockerfile` now installs `brotli-libs=1.2.1-r0` next to `zlib=1.3.2-r1`; remove each patch once the base digest includes it.
+
+### 86. Local validation
+
+- `make verify`: 15 of 15 checks (vitest 255 passed, npm audit 0 vulnerabilities, pytest 703 passed).
+- `make scan-images`: 0 open; console high 1 (0 fixable), medium 3 (0), unknown 2 (2); backend unchanged. `make deploy-lint`: clean.
+- Reverse checks: on `main`, without the changes, `npm audit` fails with the two advisories, and Images CI fails on the brotli-libs finding (pull request #61, first run).
+
+### 87. curl in the console's image
+
+A day later, Grype found CVE-2026-92392, rated High, in the console's curl and libcurl 8.22.0-r0, fixed in 8.23.0-r0. It failed Images CI for the open signing pull request (#60). The nginx-unprivileged base was still at the same digest and carried 8.22.0-r0. `frontend/Dockerfile` now also installs `curl=8.23.0-r0` and `libcurl=8.23.0-r0`, the same patch as for zlib and brotli-libs.
+
+### 88. Local validation
+
+- `make scan-images`: 0 open; console medium 3 (0 fixable), unknown 2 (2); backend unchanged. `make deploy-lint`: clean.
+- Reverse check: without the patch, `make scan-images` fails with the two curl findings.
