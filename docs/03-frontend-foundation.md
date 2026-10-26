@@ -821,3 +821,12 @@ Images CI then failed on the same pull request: Grype found CVE-2026-111497, rat
 - `make verify`: 15 of 15 checks (vitest 255 passed, npm audit 0 vulnerabilities, pytest 703 passed).
 - `make scan-images`: 0 open; console high 1 (0 fixable), medium 3 (0), unknown 2 (2); backend unchanged. `make deploy-lint`: clean.
 - Reverse checks: on `main`, without the changes, `npm audit` fails with the two advisories, and Images CI fails on the brotli-libs finding (pull request #61, first run).
+
+### 87. curl in the console's image
+
+A day later, Grype found CVE-2026-92392, rated High, in the console's curl and libcurl 8.22.0-r0, fixed in 8.23.0-r0. It failed Images CI for the open signing pull request (#60). The nginx-unprivileged base was still at the same digest and carried 8.22.0-r0. `frontend/Dockerfile` now also installs `curl=8.23.0-r0` and `libcurl=8.23.0-r0`, the same patch as for zlib and brotli-libs.
+
+### 88. Local validation
+
+- `make scan-images`: 0 open; console medium 3 (0 fixable), unknown 2 (2); backend unchanged. `make deploy-lint`: clean.
+- Reverse check: without the patch, `make scan-images` fails with the two curl findings.
