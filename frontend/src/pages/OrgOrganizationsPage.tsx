@@ -95,6 +95,7 @@ export function OrgOrganizationsPage() {
           <CreateForm pending={pending} onCancel={() => setStep(null)} onSubmit={submitNew} />
         ) : step?.kind === 'rename' ? (
           <RenameForm
+            key={step.organization.id}
             organization={step.organization}
             pending={pending}
             onCancel={() => setStep(null)}
@@ -111,6 +112,7 @@ export function OrgOrganizationsPage() {
           />
         ) : step?.kind === 'suspend' ? (
           <SuspendForm
+            key={step.organization.id}
             organization={step.organization}
             pending={pending}
             onCancel={() => setStep(null)}

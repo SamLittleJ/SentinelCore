@@ -830,3 +830,18 @@ A day later, Grype found CVE-2026-92392, rated High, in the console's curl and l
 
 - `make scan-images`: 0 open; console medium 3 (0 fixable), unknown 2 (2); backend unchanged. `make deploy-lint`: clean.
 - Reverse check: without the patch, `make scan-images` fails with the two curl findings.
+
+## Stage 20: Audit fixes
+
+### 89. Cached data across accounts
+
+Logging out clears React Query's cache, but a session that expires does not: the 401 only re-checks the current user, and the guard sends the browser to `/login`. Whoever signed in next in the same tab saw the previous account's cached pages, possibly another organization's, until they reloaded. A successful login now removes every cached query (`useLogIn` in `features/auth/hooks.ts`); the guard then loads the new account. The cost is a short loader after login, where the current user used to be fetched before leaving the login page.
+
+### 90. Rename and suspend forms kept the previous organization
+
+The row buttons stay enabled while a form is open. Picking "Rename" on one organization and then on another kept the first one's typed name, now aimed at the second; the suspend form kept the typed slug the same way. Both forms are now keyed by the organization's id, so each pick starts a fresh form.
+
+### 91. Local validation
+
+- `make verify`: 15 of 15 checks (vitest 257 passed, npm audit 0 vulnerabilities, pytest 703 passed).
+- Mutations: 4/4 caught (login keeps the cache; rename form without its key; suspend form without its key; the earlier invalidation instead of removal). Removing the current user's query too was not caught, so it is removed with the rest.

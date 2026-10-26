@@ -26,7 +26,9 @@ export function useLogIn() {
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       logIn(email, password),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: currentUserQueryKey }),
+    // A session that expired leaves its account's data cached; none of it may
+    // show to whoever signs in next. The guard then loads the new account.
+    onSuccess: () => queryClient.removeQueries(),
   })
 }
 
