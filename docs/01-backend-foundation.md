@@ -5297,3 +5297,11 @@ The first push to `main` after C3 (`f2b20e1`) failed in the publish job, at "Get
 - `make deploy-lint`: clean.
 - On this pull request, the scan job must upload `image-scan` with the two SBOMs, the two Grype reports and `gate.txt`; before the fix, no pull request run had any artifact.
 
+
+### 411. The first signed publication
+
+The push of the fix (`5bb9867`, #63) published, signed and attested both images; "Verify the published images" passed in the same job (run 40372905817). `make up FROM=registry` then verified the signature and both attestations of each image, pulled them by digest and installed them on kind. This closes the cases §408 left for the first signed commit.
+
+- Positive case: `make up FROM=registry` on `5bb986795d91`, both images with a signature from `images-ci.yml` on `main` at that commit and with the provenance and SBOM attestations; `make cluster-check` 21/21 on the installed release.
+- Identity mutations against the signed backend image, each refused while the exact checks pass: cosign with another workflow (`backend-ci.yml`), another ref, another issuer and another commit (`f2b20e1`); `gh attestation verify` with another `--source-digest` (`f2b20e1`), another `--predicate-type` (CycloneDX), another signer workflow and another repository. 8/8 refused.
+- `scripts/verify-images.sh f2b20e19a925`: refused, that commit has no published images.
