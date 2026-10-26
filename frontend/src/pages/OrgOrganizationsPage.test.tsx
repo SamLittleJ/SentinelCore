@@ -145,6 +145,22 @@ describe('organizations page', () => {
     expect(sent).toEqual({ name: 'Acme Corp' })
   })
 
+  it('starts each form afresh when another organization is picked', async () => {
+    const globex = makeOrganization({ id: 2, name: 'Globex', slug: 'globex', members: 3 })
+    serveOrganizations(() => [acme, globex])
+    const { user } = await openAsOwner()
+
+    await user.click(screen.getByRole('button', { name: 'Redenumește Acme' }))
+    await user.type(screen.getByLabelText('Nume'), ' Corp')
+    await user.click(screen.getByRole('button', { name: 'Redenumește Globex' }))
+    expect(screen.getByLabelText('Nume')).toHaveValue('Globex')
+
+    await user.click(screen.getByRole('button', { name: 'Suspendă Acme' }))
+    await user.type(screen.getByLabelText('Scrie acme ca să confirmi'), 'acme')
+    await user.click(screen.getByRole('button', { name: 'Suspendă Globex' }))
+    expect(screen.getByLabelText('Scrie globex ca să confirmi')).toHaveValue('')
+  })
+
   it('suspends an organization only once its slug is typed', async () => {
     let organizations = [acme]
     serveOrganizations(() => organizations)

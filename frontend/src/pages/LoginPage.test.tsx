@@ -97,6 +97,18 @@ describe('LoginPage', () => {
     )
   })
 
+  it("drops the previous account's cached data on login", async () => {
+    signedInAs(null)
+    loginResponds(204)
+    const { queryClient } = renderApp('/login')
+    queryClient.setQueryData(['org', 'events'], [{ id: 1, message: 'previous account' }])
+
+    await submitLogin()
+
+    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    expect(queryClient.getQueryData(['org', 'events'])).toBeUndefined()
+  })
+
   it('redirects a signed-in user away from the login page', async () => {
     signedInAs(makeUser())
     const { router } = renderApp('/login')
