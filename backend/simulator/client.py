@@ -184,11 +184,16 @@ class SentinelCore:
         self, email: str, address: str | None = None
     ) -> float:
         started = time.perf_counter()
-        # 401 while the guesses count, then 429 once the email is locked.
-        self.sender(address).post(
+        response = self.sender(address).post(
             "/auth/login",
             json={"email": email, "password": WRONG_PASSWORD},
         )
+        # 401 while the guesses count, then 429 once the email or the address
+        # is limited. Anything else is a failure, not a guess.
+        if response.status_code not in (401, 429):
+            raise SimulatorError(
+                f"Guessing the password of {email} got {response.status_code}"
+            )
         return (time.perf_counter() - started) * 1000
 
     def grant_admin(self, user_id: int) -> float:

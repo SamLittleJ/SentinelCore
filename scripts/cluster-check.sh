@@ -92,10 +92,12 @@ sender_address() {
 }
 check "the API records the sender's address, not a spoofed one" sender_address
 
-# More requests at once than nginx's burst for ingestion.
+# More requests at once than nginx's burst for ingestion. grep -c reads to the
+# end: -q would stop at the first 429 and fail the requests still writing.
 ingest_limit() {
   seq 1 160 | xargs -P 40 -I{} curl -s -o /dev/null -w '%{http_code}\n' \
-    -X POST -H 'Content-Type: application/json' -d '{}' "$URL/api/ingest/events" | grep -qx 429
+    -X POST -H 'Content-Type: application/json' -d '{}' "$URL/api/ingest/events" |
+    grep -cx 429 >/dev/null
 }
 check "nginx limits ingestion per address" ingest_limit
 

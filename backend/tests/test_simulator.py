@@ -2,6 +2,7 @@ import random
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -15,7 +16,7 @@ from app.schemas.user import UserCreate
 from app.services.user_service import create_owner
 from simulator.__main__ import loopback_senders, main
 from simulator.attacks import SHARED_VPN_ADDRESS, Attack, Step
-from simulator.client import SentinelCore
+from simulator.client import SentinelCore, SimulatorError
 from simulator.evaluation import evaluate
 from simulator.population import (
     BenignCase,
@@ -106,6 +107,28 @@ def test_every_attack_is_detected_and_every_false_positive_is_explained(
 
 
 # The organization
+
+
+@pytest.mark.parametrize("status", [200, 403, 422, 500])
+def test_a_wrong_password_answered_otherwise_than_401_or_429_stops_the_run(
+    status: int,
+) -> None:
+    """A server error must not pass as a guess the rules then failed to see."""
+    http = httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(status)),
+        base_url="http://localhost",
+    )
+    with pytest.raises(SimulatorError, match=str(status)):
+        SentinelCore(http).sign_in_with_wrong_password("ana@example.com")
+
+
+@pytest.mark.parametrize("status", [401, 429])
+def test_a_wrong_password_is_a_guess_while_refused_or_limited(status: int) -> None:
+    http = httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(status)),
+        base_url="http://localhost",
+    )
+    assert SentinelCore(http).sign_in_with_wrong_password("ana@example.com") >= 0
 
 
 def test_a_seed_always_gives_the_same_organization() -> None:

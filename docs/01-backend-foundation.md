@@ -5316,3 +5316,20 @@ The push of the fix (`5bb9867`, #63) published, signed and attested both images;
 
 - `pytest tests/test_organization_api.py tests/test_tenant_isolation.py`; new test `test_summary_adds_events_from_a_clock_ahead_to_the_last_hour`.
 - Mutation: 1/1 caught (assigning instead of adding fails the new test).
+
+## Audit fixes: the simulator's guesses and the ingestion limit check
+
+### 414. A wrong password answered with an error
+
+`sign_in_with_wrong_password` in `simulator/client.py` ignored the answer. A server error then counted as a guess, and a rule that never saw it showed in the evaluation report as a missed detection rather than as a failed run. Only 401 (the guess was refused) and 429 (the email or the address is limited) are guesses now; any other status stops the run with a `SimulatorError`, like every other call of the client.
+
+### 415. The ingestion limit check could fail on its own
+
+`scripts/cluster-check.sh` sends 160 ingestion requests, 40 at a time, and looks for a 429. With `grep -q`, grep exits at the first 429; the requests still writing to the closed pipe die of SIGPIPE, xargs reports it, and `pipefail` failed the check although the limit held. `grep -c` reads to the end, and still fails when no 429 comes back.
+
+### 416. Local validation
+
+- `pytest tests/test_simulator.py`: 25 passed, among them six new cases (200, 403, 422 and 500 stop the run; 401 and 429 are guesses).
+- Mutations: 2/2 caught (no status check; 500 accepted as a guess).
+- The pipe: with `pipefail`, 3000 lines of `429` through `xargs -P 40` into `grep -qx 429` failed 3 of 3 times (exit 125, signal 13); into `grep -cx 429` passed 3 of 3, and failed with no 429.
+- `make deploy-lint`: clean. `make cluster-check`: 21/21, twice.
