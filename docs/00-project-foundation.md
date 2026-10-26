@@ -291,7 +291,7 @@ The project grows toward a DevSecOps showcase, in phases:
 
 - **A. Application:** the "Organization" scope (done), event ingestion with an API key, detection rules mapped to MITRE ATT&CK, and an attack simulator that measures them.
 - **B. Containers and local Kubernetes:** hardened images, Helm charts on kind, the migrations as a Kubernetes Job (the session cleanup stays in the API).
-- **C. Supply chain CI (C1 done (#45), C2 done (#51), C3 in review):** SAST, dependency, IaC and image scanning, an SBOM, signed images and build provenance.
+- **C. Supply chain CI (C1 done (#45), C2 done (#51), C3 merged (#60), its first publication waits for a fix to the SBOM upload):** SAST, dependency, IaC and image scanning, an SBOM, signed images and build provenance.
 - **D. Infrastructure as code and GitOps:** Terraform, cloud access through OIDC, Argo CD with canary rollouts, preview environments.
 - **E. Cluster security and operations:** admission policies, network policies, runtime detection, OpenTelemetry, SLO alerts, tested backups.
 - **F. Presentation:** an architecture diagram, ADRs, runbooks and a postmortem of a simulated incident. The threat model was written earlier ([04](04-threat-model.md)) and grows with each phase.

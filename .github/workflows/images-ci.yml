@@ -79,6 +79,9 @@ jobs:
                       .scan/grype-*.json
                       .scan/gate.txt
                   retention-days: 90
+                  # .scan/ is hidden, which upload-artifact skips by default.
+                  include-hidden-files: true
+                  if-no-files-found: error
 
             - name: Keep the images for publishing
               if: github.event_name == 'push'
@@ -89,6 +92,9 @@ jobs:
                       .scan/images.tar
                       .scan/revision
                   retention-days: 1
+                  # .scan/ is hidden, which upload-artifact skips by default.
+                  include-hidden-files: true
+                  if-no-files-found: error
 
     publish:
         name: Publish, sign and attest the images
@@ -255,3 +261,6 @@ jobs:
                       .scan/grype-*.json
                       .scan/gate.txt
                   retention-days: 90
+                  # .scan/ is hidden, which upload-artifact skips by default.
+                  include-hidden-files: true
+                  if-no-files-found: error
