@@ -5250,3 +5250,41 @@ Dependabot ignores Docker major updates, Python image minor updates and Compose 
 - Mutations: 3/3 caught (Grype checksum changed, refused; zlib fix removed, fixable High fails; the same finding passes only with a valid `grype` exception).
 - `make verify`: 15 of 15 checks (pytest 703 passed, vitest 255 passed).
 - `make up` and `make cluster-check`, with 12-character tags and the patched console: 21 of 21.
+- On GitHub, on the pull request: #51, all 11 checks green, `publish` and `rescan` skipped as intended; CodeQL 0 alerts; the image scan took 2 min 44 s with the same counts as locally; Cluster CI 2 min 35 s.
+- First publication on `main` (run 39640175112): each new package's first push created it and was then `denied`; a rerun published it (the backend on the second run, the console on the third). `aaa8f0eda0c7` of both images is public and pulls anonymously.
+
+## Phase C, PR C3: signed images and provenance
+
+### 404. Purpose of the stage
+
+C3 lets anyone check where a published image came from. Every image main publishes is signed and carries attestations of how it was built and what it contains. The cluster can now run those images instead of a local build, and only after the checks pass.
+
+### 405. Signing and attestations
+
+- **The publish job** (`.github/workflows/images-ci.yml`) gains `id-token: write` and `attestations: write`; no other job has them. It checks out the repository without credentials, loads the scanned images and their SBOMs from the scan job, pushes the images and records each digest.
+- **cosign** 3.1.3, pinned in `scripts/tools.sh` by SHA-256, signs each digest with `cosign sign --yes`. The signature is keyless: Sigstore's Fulcio issues a short-lived certificate for the job's OIDC token, Rekor logs the signature, and GHCR stores it next to the image.
+- **`actions/attest`** v4.2.2, pinned by SHA, attests each digest twice, with `push-to-registry: true`: the SLSA v1 build provenance, then the SPDX SBOM that Grype scanned. Both are also listed under the repository's attestations. `create-storage-record` is off, since GitHub records storage only for organization-owned repositories.
+- **The last step** runs `scripts/verify-images.sh` on the commit, reading the images back from GHCR as a user would. The registry login stays from the push step to the attestations and is removed at the end, even after a failure.
+
+### 406. `scripts/verify-images.sh`
+
+- **Inputs.** It takes a 12-character commit that this repository knows. A `-dirty` tag or an unknown commit is refused before any network call, with a hint to commit first or pass `REVISION=`.
+- **One digest.** Each tag is resolved once through GHCR's registry API, with an anonymous pull token. A missing tag says the commit was not published and points to `make up`. Every later check and the pull use that digest only.
+- **Three proofs, all required.** First, `cosign verify` with the exact certificate identity `https://github.com/SamLittleJ/SentinelCore/.github/workflows/images-ci.yml@refs/heads/main`, GitHub's OIDC issuer, and the certificate's repository, ref, full commit SHA and `push` trigger. Then `gh attestation verify --bundle-from-oci`, once for the provenance and once for the SBOM: same repository, signer workflow, `refs/heads/main`, source commit, `--deny-self-hosted-runners`, and the predicate type (`https://slsa.dev/provenance/v1`, `https://spdx.dev/Document/v2.3`).
+- **Then the pull.** Only when both images pass are they pulled by digest and tagged `sentinelcore-<name>:<revision>`. A failure stops before that, so nothing unverified gets the name `make up` loads.
+- **Requirements.** `gh` must be signed in: it refuses to verify without a GitHub token, even for bundles read from the registry.
+
+### 407. `make up FROM=registry` and the rescan
+
+- **`make up FROM=registry`** replaces the `images` prerequisite with `make verify-images`, then runs the unchanged `scripts/cluster.sh up` on the verified, retagged images; any other `FROM` value stops Make. The chart still names the commit tag: deploying by digest behind an admission policy is phase E, so the Checkov exceptions for digests and pull policy now point there.
+- **The weekly rescan** verifies main's images before scanning them, pulls them by the verified digest, and needs no registry permission since the packages are public. It also runs on a manual run from `main`, so the verification can be checked outside the publish job.
+- **The scanners** no longer run with `--quiet`, which hid the error of a failed Syft or Grype run on #54.
+
+### 408. Local validation
+
+- Negative cases of `scripts/verify-images.sh`, each with exit 1 and nothing tagged: the unsigned published `aaa8f0eda0c7` (no signatures), a commit with no published images (`17b464ea8b09`), a 7-character revision, an unknown commit, a `-dirty` revision through `make up FROM=registry`.
+- Mutations: 3/3 caught (a wrong cosign checksum is refused and nothing installed; without the signature check the unsigned image is still refused, by the provenance check; without any check it is accepted and tagged, which the negative case catches).
+- `make deploy-lint`: clean, 11/11 resources valid. `make scan`: 0 open; Checkov 27 findings, 27 excepted.
+- `make verify`: 14 of 15 checks (pytest 703 passed, vitest 255 passed). `npm audit` failed on two new advisories unrelated to C3: undici 8.0.0 to 8.12.1 (Dependabot #59 updates it) and zod below 4.6.6.
+- Not verifiable before merge: the positive case and the identity mutations (another identity, another commit, another predicate type) need images signed by `main`; they run on the first signed commit.
+

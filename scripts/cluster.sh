@@ -8,7 +8,9 @@
 #
 # Uses the pinned tools of scripts/tools.sh and its own kubeconfig in .kind/,
 # so ~/.kube/config is left alone. `make up` builds the images first and
-# passes their tag as REVISION. Generated passwords and keys go straight to
+# passes their tag as REVISION; `make up FROM=registry` instead pulls the
+# commit's signed GHCR images (scripts/verify-images.sh) under that same tag,
+# so the rest is identical. Generated passwords and keys go straight to
 # Kubernetes Secrets; the owner's password to .kind/owner.txt only. None is
 # printed or passed on a command line.
 set -euo pipefail

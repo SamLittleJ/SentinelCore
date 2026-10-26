@@ -30,10 +30,11 @@ for image in "$@"; do
   name="${name%%[:@]*}"
   name="${name#sentinelcore-}"
   echo "== $name ($image)"
-  # From the local Docker daemon: CI pulls a published image first.
-  "$TOOLS/syft" scan "docker:$image" --quiet -o "spdx-json=$OUT/sbom-$name.spdx.json"
+  # From the local Docker daemon: CI pulls a published image first. No
+  # --quiet: it also hid the error of a failed run (#54).
+  "$TOOLS/syft" scan "docker:$image" -o "spdx-json=$OUT/sbom-$name.spdx.json"
   # A fresh vulnerability database, checked by Grype, on every run.
-  "$TOOLS/grype" "sbom:$OUT/sbom-$name.spdx.json" --quiet -o json --file "$OUT/grype-$name.json"
+  "$TOOLS/grype" "sbom:$OUT/sbom-$name.spdx.json" -o json --file "$OUT/grype-$name.json"
   reports+=("$name=$OUT/grype-$name.json")
 done
 

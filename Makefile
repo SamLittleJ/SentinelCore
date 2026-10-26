@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images
+.PHONY: help demo demo-clean images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images verify-images
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -29,8 +29,22 @@ lock-scanners: ## Pin the scanners of `make scan` (security/scanners.in), with h
 tools: ## Download the cluster's and the checks' tools, pinned and checked, into .tools/
 	@./scripts/tools.sh >/dev/null
 
-up: images ## SentinelCore on a local kind cluster, at http://localhost:8080 (run again to update)
+# `make up` builds the images; `make up FROM=registry` takes this commit's
+# published ones instead, only once their signature and attestations check
+# out (scripts/verify-images.sh).
+ifeq ($(FROM),registry)
+UP_IMAGES := verify-images
+else ifeq ($(FROM),)
+UP_IMAGES := images
+else
+$(error FROM can only be empty or registry, not '$(FROM)')
+endif
+
+up: $(UP_IMAGES) ## SentinelCore on a local kind cluster, at http://localhost:8080 (FROM=registry: the signed GHCR images)
 	@REVISION=$(REVISION) ./scripts/cluster.sh up
+
+verify-images: ## Check the signature and attestations of this commit's GHCR images, then pull them
+	@./scripts/verify-images.sh $(REVISION)
 
 down: ## Delete the kind cluster and its data (asks first)
 	@./scripts/cluster.sh down
