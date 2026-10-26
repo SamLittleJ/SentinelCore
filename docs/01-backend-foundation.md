@@ -5288,3 +5288,12 @@ C3 lets anyone check where a published image came from. Every image main publish
 - `make verify`: 14 of 15 checks (pytest 703 passed, vitest 255 passed). `npm audit` failed on two new advisories unrelated to C3: undici 8.0.0 to 8.12.1 (Dependabot #59 updates it) and zod below 4.6.6.
 - Not verifiable before merge: the positive case and the identity mutations (another identity, another commit, another predicate type) need images signed by `main`; they run on the first signed commit.
 
+### 409. The SBOM artifacts were never uploaded
+
+The first push to `main` after C3 (`f2b20e1`) failed in the publish job, at "Get their SBOMs": the `image-scan` artifact did not exist, so nothing was pushed, signed or attested. The scan job's upload had only warned, "No files were found", on every run since C2. `.scan/` is a hidden directory, and `actions/upload-artifact` leaves hidden files out unless `include-hidden-files` is true. The `images` artifact, from the same directory, was uploaded; its paths name the files exactly, which is the likely reason, not confirmed. Until C3 nothing downloaded the SBOMs, so the gap went unnoticed. All three uploads in `images-ci.yml` now set `include-hidden-files: true` and `if-no-files-found: error`, so a missing file fails the job instead of warning. The paths stay explicit, so no other hidden file is included.
+
+### 410. Local validation
+
+- `make deploy-lint`: clean.
+- On this pull request, the scan job must upload `image-scan` with the two SBOMs, the two Grype reports and `gate.txt`; before the fix, no pull request run had any artifact.
+
