@@ -5305,3 +5305,14 @@ The push of the fix (`5bb9867`, #63) published, signed and attested both images;
 - Positive case: `make up FROM=registry` on `5bb986795d91`, both images with a signature from `images-ci.yml` on `main` at that commit and with the provenance and SBOM attestations; `make cluster-check` 21/21 on the installed release.
 - Identity mutations against the signed backend image, each refused while the exact checks pass: cosign with another workflow (`backend-ci.yml`), another ref, another issuer and another commit (`f2b20e1`); `gh attestation verify` with another `--source-digest` (`f2b20e1`), another `--predicate-type` (CycloneDX), another signer workflow and another repository. 8/8 refused.
 - `scripts/verify-images.sh f2b20e19a925`: refused, that commit has no published images.
+
+## Audit fix: the trend lost events
+
+### 412. Events from a clock ahead
+
+`_severity_buckets` in `services/security_event_service.py` counts the summary's events per hour and per day. An ingested event may be dated up to five minutes ahead (`MAX_CLOCK_SKEW`), and its window number is then -1; the clamp puts it in the newest window, with this hour's events. Each grouped row assigned its count to the window instead of adding it, so one of the two rows replaced the other: three warnings from now and one from ahead showed as one or as two, while the 24-hour total next to the chart said three. The same happened in the oldest window, for an event stamped exactly at its start. Rows that share a window are now added.
+
+### 413. Local validation
+
+- `pytest tests/test_organization_api.py tests/test_tenant_isolation.py`; new test `test_summary_adds_events_from_a_clock_ahead_to_the_last_hour`.
+- Mutation: 1/1 caught (assigning instead of adding fails the new test).

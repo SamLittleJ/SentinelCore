@@ -142,7 +142,8 @@ def _severity_buckets(
         # Clamped: an event stamped exactly at `since` belongs to the oldest
         # window, as in the totals, and one stamped after `now` to the newest.
         index = count - 1 - max(0, min(int(bucket_age), count - 1))
-        counts[index][severity.value] = events
+        bucket = counts[index]
+        bucket[severity.value] = bucket.get(severity.value, 0) + events
     return [
         SeverityBucket(
             start=since + width * index,
