@@ -573,6 +573,25 @@ def test_summary_counts_by_hour_and_by_day(
         )
 
 
+def test_summary_adds_events_from_a_clock_ahead_to_the_last_hour(
+    client: TestClient,
+    db_session: Session,
+    analyst_headers: dict[str, str],
+) -> None:
+    """A sender's clock may run a few minutes ahead (MAX_CLOCK_SKEW). Its
+    events share the last window with this hour's, and both are counted."""
+    clear_events(db_session)
+    add_event(db_session, minutes_ago=10)
+    add_event(db_session, minutes_ago=20)
+    add_event(db_session, minutes_ago=-2)
+
+    summary = client.get("/security/summary", headers=analyst_headers).json()
+
+    assert summary["last_24h"]["warn"] == 3
+    assert summary["hourly"][23]["counts"]["warn"] == 3
+    assert summary["daily"][6]["counts"]["warn"] == 3
+
+
 def test_summary_counts_alerts_per_technique(
     client: TestClient,
     db_session: Session,
