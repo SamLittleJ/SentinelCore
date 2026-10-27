@@ -61,6 +61,12 @@ install_policies() {
   helm upgrade --install kyverno "$ROOT/.tools/kyverno.tgz" \
     --namespace kyverno --create-namespace --wait --timeout 5m \
     --values "$ROOT/kyverno/values.yaml"
+  # --wait sees Kyverno's pod ready before its Service routes to it, and
+  # until then the policy webhook refuses the apply: retry for a minute.
+  for _ in $(seq 1 30); do
+    kubectl apply -f "$ROOT/kyverno/pod-rules.yaml" >/dev/null 2>&1 && break
+    sleep 2
+  done
   kubectl apply -f "$ROOT/kyverno/pod-rules.yaml" >/dev/null
   if [[ $FROM == registry ]]; then
     kubectl apply -f "$ROOT/kyverno/signatures.yaml" >/dev/null
