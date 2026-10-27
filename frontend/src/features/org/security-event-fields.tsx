@@ -24,7 +24,6 @@ export function securityEventFields(
     fields.push({
       label: t('orgLog.occurredAt'),
       value: `${format.dateTime(event.occurred_at)} · ${format.relative(event.occurred_at)}`,
-      mono: true,
     })
   }
   if (event.mitre_technique) {
@@ -35,7 +34,7 @@ export function securityEventFields(
   }
   fields.push(
     { label: t('orgLog.source'), value: event.source, mono: true },
-    { label: t('orgLog.message'), value: event.message, mono: true },
+    { label: t('orgLog.message'), value: event.message },
   )
   return fields
 }

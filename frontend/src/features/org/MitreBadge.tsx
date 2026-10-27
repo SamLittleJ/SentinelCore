@@ -1,4 +1,4 @@
-import { Crosshair, ExternalLink } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { techniqueName, techniqueUrl } from './mitre'
@@ -10,9 +10,8 @@ export function MitreBadge({ technique }: { technique: string }) {
   return (
     <span
       title={techniqueName(technique)}
-      className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] font-medium whitespace-nowrap text-primary"
+      className="font-mono text-xs whitespace-nowrap text-muted-foreground"
     >
-      <Crosshair aria-hidden className="size-3" />
       <span className="sr-only">{t('mitre.label')} </span>
       {technique}
     </span>

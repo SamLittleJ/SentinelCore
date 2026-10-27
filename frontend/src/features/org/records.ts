@@ -23,14 +23,13 @@ export function recordFields(record: LogRecord, t: TFunction): DetailField[] {
       ? `${record.email} (${t('orgLog.userRef', { id: record.user_id })})`
       : accountLabel(record, t)
   return [
-    { label: t('orgLog.account'), value: account, mono: true },
+    { label: t('orgLog.account'), value: account },
     {
       label: t('orgLog.target'),
       value:
         record.target_user_id === null
           ? t('orgLog.none')
           : t('orgLog.userRef', { id: record.target_user_id }),
-      mono: true,
     },
     { label: t('orgLog.ipAddress'), value: record.ip_address ?? t('orgLog.none'), mono: true },
   ]

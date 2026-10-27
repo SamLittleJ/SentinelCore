@@ -195,7 +195,13 @@ export function AccountActions({ actor, account }: { actor: User; account: User 
       {open === null ? (
         <div className="flex flex-wrap gap-2">
           {available.map((action) => (
-            <Button key={action.name} variant="outline" onClick={() => start(action.name)}>
+            <Button
+              key={action.name}
+              variant="outline"
+              // It shuts the person out, so it stands apart from the routine actions.
+              className={action.name === 'deactivate' ? 'text-destructive hover:text-destructive' : undefined}
+              onClick={() => start(action.name)}
+            >
               {action.label}
             </Button>
           ))}

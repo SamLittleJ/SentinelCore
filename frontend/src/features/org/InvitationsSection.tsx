@@ -379,26 +379,26 @@ function InvitationsTable({
       <table aria-label={label} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('invitations.person')}
             </th>
             {/* On phones the role and state move under the email. */}
             {organizationOf && (
-              <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+              <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
                 {t('organizations.column')}
               </th>
             )}
-            <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
               {t('invitations.role')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
               {t('invitations.state')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
               {t('invitations.when')}
             </th>
             {onRevoke && (
-              <th scope="col" className="px-4 py-2.5 font-medium">
+              <th scope="col" className="px-4 py-2 font-medium">
                 <span className="sr-only">{t('invitations.actions')}</span>
               </th>
             )}
@@ -410,17 +410,17 @@ function InvitationsTable({
             const time = stateTime(invitation, state)
             return (
               <tr key={invitation.id} className="border-b last:border-b-0">
-                <td className="min-w-56 px-4 py-2.5">
+                <td className="min-w-56 px-4 py-2">
                   <div className="flex flex-col gap-0.5">
                     {state === 'accepted' && invitation.accepted_user_id !== null ? (
                       <Link
                         to={`/org/users/${invitation.accepted_user_id}`}
-                        className="w-fit rounded-sm font-mono text-xs font-medium break-all hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                        className="w-fit rounded-sm font-medium break-all hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
                       >
                         {invitation.email}
                       </Link>
                     ) : (
-                      <span className="font-mono text-xs font-medium break-all">
+                      <span className="font-medium break-all">
                         {invitation.email}
                       </span>
                     )}
@@ -439,17 +439,17 @@ function InvitationsTable({
                   </div>
                 </td>
                 {organizationOf && (
-                  <td className="hidden max-w-40 truncate px-4 py-2.5 sm:table-cell">
+                  <td className="hidden max-w-40 truncate px-4 py-2 sm:table-cell">
                     {organizationOf(invitation.organization_id)}
                   </td>
                 )}
-                <td className="hidden px-4 py-2.5 whitespace-nowrap sm:table-cell">
+                <td className="hidden px-4 py-2 whitespace-nowrap sm:table-cell">
                   {t(`roles.${invitation.role}`)}
                 </td>
-                <td className="hidden px-4 py-2.5 sm:table-cell">
+                <td className="hidden px-4 py-2 sm:table-cell">
                   <InvitationStateBadge state={state} />
                 </td>
-                <td className="hidden px-4 py-2.5 font-mono text-xs whitespace-nowrap text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-2 whitespace-nowrap text-muted-foreground tabular-nums md:table-cell">
                   <time dateTime={time} title={format.dateTime(time)}>
                     {state === 'open'
                       ? t('invitations.expiresIn', { time: format.relative(time) })
@@ -457,7 +457,7 @@ function InvitationsTable({
                   </time>
                 </td>
                 {onRevoke && (
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2 text-right">
                     {canRevoke(invitation) && (
                       <Button
                         variant="outline"

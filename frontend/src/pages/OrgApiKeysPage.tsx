@@ -362,29 +362,29 @@ function KeysTable({
       <table aria-label={t('apiKeys.tableLabel')} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('apiKeys.key')}
             </th>
             {/* On phones the source and state move under the name. */}
             {organizationOf && (
-              <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+              <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
                 {t('organizations.column')}
               </th>
             )}
-            <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
               {t('apiKeys.source')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
               {t('apiKeys.state')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
               {t('apiKeys.expires')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
               {t('apiKeys.lastUsed')}
             </th>
             {onRevoke && (
-              <th scope="col" className="px-4 py-2.5 font-medium">
+              <th scope="col" className="px-4 py-2 font-medium">
                 <span className="sr-only">{t('apiKeys.actions')}</span>
               </th>
             )}
@@ -395,7 +395,7 @@ function KeysTable({
             const state = keyState(key)
             return (
               <tr key={key.id} className="border-b last:border-b-0">
-                <td className="min-w-48 px-4 py-2.5">
+                <td className="min-w-48 px-4 py-2">
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{key.name}</span>
                     <span className="font-mono text-xs text-muted-foreground">
@@ -413,20 +413,20 @@ function KeysTable({
                   </div>
                 </td>
                 {organizationOf && (
-                  <td className="hidden max-w-40 truncate px-4 py-2.5 sm:table-cell">
+                  <td className="hidden max-w-40 truncate px-4 py-2 sm:table-cell">
                     {organizationOf(key.organization_id)}
                   </td>
                 )}
-                <td className="hidden px-4 py-2.5 font-mono text-xs sm:table-cell">{key.source}</td>
-                <td className="hidden px-4 py-2.5 sm:table-cell">
+                <td className="hidden px-4 py-2 font-mono text-xs sm:table-cell">{key.source}</td>
+                <td className="hidden px-4 py-2 sm:table-cell">
                   <KeyStateBadge state={state} />
                 </td>
-                <td className="hidden px-4 py-2.5 font-mono text-xs whitespace-nowrap text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-2 whitespace-nowrap text-muted-foreground tabular-nums md:table-cell">
                   <time dateTime={key.expires_at} title={format.dateTime(key.expires_at)}>
                     {format.date(key.expires_at)}
                   </time>
                 </td>
-                <td className="hidden px-4 py-2.5 font-mono text-xs whitespace-nowrap text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-2 whitespace-nowrap text-muted-foreground tabular-nums md:table-cell">
                   {key.last_used_at ? (
                     <time dateTime={key.last_used_at} title={format.dateTime(key.last_used_at)}>
                       {format.relative(key.last_used_at)}
@@ -436,7 +436,7 @@ function KeysTable({
                   )}
                 </td>
                 {onRevoke && (
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="px-4 py-2 text-right">
                     {state === 'active' && (
                       <Button
                         variant="outline"

@@ -90,7 +90,7 @@ function AccountPage({ userId }: { userId: number }) {
           <AccountHeader account={account.data} />
           {actor && (
             <section aria-labelledby="account-actions" className="flex flex-col gap-3">
-              <h2 id="account-actions" className="font-display text-xl font-semibold">
+              <h2 id="account-actions" className="text-base font-semibold">
                 {t('userDetail.actions')}
               </h2>
               <AccountActions actor={actor} account={account.data} />
@@ -109,7 +109,7 @@ function AccountHeader({ account }: { account: User }) {
   const format = useFormatters()
 
   const fields = [
-    { label: t('userDetail.id'), value: account.id, mono: true },
+    { label: t('userDetail.id'), value: account.id },
     { label: t('userDetail.role'), value: t(`roles.${account.role}`) },
     { label: t('userDetail.memberSince'), value: format.date(account.created_at) },
     { label: t('userDetail.updated'), value: format.dateTime(account.updated_at) },
@@ -121,16 +121,16 @@ function AccountHeader({ account }: { account: User }) {
         title={account.username}
         description={
           <span className="flex flex-col gap-1.5">
-            <span className="font-mono text-sm">{account.email}</span>
+            <span>{account.email}</span>
             <AccountState user={account} detailed />
           </span>
         }
       />
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-lg border bg-card px-4 py-4 text-sm sm:grid-cols-4">
+      <dl className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
         {fields.map((field) => (
           <div key={field.label} className="flex flex-col gap-0.5">
-            <dt className="label-mono text-muted-foreground">{field.label}</dt>
-            <dd className={field.mono ? 'font-mono text-xs' : undefined}>{field.value}</dd>
+            <dt className="text-muted-foreground">{field.label}</dt>
+            <dd className="tabular-nums">{field.value}</dd>
           </div>
         ))}
       </dl>
@@ -148,7 +148,7 @@ function AccountHistory({ userId }: { userId: number }) {
   return (
     <section aria-labelledby="account-history" className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <h2 id="account-history" className="font-display text-xl font-semibold">
+        <h2 id="account-history" className="text-base font-semibold">
           {t('userDetail.activity')}
         </h2>
         <p className="max-w-prose text-sm text-muted-foreground">{t('userDetail.activityHelp')}</p>
@@ -170,7 +170,7 @@ function AccountHistory({ userId }: { userId: number }) {
               {
                 header: t('orgLog.account'),
                 cell: (event) => accountLabel(event, t),
-                className: 'max-w-56 truncate font-mono text-xs',
+                className: 'max-w-56 truncate',
               },
               {
                 header: t('orgLog.ipAddress'),

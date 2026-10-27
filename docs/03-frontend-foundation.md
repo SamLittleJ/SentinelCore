@@ -881,3 +881,12 @@ The sidebar has one menu in two groups, named after the organization (or "Platfo
 The overview now opens with the level and the latest detection, then the newest incidents as a list, each with an Open button for its details (still recorded in the audit log), then the six counts in one ruled row, a chart of the last 24 hours stacked by severity, and the organizations, techniques and failed sign-in sources below. The band's tests moved to `OrgOverviewStatus.test.tsx`, for the status and the chart; the sidebar, theme and navigation tests describe the new shell.
 
 Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 6 of 6: the incident count loaded on personal pages, the chart scaled to incidents only, the default theme back to dark, Open doing nothing, the latest detection's link without its alert types, the picker shown to members. Real Firefox screenshots on `make demo`: the overview, the events page, an account page and Globex's overview, light and dark at 1440×900 and at phone width.
+
+## Stage 24: Redesign, part two
+
+### 98. Table pages
+
+The security events, audit log, users, account, API keys and organizations pages follow the new look. Table cells go from `py-2.5` to `py-2`. `font-mono` is removed from times, dates, counts, emails, the search box and its filter chip, and the account, target, time and message fields of the details sheet; it stays on IP addresses, MITRE codes, prefixes, slugs and sources. `SeverityBadge` shows info in the muted text colour without a background. `MitreBadge` drops its pill and crosshair icon for grey monospace text, keeping the tooltip and the screen-reader label. `OrgUserPage` shows its fields as a plain list with sentence-case labels and drops `font-display` and `label-mono`; `AccountActions` writes the deactivate button in the destructive colour. The organization column uses the table's text size instead of a smaller one. The overview's counts and account line follow the same rules. No behaviour or text changes. The account page test now checks that the role is listed under its label.
+
+Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 4 of 4: the MITRE screen-reader label removed, its tooltip removed, the severity word removed, the account page's field labels removed (the last one was first missed and the test was strengthened). Real Firefox screenshots on `make demo` of the six pages, light and dark at 1440×900 and at phone width.
+

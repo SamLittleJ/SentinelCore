@@ -90,7 +90,7 @@ export function OrgEventsPage() {
               {
                 header: t('orgLog.account'),
                 cell: (event) => accountLabel(event, t),
-                className: 'max-w-56 truncate font-mono text-xs',
+                className: 'max-w-56 truncate',
               },
               {
                 header: t('orgLog.ipAddress'),

@@ -33,7 +33,7 @@ export function useOrganizationColumn<Item extends { organization_id: number | n
     {
       header: t('organizations.column'),
       cell: (item) => nameOf(item.organization_id),
-      className: 'max-w-40 truncate text-xs',
+      className: 'max-w-40 truncate',
     },
   ]
 }
