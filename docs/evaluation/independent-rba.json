@@ -1,0 +1,199 @@
+{
+  "dataset": "Login Data Set for Risk-Based Authentication, DOI 10.5281/zenodo.6782155",
+  "seed": 42,
+  "revision": "485a782c2c4c-dirty",
+  "started_at": "2026-10-27T12:53:02.203281+00:00",
+  "seconds": 3076,
+  "settings": {
+    "detection_spray_min_accounts": 10,
+    "detection_spray_window_minutes": 15,
+    "detection_unfamiliar_lookback_days": 90,
+    "detection_unfamiliar_min_sign_ins": 3,
+    "detection_dormant_days": 90,
+    "login_max_failed_attempts": 5,
+    "login_failure_window_minutes": 15,
+    "login_lockout_minutes": 15
+  },
+  "window": [
+    "2020-03-05T23:59:58.756001+00:00",
+    "2021-02-28T23:59:58.756001+00:00"
+  ],
+  "population_by_sign_ins": {
+    "1-9": 3744013,
+    "10-49": 313252,
+    "50+": 10546
+  },
+  "accounts": {
+    "users": 20116,
+    "takeover_users": 116,
+    "takeover_users_before_start": 22,
+    "logins": 78842,
+    "successful": 57984,
+    "takeover_logins": 119,
+    "takeover_successful": 118,
+    "takeover_eligible": 29,
+    "alerts": 2517,
+    "alerts_on_takeovers": 9,
+    "users_caught": 9,
+    "eligible_caught": 9,
+    "dormant_alerts": 3426,
+    "skipped": 0,
+    "recall": {
+      "hits": 9,
+      "total": 118,
+      "value": 0.07627118644067797,
+      "interval": [
+        0.04064320931960667,
+        0.13861809534496597
+      ]
+    },
+    "recall_eligible": {
+      "hits": 9,
+      "total": 29,
+      "value": 0.3103448275862069,
+      "interval": [
+        0.17275616661955756,
+        0.49230134377427065
+      ]
+    },
+    "recall_users": {
+      "hits": 9,
+      "total": 116,
+      "value": 0.07758620689655173,
+      "interval": [
+        0.041353282445508094,
+        0.1408996631142598
+      ]
+    },
+    "precision": {
+      "hits": 9,
+      "total": 2517,
+      "value": 0.003575685339690107,
+      "interval": [
+        0.0018823376984998439,
+        0.006782014755854365
+      ]
+    },
+    "false_alarms_per_1000": 31.810456355749473,
+    "dormant_per_1000": 43.45399660079653
+  },
+  "weeks": [
+    {
+      "logins": 504964,
+      "failed": 280645,
+      "attack_ips": 4379,
+      "attack_peak": 4,
+      "attack_ips_at_threshold": 0,
+      "flagged_ips": 0,
+      "flagged_attack_ips": 0,
+      "alerts": 0,
+      "alerts_on_attack_ips": 0,
+      "skipped": 0,
+      "lockout": {
+        "attack_attempts": 47370,
+        "attack_denied": 24710,
+        "legitimate_attempts": 211661,
+        "legitimate_denied": 41,
+        "legitimate_users_denied": 32,
+        "lockouts": 900
+      },
+      "start": "2020-07-03T22:52:03.341713+00:00",
+      "recall": {
+        "hits": 0,
+        "total": 4379,
+        "value": 0.0,
+        "interval": [
+          0.0,
+          0.0008764768055918951
+        ]
+      },
+      "precision": {
+        "hits": 0,
+        "total": 0,
+        "value": null,
+        "interval": null
+      },
+      "false_alarms_per_1000": 0.0
+    },
+    {
+      "logins": 504061,
+      "failed": 279060,
+      "attack_ips": 4217,
+      "attack_peak": 4,
+      "attack_ips_at_threshold": 0,
+      "flagged_ips": 1,
+      "flagged_attack_ips": 0,
+      "alerts": 3,
+      "alerts_on_attack_ips": 0,
+      "skipped": 0,
+      "lockout": {
+        "attack_attempts": 49476,
+        "attack_denied": 24907,
+        "legitimate_attempts": 211777,
+        "legitimate_denied": 46,
+        "legitimate_users_denied": 35,
+        "lockouts": 914
+      },
+      "start": "2020-09-08T06:47:32.600257+00:00",
+      "recall": {
+        "hits": 0,
+        "total": 4217,
+        "value": 0.0,
+        "interval": [
+          0.0,
+          0.0009101168377724737
+        ]
+      },
+      "precision": {
+        "hits": 0,
+        "total": 1,
+        "value": 0.0,
+        "interval": [
+          0.0,
+          0.7934506882081973
+        ]
+      },
+      "false_alarms_per_1000": 0.005951660612505232
+    },
+    {
+      "logins": 583469,
+      "failed": 359116,
+      "attack_ips": 4306,
+      "attack_peak": 5,
+      "attack_ips_at_threshold": 0,
+      "flagged_ips": 1,
+      "flagged_attack_ips": 0,
+      "alerts": 3,
+      "alerts_on_attack_ips": 0,
+      "skipped": 0,
+      "lockout": {
+        "attack_attempts": 60144,
+        "attack_denied": 31837,
+        "legitimate_attempts": 208608,
+        "legitimate_denied": 32,
+        "legitimate_users_denied": 22,
+        "lockouts": 856
+      },
+      "start": "2020-11-05T11:35:22.771589+00:00",
+      "recall": {
+        "hits": 0,
+        "total": 4306,
+        "value": 0.0,
+        "interval": [
+          0.0,
+          0.0008913225504803432
+        ]
+      },
+      "precision": {
+        "hits": 0,
+        "total": 1,
+        "value": 0.0,
+        "interval": [
+          0.0,
+          0.7934506882081973
+        ]
+      },
+      "false_alarms_per_1000": 0.0051416613393342235
+    }
+  ]
+}

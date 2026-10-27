@@ -13,7 +13,7 @@ app/
 ├── services/   # business logic
 └── main.py     # application entry point
 migrations/     # Alembic migrations
-simulator/      # attack simulator and detection evaluation (not deployed)
+simulator/      # attack simulator, demo data and the evaluations (not deployed)
 tests/          # pytest tests
 ```
 
@@ -170,6 +170,17 @@ The sprays across organizations need their own addresses: Linux lets a client se
 The brute-force attackers sign in from the simulator's own address, so its server runs with the limit on failed sign-ins per address raised (`LOGIN_ADDRESS_BURST=1000 python -m uvicorn app.main:app`); with the default, the brute-force attacks after the 20th failure would be refused by that limit before their email locks, and the report would measure the limit instead of the rules. `make demo` starts its server the same way. The limit has its own tests.
 
 Run it on a fresh database. A second run reuses the same attacker addresses at the same times of day, so its sprays overlap the first run's and are caught sooner; its brute force attempts, all from `127.0.0.1`, add up with the first run's into a spray from that address. The report says when the database already held alerts. The simulator refuses hosts other than `localhost` unless `--allow-remote` is given: it attacks its target for real.
+
+## Independent evaluation
+
+`python -m simulator.rba` measures the detection rules on data they were not written for: the *Login Data Set for Risk-Based Authentication* (Wiefling et al., 2022, [DOI 10.5281/zenodo.6782155](https://doi.org/10.5281/zenodo.6782155), CC BY 4.0), 31 million sign-ins of a large online service, synthesized from the real ones, labelled with known attacker addresses and confirmed account takeovers. `make evaluate-rba` at the repository root runs it: it downloads the data once into `.rba/` (checked against its SHA-256), creates a fresh `sentinelcore_eval` database and a backend whose ingestion rate limit is raised, runs the evaluation and removes both. It writes `docs/evaluation/independent-rba.md` and `.json`, and takes about an hour.
+
+Two experiments, over the last 360 days of the data, each with its times moved to end just before the run:
+
+1. **Accounts.** Every user with a confirmed takeover in that window, and 20,000 others drawn in proportion to how often they sign in, become accounts of one organization (written to the database directly; the step refuses any database but `sentinelcore_eval`). Their sign-ins go through ingestion, oldest first. Measured: the unfamiliar network and device rule against the takeover label, and how often the dormant account rule fires.
+2. **Addresses.** Every sign-in of three whole weeks drawn at random, each week in its own organization. Measured: the password spray rule against the attacker-address label, per address, and B1, this application's own lockout (`login_protection_service.py`), replayed on the same sign-ins, with how many legitimate users it would deny.
+
+The thresholds are the application's settings, never fitted to this data; every rate comes with a 95% Wilson interval. The seed (`--seed`, default 42) fixes the users and the weeks. Brute force, sprays across organizations and privileged roles are measured by the simulator only.
 
 ## Demo data
 

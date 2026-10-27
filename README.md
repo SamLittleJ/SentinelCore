@@ -206,6 +206,7 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [03 - Frontend Foundation](docs/03-frontend-foundation.md): the technical journal of the frontend
 - [04 - Threat Model](docs/04-threat-model.md): a STRIDE analysis of the system, with the boundary between organizations at its centre, each mitigation linked to the test that proves it
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
+- [Independent evaluation](docs/evaluation/independent-rba.md): the detection rules on a public, labelled data set of 31 million sign-ins (`make evaluate-rba`), with this application's lockout as a baseline
 
 ## License
 
