@@ -853,3 +853,9 @@ Removed: the unused shadcn components and exports (`badge.tsx`, `tooltip.tsx` wi
 ### 93. Local validation
 
 - `make verify`: 15 of 15 checks (vitest 257 passed, npm audit 0 vulnerabilities, pytest 711 passed). The removals change no behaviour, so no test was added or changed on the console.
+
+## Stage 21: Dependency updates
+
+### 94. Two Dependabot updates in one pull request
+
+The npm group (#69, ten minor and patch updates: `@tanstack/react-query`, `i18next`, `lucide-react`, `react-i18next`, `react-router`, `eslint`, `typescript-eslint`, `vitest`, `@vitest/coverage-v8`, `jsdom`) and ruff 0.17.1 for the backend (#68) were both behind `main`, which requires a branch to be up to date before merging. They share one branch, so CI runs once instead of after each merge. TypeScript 6 (#70) is a major version and keeps its own pull request, as decided after #52. `make verify`: 15 of 15 checks (vitest 257 passed, npm audit 0 vulnerabilities, pytest 711 passed).
