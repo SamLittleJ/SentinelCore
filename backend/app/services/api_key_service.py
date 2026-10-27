@@ -114,10 +114,6 @@ def list_api_keys(db: Session, scope: Scope) -> list[ApiKey]:
     )
 
 
-def get_api_key(db: Session, key_id: int) -> ApiKey | None:
-    return db.get(ApiKey, key_id)
-
-
 def revoke_api_key(
     db: Session,
     api_key: ApiKey,

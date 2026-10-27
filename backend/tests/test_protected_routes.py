@@ -89,35 +89,25 @@ def test_users_me_with_token_of_deactivated_user_returns_403(
     assert response.json()["detail"] == "Inactive user"
 
 
-def test_admin_only_with_regular_user_returns_403(client: TestClient) -> None:
+def test_admin_route_with_regular_user_returns_403(client: TestClient) -> None:
     register_user(client)
     token = login_user(client)
 
-    response = client.get(
-        "/users/admin-only",
-        headers=auth_headers(token),
-    )
+    response = client.get("/admin/users", headers=auth_headers(token))
 
     assert response.status_code == 403
 
 
-def test_admin_only_with_admin_user_returns_200(
+def test_admin_route_with_admin_user_returns_200(
     client: TestClient, db_session: Session
 ) -> None:
     register_user(client)
     promote_user_to_admin(db_session, "test@example.com")
     token = login_user(client)
 
-    response = client.get(
-        "/users/admin-only",
-        headers=auth_headers(token),
-    )
+    response = client.get("/admin/users", headers=auth_headers(token))
 
     assert response.status_code == 200
-
-    data = response.json()
-    assert data["username"] == "testuser"
-    assert data["role"] == "admin"
 
 
 def test_audit_logs_endpoint_with_admin_returns_200(

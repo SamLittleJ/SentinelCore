@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router'
 
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LoadFailed } from '@/components/LoadFailed'
 import { PagedResults } from '@/components/PagedResults'
 import { SeverityBadge } from '@/components/SeverityBadge'
 import { StatusPage } from '@/components/StatusPage'
@@ -83,12 +84,7 @@ function AccountPage({ userId }: { userId: number }) {
           <Skeleton className="h-24 w-full" />
         </div>
       ) : account.isError ? (
-        <div role="alert" className="flex flex-col items-start gap-3 rounded-lg border px-4 py-4">
-          <p className="text-muted-foreground">{t('errors.loadFailedBody')}</p>
-          <Button variant="outline" size="sm" onClick={() => void account.refetch()}>
-            {t('errors.retry')}
-          </Button>
-        </div>
+        <LoadFailed onRetry={() => account.refetch()} />
       ) : (
         <>
           <AccountHeader account={account.data} />

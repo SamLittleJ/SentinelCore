@@ -13,9 +13,9 @@ from app.api.cookies import CSRF_HEADER, SESSION_COOKIE
 from app.core.database import SessionLocal
 from app.core.row_security import restrict_rows
 from app.core.security import csrf_token_for, decode_access_token
+from app.models.organization import Organization
 from app.models.user import User, UserRole
 from app.models.user_session import UserSession
-from app.services.organization_service import get_organization
 from app.services.session_service import get_active_session
 from app.services.tenancy import SYSTEM, Scope, scope_of
 from app.services.user_service import is_account_locked, may_sign_in
@@ -184,7 +184,7 @@ def read_scope(db: Session, user: User, organization_id: int | None) -> Scope:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions",
         )
-    if get_organization(db, organization_id) is None:
+    if db.get(Organization, organization_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Organization not found",

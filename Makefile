@@ -7,8 +7,8 @@ demo: ## A fresh demo database with 90 days of a synthetic organization, then th
 	@./scripts/demo.sh
 
 # The commit the images are built from (12 characters, the same everywhere,
-# as GHCR tags them), marked when the tree has changes.
-REVISION := $(shell git rev-parse --short=12 HEAD)$(shell git diff --quiet HEAD -- || echo -dirty)
+# as GHCR tags them), marked when the tree has changes or new files.
+REVISION := $(shell git rev-parse --short=12 HEAD)$(shell test -z "$$(git status --porcelain)" || echo -dirty)
 
 verify: ## Every check before a commit, one line each (logs in .verify/)
 	@./scripts/verify.sh

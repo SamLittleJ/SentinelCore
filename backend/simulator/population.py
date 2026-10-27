@@ -124,10 +124,6 @@ class Person:
             return f"2001:db8:{self.home:x}::{rng.randint(2, 0xFFFF):x}"
         return f"198.18.{self.home}.{rng.randint(2, 254)}"
 
-    @property
-    def devices(self) -> tuple[str, ...]:
-        return (self.laptop, self.phone) if self.phone else (self.laptop,)
-
 
 @dataclass(frozen=True)
 class SignIn:

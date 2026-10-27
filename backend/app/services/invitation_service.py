@@ -31,7 +31,11 @@ from app.schemas.invitation import InvitationCreate
 from app.schemas.user import UserCreate
 from app.services.organization_service import is_suspended
 from app.services.tenancy import Scope
-from app.services.user_service import commit_account_created, stage_user
+from app.services.user_service import (
+    commit_account_created,
+    role_name,
+    stage_user,
+)
 
 INVITATION_SCHEME = "sci"
 
@@ -47,10 +51,6 @@ GRANTABLE_ROLES: dict[UserRole, frozenset[UserRole]] = {
 
 def may_invite(actor: User, role: UserRole) -> bool:
     return actor.is_active and role in GRANTABLE_ROLES.get(actor.role, frozenset())
-
-
-def _role_name(actor: User) -> str:
-    return actor.role.value.replace("_", " ").capitalize()
 
 
 def _commit_invitation_change(
@@ -129,7 +129,7 @@ def create_invitation(
     )
     db.add(invitation)
     message = (
-        f"{_role_name(actor)} invited {data.email} as {data.role.value} "
+        f"{role_name(actor)} invited {data.email} as {data.role.value} "
         f"(invitation {token.prefix}), valid for "
         f"{settings.invitation_expire_hours} hours"
     )
@@ -159,10 +159,6 @@ def list_invitations(db: Session, scope: Scope) -> list[Invitation]:
     )
 
 
-def get_invitation(db: Session, invitation_id: int) -> Invitation | None:
-    return db.get(Invitation, invitation_id)
-
-
 def revoke_invitation(
     db: Session,
     invitation: Invitation,
@@ -180,7 +176,7 @@ def revoke_invitation(
         AuditEventType.INVITATION_REVOKED,
         SecurityEventType.INVITATION_REVOKED,
         (
-            f"{_role_name(actor)} revoked invitation {invitation.prefix} "
+            f"{role_name(actor)} revoked invitation {invitation.prefix} "
             f"for {invitation.email}"
         ),
         ip_address,

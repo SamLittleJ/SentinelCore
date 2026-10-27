@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrentUser } from '@/features/auth/hooks'
-import { ActionForm, ActionNotice, ConfirmForm, type Notice } from '@/features/org/ActionForm'
+import { ActionForm, ActionNotice, type Notice } from '@/features/org/ActionForm'
 import {
   type ApiKey,
   KEY_LIFETIMES,
@@ -120,13 +120,13 @@ export function OrgApiKeysPage() {
               onSubmit={submitNew}
             />
           ) : revoking ? (
-            <ConfirmForm
+            <ActionForm
               title={t('apiKeys.revokeTitle', { name: revoking.name })}
               help={t('apiKeys.revokeHelp')}
               destructive
               pending={pending}
               onCancel={() => setRevoking(null)}
-              onConfirm={() => confirmRevoke(revoking)}
+              onSubmit={() => confirmRevoke(revoking)}
             />
           ) : (
             <Button

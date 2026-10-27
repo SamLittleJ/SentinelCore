@@ -5,9 +5,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "SentinelCore API"
-    app_env: str = "development"
-    app_debug: bool = True
     # The API signs in as `sentinelcore_app`, which row-level security binds
     # (core/row_security.py). Migrations sign in as the owner of the tables,
     # with MIGRATIONS_DATABASE_URL; without it, they use DATABASE_URL.

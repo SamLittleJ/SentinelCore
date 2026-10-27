@@ -4,23 +4,22 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { PageHeader } from '@/components/layout/PageHeader'
+import { LoadFailed } from '@/components/LoadFailed'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Session } from '@/features/account/api'
 import { useMySessions, useRevokeOtherSessions, useRevokeSession } from '@/features/account/hooks'
 import { type DeviceKind, describeUserAgent } from '@/features/account/user-agent'
 import { useLogOut } from '@/features/auth/hooks'
+import { ActionNotice, type Notice } from '@/features/org/ActionForm'
 import { ApiError } from '@/lib/api'
 import { useFormatters } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 const DEVICE_ICONS: Record<DeviceKind, LucideIcon> = {
   desktop: Monitor,
   mobile: Smartphone,
   unknown: CircleHelp,
 }
-
-type Notice = { tone: 'ok' | 'error'; text: string }
 
 export function MySessionsPage() {
   const { t } = useTranslation()
@@ -110,19 +109,7 @@ export function MySessionsPage() {
         </div>
       )}
 
-      {notice && (
-        <p
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-          className={cn(
-            'rounded-lg px-4 py-3',
-            notice.tone === 'error'
-              ? 'bg-sev-incident-bg text-sev-incident'
-              : 'bg-sev-ok-bg text-sev-ok',
-          )}
-        >
-          {notice.text}
-        </p>
-      )}
+      {notice && <ActionNotice notice={notice} />}
 
       {sessions.isPending ? (
         <div className="flex flex-col gap-2" role="status" aria-label={t('app.loading')}>
@@ -130,12 +117,7 @@ export function MySessionsPage() {
           <Skeleton className="h-20 w-full" />
         </div>
       ) : sessions.isError ? (
-        <div role="alert" className="flex flex-col items-start gap-3 rounded-lg border px-4 py-4">
-          <p className="text-muted-foreground">{t('errors.loadFailedBody')}</p>
-          <Button variant="outline" size="sm" onClick={() => void sessions.refetch()}>
-            {t('errors.retry')}
-          </Button>
-        </div>
+        <LoadFailed onRetry={() => sessions.refetch()} />
       ) : (
         <ul aria-label={t('sessions.listLabel')} className="flex flex-col divide-y rounded-lg border bg-card">
           {list.map((session) => (

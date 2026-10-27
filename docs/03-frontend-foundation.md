@@ -845,3 +845,11 @@ The row buttons stay enabled while a form is open. Picking "Rename" on one organ
 
 - `make verify`: 15 of 15 checks (vitest 257 passed, npm audit 0 vulnerabilities, pytest 703 passed).
 - Mutations: 4/4 caught (login keeps the cache; rename form without its key; suspend form without its key; the earlier invalidation instead of removal). Removing the current user's query too was not caught, so it is removed with the rest.
+
+### 92. Lean pass after the audit
+
+Removed: the unused shadcn components and exports (`badge.tsx`, `tooltip.tsx` with its provider in `main.tsx` and the test renderer, six `DropdownMenu` parts, `CardDescription`, `CardAction`, `CardFooter`, `AlertTitle`), the `userDetail.profile`, `.email` and `.state` translations and the pass-through `ConfirmForm`, whose callers use `ActionForm` directly. `MySessionsPage` uses `ActionNotice` instead of its own copy, and both `MySessionsPage` and `OrgUserPage` use `LoadFailed` for their retry blocks. The `radix-ui` dependency stays: other components use it. The decisions log has the full list.
+
+### 93. Local validation
+
+- `make verify`: 15 of 15 checks (vitest 257 passed, npm audit 0 vulnerabilities, pytest 711 passed). The removals change no behaviour, so no test was added or changed on the console.

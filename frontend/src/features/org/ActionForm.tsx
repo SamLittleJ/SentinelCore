@@ -81,10 +81,3 @@ export function ActionForm({
     </form>
   )
 }
-
-export function ConfirmForm(
-  props: Omit<ActionFormProps, 'onSubmit' | 'children'> & { onConfirm: () => void },
-) {
-  const { onConfirm, ...frame } = props
-  return <ActionForm {...frame} onSubmit={onConfirm} />
-}

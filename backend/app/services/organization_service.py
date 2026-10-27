@@ -112,10 +112,6 @@ def list_organizations(db: Session) -> list[OrganizationRead]:
     ]
 
 
-def get_organization(db: Session, organization_id: int) -> Organization | None:
-    return db.get(Organization, organization_id)
-
-
 def is_suspended(db: Session, organization_id: int | None) -> bool:
     """Whether `organization_id` names a suspended organization. The
     platform, with no organization, is never suspended."""

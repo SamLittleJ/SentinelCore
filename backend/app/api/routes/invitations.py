@@ -30,7 +30,6 @@ from app.services.invitation_service import (
     accept_invitation,
     create_invitation,
     find_open_invitation,
-    get_invitation,
     list_invitations,
     may_invite,
     revoke_invitation,
@@ -85,7 +84,7 @@ def _invitation_organization(
 def _get_invitation_or_404(db: Session, invitation_id: int, actor: User) -> Invitation:
     """The invitation `invitation_id`, if `actor` may see it; one of another
     organization answers exactly as a missing one."""
-    invitation = get_invitation(db, invitation_id)
+    invitation = db.get(Invitation, invitation_id)
     if invitation is None or not scope_of(actor).includes(invitation.organization_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
