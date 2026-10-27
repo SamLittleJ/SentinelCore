@@ -786,3 +786,13 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Local only.** `make evaluate-rba` needs the 9 GB data set and about an hour, so it does not run in CI, like `make screenshots`; its unit tests and two small end-to-end tests through the API do, in `make verify`.
 - **One metric redefined after a run, and why.** B1's "legitimate attempts denied" first counted every attempt from an address the data does not mark as an attacker; the first run put that at 37–46% of them, because 60% of the data's sign-ins fail and many unmarked failures are attacks too. It now counts sign-ins that would have succeeded, from unmarked addresses, that are not takeovers: someone holding the right password. The rules' thresholds and the sample were not touched.
 
+
+## Baselines and thresholds (phase R2)
+
+- **A replay, checked against the API.** Trying thresholds through the API would take an hour each. The rules are replayed in Python instead, and the replay is trusted only because it reproduces every number of the API run at the application's thresholds; otherwise nothing is written.
+- **B2 as Wiefling et al. applied it.** Freeman et al.'s score without reputation, which this data cannot give, with Wiefling's published sub-feature weights, which come from an earlier study, not from this data. No learned weights (Freeman's Eq. 13): they would be fitted to the labels the baseline is judged by. Interpolation is the main variant, Freeman's back-off a second; Freeman's six months of history a third, beside the rule's 90 days.
+- **A user with no history scores highest.** Neither paper scores one; this choice is ours and the report says so.
+- **The result is reported as it came.** B2 scored below random on the takeovers. The report shows why, term by term, instead of changing the baseline until it does better.
+- **One variant chosen after seeing the data, and labelled so.** B2 with a uniform attacker distribution, to test the explanation; its good result is a hypothesis for other data, not a finding.
+- **No setting changes from R2.** ASN networks, a new network alone and a higher lockout limit all look better on this data, but they were found on it. The application does not know ASNs either; adding them is a separate decision.
+- **Shared data download.** `scripts/rba-data.sh` holds the data set's address and SHA-256 for both evaluation scripts.

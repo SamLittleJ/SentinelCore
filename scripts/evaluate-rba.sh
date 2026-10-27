@@ -10,9 +10,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DATA_DIR="$ROOT/.rba"
-DATA_URL=https://zenodo.org/api/records/6782156/files/rba-dataset.zip/content
-DATA_SHA256=ca1d974e97aebfb30878a613f4ca5c793860a98ba2acb5185c9bc610d7432a33
 DATABASE=sentinelcore_eval
 POSTGRES=sentinelcore-postgres
 OWNER_EMAIL=owner@eval.example.com
@@ -29,6 +26,9 @@ fail() {
   exit 1
 }
 
+# shellcheck source=scripts/rba-data.sh
+. "$ROOT/scripts/rba-data.sh"
+
 port_in_use() {
   (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
 }
@@ -39,16 +39,7 @@ command -v docker >/dev/null || fail "Docker is needed for PostgreSQL."
 port_in_use 8000 && fail "port 8000 is in use. Stop the development server or make demo first."
 
 echo "==> The data set"
-mkdir -p "$DATA_DIR"
-if [ ! -f "$DATA_DIR/rba-dataset.csv" ]; then
-  if ! echo "$DATA_SHA256  $DATA_DIR/rba-dataset.zip" | sha256sum --check --quiet --status 2>/dev/null; then
-    curl -fL --proto '=https' --tlsv1.2 -o "$DATA_DIR/rba-dataset.zip.partial" "$DATA_URL"
-    mv "$DATA_DIR/rba-dataset.zip.partial" "$DATA_DIR/rba-dataset.zip"
-  fi
-  echo "$DATA_SHA256  $DATA_DIR/rba-dataset.zip" | sha256sum --check --quiet ||
-    fail "the data set's checksum does not match; refused."
-  unzip -o -q "$DATA_DIR/rba-dataset.zip" rba-dataset.csv -d "$DATA_DIR"
-fi
+rba_data || fail "the data set's checksum does not match; refused."
 
 echo "==> PostgreSQL and a fresh $DATABASE database"
 docker compose -f "$ROOT/docker-compose.yml" up -d postgres >/dev/null

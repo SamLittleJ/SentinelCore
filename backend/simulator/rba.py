@@ -86,6 +86,12 @@ class Login:
     success: bool
     attack_ip: bool
     takeover: bool
+    # What B2 (simulator/freeman.py) also scores; the rules use none of it.
+    asn: str = ""
+    country: str = ""
+    browser: str = ""
+    os: str = ""
+    device_type: str = ""
 
 
 def parse_time(text: str) -> datetime:
@@ -105,6 +111,11 @@ def read_logins(path: Path) -> Iterator[Login]:
                 success=row["Login Successful"] == "True",
                 attack_ip=row["Is Attack IP"] == "True",
                 takeover=row["Is Account Takeover"] == "True",
+                asn=row["ASN"],
+                country=row["Country"],
+                browser=row["Browser Name and Version"],
+                os=row["OS Name and Version"],
+                device_type=row["Device Type"],
             )
 
 
@@ -337,10 +348,18 @@ def to_millisecond(at: datetime) -> datetime:
     return at.replace(microsecond=at.microsecond // 1000 * 1000)
 
 
-def eligible_takeovers(logins: list[Login]) -> set[tuple[int, datetime]]:
+def eligible_takeovers(
+    logins: list[Login],
+    lookback_days: int | None = None,
+    min_sign_ins: int | None = None,
+) -> set[tuple[int, datetime]]:
     """The successful takeover sign-ins the T1078 rule can judge: those after
-    enough successful sign-ins in its lookback to compare with."""
-    lookback = timedelta(days=settings.detection_unfamiliar_lookback_days)
+    enough successful sign-ins in its lookback to compare with. The
+    thresholds default to the application's settings."""
+    lookback = timedelta(
+        days=lookback_days or settings.detection_unfamiliar_lookback_days
+    )
+    minimum = min_sign_ins or settings.detection_unfamiliar_min_sign_ins
     history: dict[int, deque[datetime]] = defaultdict(deque)
     eligible = set()
     for login in logins:
@@ -349,7 +368,7 @@ def eligible_takeovers(logins: list[Login]) -> set[tuple[int, datetime]]:
         past = history[login.user]
         while past and past[0] < login.at - lookback:
             past.popleft()
-        if login.takeover and len(past) >= settings.detection_unfamiliar_min_sign_ins:
+        if login.takeover and len(past) >= minimum:
             eligible.add((login.user, login.at))
         past.append(login.at)
     return eligible
@@ -403,6 +422,8 @@ def measure_accounts(
     shift: timedelta,
     chosen: Plan,
     skipped: int,
+    lookback_days: int | None = None,
+    min_sign_ins: int | None = None,
 ) -> AccountResult:
     user_of = {email_of(user): user for user in chosen.users}
     takeover_at = {
@@ -410,7 +431,10 @@ def measure_accounts(
         for login in logins
         if login.takeover and login.success
     }
-    eligible = {(user, to_millisecond(at)) for user, at in eligible_takeovers(logins)}
+    eligible = {
+        (user, to_millisecond(at))
+        for user, at in eligible_takeovers(logins, lookback_days, min_sign_ins)
+    }
     unfamiliar = [
         a for a in alerts if a.event_type == SecurityEventType.UNFAMILIAR_SIGN_IN
     ]
@@ -459,14 +483,14 @@ class Lockout:
     lockouts: int = 0
 
 
-def replay_lockout(logins: list[Login]) -> Lockout:
+def replay_lockout(logins: list[Login], limit: int | None = None) -> Lockout:
     """As services/login_protection_service.py: `login_max_failed_attempts`
     failures within the window, counted since the last success or lockout,
     lock the email for `login_lockout_minutes`; attempts while locked are
-    refused and not counted."""
+    refused and not counted. `limit` replaces the setting."""
     window = timedelta(minutes=settings.login_failure_window_minutes)
     lock_for = timedelta(minutes=settings.login_lockout_minutes)
-    limit = settings.login_max_failed_attempts
+    limit = limit or settings.login_max_failed_attempts
     failures: dict[int, deque[datetime]] = defaultdict(deque)
     locked_until: dict[int, datetime] = {}
     denied_users: set[int] = set()
@@ -542,8 +566,13 @@ class WeekResult:
 
 
 def measure_week(
-    start: datetime, logins: list[Login], alerts: list[Alert], skipped: int
+    start: datetime,
+    logins: list[Login],
+    alerts: list[Alert],
+    skipped: int,
+    min_accounts: int | None = None,
 ) -> WeekResult:
+    threshold = min_accounts or settings.detection_spray_min_accounts
     # The rule sees failures, so an address counts once it has failed here.
     attack_ips = {login.ip for login in logins if login.attack_ip and not login.success}
     known = {login.ip for login in logins if login.attack_ip}
@@ -562,9 +591,7 @@ def measure_week(
         failed=sum(not login.success for login in logins),
         attack_ips=len(attack_ips),
         attack_peak=max(peaks, default=0),
-        attack_ips_at_threshold=sum(
-            peak >= settings.detection_spray_min_accounts for peak in peaks
-        ),
+        attack_ips_at_threshold=sum(peak >= threshold for peak in peaks),
         flagged_ips=len(flagged),
         flagged_attack_ips=len(flagged & known),
         alerts=len(sprays),
@@ -738,6 +765,10 @@ def to_markdown(results: Results) -> str:
         "It was synthesized from a real service's sign-ins; addresses, user "
         "agents and times were generated with the real distributions. The "
         "sign-ins below are a sample of it, with their times moved.",
+        "",
+        "B2, the Freeman et al. risk score, and the rules under other "
+        "thresholds, on this same sample: `independent-rba-baselines.md` "
+        "(`make evaluate-rba-offline`).",
         "",
         "## A. Accounts: unfamiliar network and device (T1078)",
         "",
