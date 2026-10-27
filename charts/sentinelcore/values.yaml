@@ -10,6 +10,11 @@ image:
   ids:
     backend: ""
     console: ""
+  # `make up FROM=registry`: the verified digests, with backend and console
+  # set to ghcr.io/samlittlej/sentinelcore-*. The tag still labels the pods.
+  digests:
+    backend: ""
+    console: ""
 
 # Created by `make up` when missing, never written here.
 secrets:

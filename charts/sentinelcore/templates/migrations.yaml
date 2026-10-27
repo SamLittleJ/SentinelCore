@@ -42,7 +42,7 @@ spec:
         {{- include "sentinelcore.backendUser" . | nindent 8 }}
       containers:
         - name: migrations
-          image: "{{ .Values.image.backend }}:{{ include "sentinelcore.tag" . }}"
+          image: "{{ include "sentinelcore.image" (list . "backend") }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["sh", "-c", "alembic upgrade head && python -m app.cli grant-api-login"]
           env:

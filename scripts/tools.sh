@@ -39,6 +39,10 @@ GRYPE_SHA256=0a9ee97ef5ae2ee953b0a80098105052e846cdbe319a57d808b519c33cd1343d
 # seven-day cooldown.
 COSIGN_VERSION=v3.1.3
 COSIGN_SHA256=4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71
+# The admission policies' engine (kyverno/), as its Helm chart. 3.9.1, not
+# 3.9.2: that one was six days old, inside the seven-day cooldown.
+KYVERNO_CHART_VERSION=3.9.1
+KYVERNO_CHART_SHA256=7b7fe51a431b5b133b0ce7eb9dcb222b6a37fb967c163223cf480054ad14d752
 
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
@@ -64,7 +68,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -151,6 +155,13 @@ if wanted cosign && ! installed cosign "$COSIGN_VERSION"; then
     "$COSIGN_SHA256" "$TOOLS/cosign"
   chmod 755 "$TOOLS/cosign"
   echo "$COSIGN_VERSION" >"$TOOLS/cosign.version"
+fi
+
+# A chart, not a binary: helm installs .tools/kyverno.tgz.
+if wanted kyverno && [[ ! -f "$TOOLS/kyverno.tgz" || "$(cat "$TOOLS/kyverno.tgz.version" 2>/dev/null)" != "$KYVERNO_CHART_VERSION" ]]; then
+  fetch "https://kyverno.github.io/kyverno/kyverno-$KYVERNO_CHART_VERSION.tgz" \
+    "$KYVERNO_CHART_SHA256" "$TOOLS/kyverno.tgz"
+  echo "$KYVERNO_CHART_VERSION" >"$TOOLS/kyverno.tgz.version"
 fi
 
 # The Python scanners of `make scan` (Checkov, pip-audit), in an environment

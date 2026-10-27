@@ -10,6 +10,19 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 {{- required "image.tag names the images to run" .Values.image.tag -}}
 {{- end }}
 
+{{- /* One of our images, by digest when one is given (`make up
+FROM=registry`), by tag otherwise. Called with (list . "backend"). */ -}}
+{{- define "sentinelcore.image" -}}
+{{- $root := index . 0 -}}
+{{- $name := index . 1 -}}
+{{- $digest := index $root.Values.image.digests $name -}}
+{{- if $digest -}}
+{{ index $root.Values.image $name }}@{{ $digest }}
+{{- else -}}
+{{ index $root.Values.image $name }}:{{ include "sentinelcore.tag" $root }}
+{{- end -}}
+{{- end }}
+
 {{/* The pod's security settings, the same for every SentinelCore pod. */}}
 {{- define "sentinelcore.podSecurity" -}}
 runAsNonRoot: true

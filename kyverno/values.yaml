@@ -1,0 +1,26 @@
+# Kyverno for SentinelCore's kind cluster (scripts/cluster.sh): only the
+# admission controller, the one part that refuses a pod. The background,
+# cleanup and reports controllers only report or tidy up, so they stay off.
+admissionController:
+  replicas: 1
+  initContainer:
+    image:
+      tag: v1.19.1@sha256:c25c47461f06f2845a48c319ae86fbbc1730a7b9ed5b701889c9dc1f9ee94b09
+  container:
+    image:
+      tag: v1.19.1@sha256:b31d8511ae5fd6010e2a01ea72ebae08eb82fa51d91af14a1d9fe989949b4edb
+
+backgroundController:
+  enabled: false
+cleanupController:
+  enabled: false
+reportsController:
+  enabled: false
+
+# The hooks run on upgrades and uninstalls with images of their own; the
+# chart's version is pinned and `make down` deletes the whole cluster.
+crds:
+  migration:
+    enabled: false
+webhooksCleanup:
+  enabled: false

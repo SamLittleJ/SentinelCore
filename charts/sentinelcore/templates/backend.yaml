@@ -26,7 +26,7 @@ spec:
         {{- include "sentinelcore.backendUser" . | nindent 8 }}
       containers:
         - name: backend
-          image: "{{ .Values.image.backend }}:{{ include "sentinelcore.tag" . }}"
+          image: "{{ include "sentinelcore.image" (list . "backend") }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # One uvicorn worker: Kubernetes runs more pods instead.
           env:

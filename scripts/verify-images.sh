@@ -10,8 +10,10 @@
 #   3. gh: the SPDX SBOM attestation, with the same identity.
 #
 # The identities are exact strings, not patterns. Only when both images
-# pass are they pulled, by digest, and tagged sentinelcore-<name>:<revision>
-# for kind; any failure stops before that, so nothing unverified is tagged.
+# pass are their digests written to .kind/verified-images, for `make up
+# FROM=registry`; any failure stops before that, so nothing unverified is
+# named there. In the cluster, Kyverno checks the same identity again
+# (kyverno/signatures.yaml).
 #
 #   scripts/verify-images.sh <revision>
 #
@@ -93,11 +95,8 @@ for name in backend console; do
   verified+=("$name=$image@$digest")
 done
 
-# Both images passed: pulled by the verified digest, then named as `make up`
-# expects them.
-for entry in "${verified[@]}"; do
-  name="${entry%%=*}"
-  docker pull --quiet "${entry#*=}" >/dev/null
-  docker tag "${entry#*=}" "sentinelcore-$name:$revision"
-  echo "== tagged sentinelcore-$name:$revision"
-done
+# Both images passed: the cluster pulls them by these digests.
+mkdir -p "$ROOT/.kind"
+chmod 700 "$ROOT/.kind"
+printf '%s\n' "revision=$revision" "${verified[@]}" >"$ROOT/.kind/verified-images"
+echo "== recorded in .kind/verified-images"

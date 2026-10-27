@@ -240,16 +240,16 @@ jobs:
 
             # Signature and attestations first, on the digest; the images
             # are pulled by that digest only if they pass.
-            - name: Verify and pull the images
+            - name: Verify the images
               env:
                   GH_TOKEN: ${{ github.token }}
               run: ./scripts/verify-images.sh "$(git rev-parse --short=12 HEAD)"
 
-            - name: Scan them
+            - name: Pull and scan them
               run: |
-                  revision="$(git rev-parse --short=12 HEAD)"
-                  ./scripts/scan-images.sh \
-                      "sentinelcore-backend:$revision" "sentinelcore-console:$revision"
+                  mapfile -t images < <(sed -n 's/^\(backend\|console\)=//p' .kind/verified-images)
+                  for image in "${images[@]}"; do docker pull --quiet "$image"; done
+                  ./scripts/scan-images.sh "${images[@]}"
 
             - name: Keep the SBOMs and reports
               if: always()

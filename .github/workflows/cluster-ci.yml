@@ -11,6 +11,7 @@ on:
         paths:
             - "charts/**"
             - "kind/**"
+            - "kyverno/**"
             - "backend/Dockerfile"
             - "backend/requirements.lock"
             - "frontend/Dockerfile"
@@ -28,6 +29,7 @@ on:
         paths:
             - "charts/**"
             - "kind/**"
+            - "kyverno/**"
             - "backend/Dockerfile"
             - "backend/requirements.lock"
             - "frontend/Dockerfile"

@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # `make up` / `make down`: SentinelCore on a local kind cluster.
 #
-#   up    the cluster if missing, the images loaded into it, the secrets if
-#         missing, PostgreSQL, then the application (its migrations run
-#         first), then the first owner if missing. Safe to run again.
+#   up    the cluster if missing, Kyverno and the admission policies, the
+#         images loaded into it, the secrets if missing, PostgreSQL, then
+#         the application (its migrations run first), then the first owner
+#         if missing. Safe to run again.
 #   down  deletes the cluster and its data, after a typed confirmation.
 #
 # Uses the pinned tools of scripts/tools.sh and its own kubeconfig in .kind/,
 # so ~/.kube/config is left alone. `make up` builds the images first and
-# passes their tag as REVISION; `make up FROM=registry` instead pulls the
-# commit's signed GHCR images (scripts/verify-images.sh) under that same tag,
-# so the rest is identical. Generated passwords and keys go straight to
+# passes their tag as REVISION; `make up FROM=registry` instead runs the
+# commit's signed GHCR images, by the digests scripts/verify-images.sh
+# checked, and Kyverno checks their signature again before each pod starts. Generated passwords and keys go straight to
 # Kubernetes Secrets; the owner's password to .kind/owner.txt only. None is
 # printed or passed on a command line.
 set -euo pipefail
@@ -19,6 +20,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLUSTER=sentinelcore
 NAMESPACE=sentinelcore
 STATE="$ROOT/.kind"
+FROM="${FROM:-}"
 URL=http://localhost:8080
 OWNER_EMAIL="${OWNER_EMAIL:-owner@example.com}"
 OWNER_USERNAME="${OWNER_USERNAME:-owner}"
@@ -44,9 +46,54 @@ create_cluster() {
   fi
   chmod 600 "$KUBECONFIG"
   kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE"
+  # Kubernetes' own "restricted" Pod Security Standard: no root, no
+  # privilege escalation, no added capabilities.
+  kubectl label namespace "$NAMESPACE" --overwrite \
+    pod-security.kubernetes.io/enforce=restricted \
+    pod-security.kubernetes.io/enforce-version=v1.35 >/dev/null
+}
+
+# Kyverno refuses, at admission, a pod in the namespace that breaks
+# kyverno/pod-rules.yaml, and in registry mode one whose image is not
+# signed and attested by images-ci.yml (kyverno/signatures.yaml).
+install_policies() {
+  say "Installing Kyverno and the admission policies"
+  helm upgrade --install kyverno "$ROOT/.tools/kyverno.tgz" \
+    --namespace kyverno --create-namespace --wait --timeout 5m \
+    --values "$ROOT/kyverno/values.yaml"
+  kubectl apply -f "$ROOT/kyverno/pod-rules.yaml" >/dev/null
+  if [[ $FROM == registry ]]; then
+    kubectl apply -f "$ROOT/kyverno/signatures.yaml" >/dev/null
+  else
+    kubectl delete -f "$ROOT/kyverno/signatures.yaml" --ignore-not-found >/dev/null
+  fi
+  kubectl wait validatingpolicies,imagevalidatingpolicies --all \
+    --for=jsonpath='{.status.conditionStatus.ready}'=true --timeout=2m >/dev/null
+}
+
+# image <name>: what the pods run, as the chart and the owner Job name it.
+image() {
+  if [[ $FROM == registry ]]; then
+    verified "$1"
+  else
+    echo "sentinelcore-$1:$REVISION"
+  fi
+}
+
+# verified <name>: the digest scripts/verify-images.sh recorded for this
+# revision; anything else stops.
+verified() {
+  local file="$STATE/verified-images"
+  if ! grep -qx "revision=$REVISION" "$file" 2>/dev/null; then
+    echo "No verified images for $REVISION; run \`make up FROM=registry\`." >&2
+    exit 1
+  fi
+  sed -n "s/^$1=//p" "$file"
 }
 
 load_images() {
+  # Registry images are pulled by the node, by digest.
+  [[ $FROM == registry ]] && return
   say "Loading the images tagged $REVISION"
   kind load docker-image --name "$CLUSTER" \
     "sentinelcore-backend:$REVISION" "sentinelcore-console:$REVISION"
@@ -93,11 +140,17 @@ install_charts() {
   helm upgrade --install postgresql "$ROOT/charts/postgresql" \
     --namespace "$NAMESPACE" --wait --timeout 3m
   say "Installing SentinelCore (migrations first)"
+  local images=(--set-string image.tag="$REVISION") name reference
+  for name in backend console; do
+    if [[ $FROM == registry ]]; then
+      reference="$(verified "$name")"
+      images+=(--set-string "image.$name=${reference%@*}" --set-string "image.digests.$name=${reference#*@}")
+    else
+      images+=(--set-string "image.ids.$name=$(image_id "sentinelcore-$name")")
+    fi
+  done
   helm upgrade --install sentinelcore "$ROOT/charts/sentinelcore" \
-    --namespace "$NAMESPACE" --wait --timeout 5m \
-    --set-string image.tag="$REVISION" \
-    --set-string image.ids.backend="$(image_id sentinelcore-backend)" \
-    --set-string image.ids.console="$(image_id sentinelcore-console)"
+    --namespace "$NAMESPACE" --wait --timeout 5m "${images[@]}"
 }
 
 # The first owner, once: the password passes through a Secret that lives
@@ -138,7 +191,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: owner
-          image: sentinelcore-backend:$REVISION
+          image: $(image backend)
           imagePullPolicy: IfNotPresent
           args: ["python", "-m", "app.cli", "create-owner", "--email", "$OWNER_EMAIL",
                  "--username", "$OWNER_USERNAME", "--if-missing"]
@@ -182,6 +235,7 @@ EOF
 up() {
   : "${REVISION:?run through make up, which builds the images}"
   create_cluster
+  install_policies
   load_images
   create_secrets
   install_charts

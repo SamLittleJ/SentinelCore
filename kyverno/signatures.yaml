@@ -1,0 +1,90 @@
+# Applied only by `make up FROM=registry` (scripts/cluster.sh): our images
+# run only from GHCR, by digest, signed by images-ci.yml on main, with that
+# workflow's SLSA provenance and SPDX SBOM attestations. The same identity
+# as scripts/verify-images.sh, which also pins the commit and the trigger;
+# here the digest it resolved pins the commit.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: sentinelcore-signatures
+spec:
+  validationActions: [Deny]
+  failurePolicy: Fail
+  # Kubernetes allows a webhook 30 seconds at most, and the three checks
+  # take about 20 on a cold cache: they run once per pod, not again for its
+  # Deployment, ReplicaSet or Job, which name the same images.
+  webhookConfiguration:
+    timeoutSeconds: 30
+  autogen:
+    podControllers:
+      controllers: []
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: sentinelcore
+  matchImageReferences:
+    - glob: ghcr.io/samlittlej/sentinelcore-*
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: true
+    required: true
+  attestors:
+    - name: imagesCi
+      cosign:
+        keyless:
+          identities:
+            - subject: https://github.com/SamLittleJ/SentinelCore/.github/workflows/images-ci.yml@refs/heads/main
+              issuer: https://token.actions.githubusercontent.com
+        ctlog:
+          url: https://rekor.sigstore.dev
+  attestations:
+    - name: provenance
+      intoto:
+        type: https://slsa.dev/provenance/v1
+    - name: sbom
+      intoto:
+        type: https://spdx.dev/Document/v2.3
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.imagesCi])).all(n, n > 0)
+      message: The image is not signed by images-ci.yml on main.
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.provenance, [attestors.imagesCi])).all(n, n > 0)
+      message: The image has no SLSA provenance from images-ci.yml on main.
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.sbom, [attestors.imagesCi])).all(n, n > 0)
+      message: The image has no SPDX SBOM attestation from images-ci.yml on main.
+---
+# A local build under our name would skip the checks above.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: sentinelcore-registry-images
+spec:
+  validationActions: [Deny]
+  failurePolicy: Fail
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: sentinelcore
+  validations:
+    - expression: >-
+        (object.spec.containers + object.spec.?initContainers.orValue([]))
+          .all(c, !c.image.startsWith('sentinelcore-'))
+      message: In this cluster, SentinelCore's images come from ghcr.io/samlittlej, by digest.
