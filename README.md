@@ -12,7 +12,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── infra/                # Prometheus and Grafana configuration
 ├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
 ├── kind/                 # the local kind cluster's configuration
-├── scripts/              # make verify, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
+├── scripts/              # make verify, make screenshots, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
 ├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain, images and CodeQL
 ├── SECURITY.md           # private vulnerability reporting and supported versions
@@ -75,6 +75,8 @@ It needs the Quick start done once (Docker, `backend/.venv` with `backend/.env`,
 4. plays today's events live: brute force against two Acme accounts, an admin role granted, the operators' response (sessions closed, an account locked, the dormant accounts deactivated, a promotion, new invitations, a retired API key), a few failed sign-ins on emails no account has, which belong to the platform, and Initech's suspension;
 5. writes each admin's password to `.demo/acme-admin.txt`, `.demo/globex-admin.txt` and `.demo/initech-admin.txt`, as for the owner;
 6. runs the backend and the frontend until Ctrl+C. Open `http://localhost:5173` and sign in with the details in `.demo/owner.txt`.
+
+While the demo runs, `make screenshots` in another terminal signs in as the owner and the admins of Acme and Globex in headless Firefox and saves four pages, in the dark theme, to `docs/images/`.
 
 Each run starts from scratch with the same seed, so the organizations and their history are the same, shifted to end at the time of the run. `make demo-clean` removes the database and `.demo/`.
 
