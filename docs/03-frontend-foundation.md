@@ -869,3 +869,15 @@ TypeScript moves from 5.9.3 to 6.0.3 (#70), on its own branch because the Depend
 ### 96. Four pictures from the demo
 
 `scripts/screenshots.py`, run as `make screenshots` while `make demo` serves the console, signs in through the real form as the owner, Acme's admin and Globex's admin (passwords read from `.demo/`, never printed), opens four pages and captures them over WebDriver BiDi: the platform overview (also the README's first image), Acme's security events filtered to incidents over 30 days, the Acme account locked by an operator (found through `GET /admin/users?locked=true`), and Globex's overview. A preload script sets the dark theme and English before the console starts; a page counts as loaded when its heading shows and no skeleton is left. `make help` now says three organizations. Run three times against the same demo: four pictures, 41 to 45 KB each, Firefox and its temporary profile removed afterwards. The pictures and a README section for them wait for the interface redesign that comes next, so they are not committed yet. `make verify`: 15 of 15 checks (ruff and format now include `scripts/screenshots.py`, vitest 257 passed, pytest 711 passed).
+
+## Stage 23: Redesign, part one
+
+### 97. Tokens, shell and overview
+
+The palette in `src/index.css` is new: white and near-black backgrounds, neutral greys, one blue accent, and severity colours, every text colour at 4.5:1 or more on the page, the sidebar and its own tinted background in both themes (checked with the WCAG formula; the lowest is 4.66:1). Public Sans replaces IBM Plex; `font-display` now points at it until the remaining pages drop it. The theme follows the system by default, and `index.html` no longer forces the dark class, so the page's first paint already matches the system.
+
+The sidebar has one menu in two groups, named after the organization (or "Platform" for the owner) and "My account", without numbers; on a phone each group is one scrolling row. `PageHeader` loses the breadcrumb above the title and shows the owner's organization picker beside the page's actions. The threat band is removed (`ThreatBand.tsx`).
+
+The overview now opens with the level and the latest detection, then the newest incidents as a list, each with an Open button for its details (still recorded in the audit log), then the six counts in one ruled row, a chart of the last 24 hours stacked by severity, and the organizations, techniques and failed sign-in sources below. The band's tests moved to `OrgOverviewStatus.test.tsx`, for the status and the chart; the sidebar, theme and navigation tests describe the new shell.
+
+Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 6 of 6: the incident count loaded on personal pages, the chart scaled to incidents only, the default theme back to dark, Open doing nothing, the latest detection's link without its alert types, the picker shown to members. Real Firefox screenshots on `make demo`: the overview, the events page, an account page and Globex's overview, light and dark at 1440×900 and at phone width.

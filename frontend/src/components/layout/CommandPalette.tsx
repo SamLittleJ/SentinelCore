@@ -85,7 +85,7 @@ function useCommands(user: CurrentUser, query: string, close: () => void): Comma
         id: `page-${item.to}`,
         group: 'pages',
         label: t(item.label),
-        hint: `${scopeName(scope, user, t)} / ${item.number}`,
+        hint: scopeName(scope, user, t),
         run: go(item.to),
       })
     }
@@ -204,7 +204,7 @@ export function CommandPalette({ user, open, onOpenChange }: CommandPaletteProps
               onKeyDown={onKeyDown}
               className="h-14 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
             />
-            <kbd className="label-mono rounded border px-1.5 py-0.5 tracking-normal text-muted-foreground normal-case">Esc</kbd>
+            <kbd className="rounded border px-1.5 py-0.5 text-xs text-muted-foreground">Esc</kbd>
           </div>
 
           <div id={listId} role="listbox" aria-label={t('palette.results')} className="overflow-y-auto p-2">
@@ -213,7 +213,7 @@ export function CommandPalette({ user, open, onOpenChange }: CommandPaletteProps
             )}
             {groups.map(({ group, items }) => (
               <div key={group} role="group" aria-labelledby={`${listId}-${group}`} className="flex flex-col gap-0.5 pb-1">
-                <span id={`${listId}-${group}`} className="label-mono px-3 pt-2 pb-1 text-muted-foreground">
+                <span id={`${listId}-${group}`} className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
                   {t(`palette.groups.${group}`)}
                 </span>
                 {items.map((command) => {
@@ -236,7 +236,7 @@ export function CommandPalette({ user, open, onOpenChange }: CommandPaletteProps
                     >
                       <span className="min-w-0 flex-1 truncate">{command.label}</span>
                       {command.hint && (
-                        <span className="label-mono shrink-0 tracking-normal text-muted-foreground normal-case">
+                        <span className="shrink-0 text-xs text-muted-foreground">
                           {command.hint}
                         </span>
                       )}
@@ -248,7 +248,7 @@ export function CommandPalette({ user, open, onOpenChange }: CommandPaletteProps
             ))}
           </div>
 
-          <p className="label-mono flex gap-4 border-t px-4 py-2 tracking-normal text-muted-foreground normal-case">
+          <p className="flex gap-4 border-t px-4 py-2 text-xs text-muted-foreground">
             <span>{t('palette.keysMove')}</span>
             <span>{t('palette.keysRun')}</span>
             <span>{t('palette.keysClose')}</span>

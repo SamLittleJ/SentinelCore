@@ -4,7 +4,6 @@ const ro = {
     loading: 'Se încarcă…',
   },
   scope: {
-    label: 'Perspectivă',
     personal: 'Contul meu',
     organization: 'Organizația',
     platform: 'Platformă',
@@ -419,6 +418,10 @@ const ro = {
     incidentsHelp: 'Cele mai noi 5 incidente din ultimele 7 zile. Afișarea lor se înregistrează în jurnalul de audit.',
     noIncidents: 'Niciun incident în ultimele 7 zile.',
     viewIncidents: 'Vezi toate incidentele',
+    open: 'Deschide',
+    openIncident: 'Deschide {{name}}',
+    perHour: 'Evenimente de securitate pe oră',
+    perHourHelp: 'Ultimele 24 de ore, după severitate.',
     sources: 'Surse de autentificări eșuate',
     sourcesHelp: 'Adresele IP cu cele mai multe autentificări eșuate în ultimele 24 de ore.',
     noSources: 'Nicio autentificare eșuată în ultimele 24 de ore.',

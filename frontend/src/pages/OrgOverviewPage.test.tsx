@@ -111,7 +111,7 @@ describe('organization overview', () => {
       '/org/events?severity=incident',
     )
 
-    await user.click(within(first).getByRole('button', { name: /^Cont blocat temporar/ }))
+    await user.click(within(first).getByRole('button', { name: 'Deschide Cont blocat temporar' }))
     const details = await screen.findByRole('dialog', { name: 'Cont blocat temporar' })
     expect(details).toHaveTextContent('Security analyst locked user_id=12 for 24 hour(s)')
     expect(within(details).getByRole('link', { name: 'Deschide contul' })).toHaveAttribute(

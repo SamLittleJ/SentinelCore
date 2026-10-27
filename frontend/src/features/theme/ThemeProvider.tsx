@@ -3,8 +3,9 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { THEMES, ThemeContext, type Theme } from './theme-context'
 
 const STORAGE_KEY = 'sentinelcore.theme'
-// The console design is dark-first.
-const DEFAULT_THEME: Theme = 'dark'
+// Both themes are designed with the same care, so the system decides
+// until the user picks one.
+const DEFAULT_THEME: Theme = 'system'
 
 function storedTheme(): Theme {
   try {

@@ -748,3 +748,14 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Four dark pictures, in English.** The platform overview, Acme's incidents with their MITRE ATT&CK badges, the account locked this morning, and Globex's admin view, at 1440×900. ImageMagick, when installed, reduces them to 256 colours without dithering (dithering speckled the dark backgrounds), about 45 KB each; without it they stay as Firefox wrote them.
 - **Local only.** Screenshots are not taken in CI: they change whenever the interface does, and a reviewer judges them by eye.
 - **The pictures wait for the redesign.** The interface is being redesigned next, so the script lands first and the pictures follow, taken from the new interface.
+
+## Console redesign
+
+- **Why.** The console read as generated: uppercase, letter-spaced monospace captions everywhere, a breadcrumb above every title repeating the page's number, navigation numbered 01 to 06, a navy and electric-blue palette, identical rounded cards, and a threat band of coloured squares at the top of every page that decorated more than it informed.
+- **Direction.** A sober monitoring tool, like Sentry or Datadog: neutral greys, one blue accent for links, focus and the current page, colour otherwise only for severity, sentence case. Light and dark get the same care, so the theme follows the system until the user picks one.
+- **Chosen from two prototypes of the overview.** One led with the open incidents as a list to act on; the other was a grid of metric panels. The first was chosen, with the second's filters at the top: an operator opens the overview to learn what needs a decision, and the list answers that first.
+- **Three pull requests.** The tokens, the font, the shell and the overview first; then the pages built on tables; then the account pages, the sign-in pages and the README screenshots. Each can be looked at in the running app before the next.
+- **Public Sans** replaces the three IBM Plex packages (Sans, Condensed, Mono): one dependency instead of three. Monospace stays for data read character by character (emails, addresses, ids) and comes from the system's fonts.
+- **Left-aligned content up to 75rem** replaces the centred 64rem column, so dense tables and the incident list fit on one line, as in other monitoring tools.
+- **One menu in groups** (the organization's pages, then "My account") replaces the two tabs that switched between two menus. The owner's organization picker moves from the sidebar to the top of every organization page, beside its actions.
+- **The threat band goes.** Its level and latest detection open the overview instead, and its hour-by-hour squares become a stacked chart of the last 24 hours by severity. The incident count stays beside "Security events" in the menu. No API change: the summary already had the hourly counts.

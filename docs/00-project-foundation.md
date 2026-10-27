@@ -268,7 +268,7 @@ The step-by-step history is in the journals ([01](01-backend-foundation.md), [03
 - the console's build runs only its own scripts and cannot be framed by another site; the policy was checked in Firefox on every page
 
 ### Frontend
-- an "operations console" visual direction with the "Electric" palette and its own identity (a shield-and-eye logomark, the "SENTINEL core" wordmark, condensed titles and mono captions, numbered navigation), Tailwind CSS and shadcn/ui, React Router, TanStack Query, Romanian and English, dark and light themes
+- a sober monitoring-tool look (redesign under way: neutral greys, one blue accent, colour for severity only, Public Sans, a shield-and-eye logomark), Tailwind CSS and shadcn/ui, React Router, TanStack Query, Romanian and English, light and dark themes following the system
 - login through an httpOnly cookie and protected routes
 - two scopes:
   - **My account:** Overview (security summary and recent alerts), My sessions, My activity;
