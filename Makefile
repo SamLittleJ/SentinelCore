@@ -1,10 +1,13 @@
-.PHONY: help demo demo-clean images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images verify-images
+.PHONY: help demo demo-clean screenshots images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images verify-images
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
 
-demo: ## A fresh demo database with 90 days of a synthetic organization, then the app on it
+demo: ## A fresh demo database with 90 days of three synthetic organizations, then the app on it
 	@./scripts/demo.sh
+
+screenshots: ## The README's pictures (docs/images/), from a running `make demo`
+	@backend/.venv/bin/python scripts/screenshots.py
 
 # The commit the images are built from (12 characters, the same everywhere,
 # as GHCR tags them), marked when the tree has changes or new files.

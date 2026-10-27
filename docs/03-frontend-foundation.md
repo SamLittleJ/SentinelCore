@@ -864,6 +864,12 @@ The npm group (#69, ten minor and patch updates: `@tanstack/react-query`, `i18ne
 
 TypeScript moves from 5.9.3 to 6.0.3 (#70), on its own branch because the Dependabot one conflicted with `main` after #72. The range stays `~` (patches only): `typescript-eslint` 8.72 accepts TypeScript below 6.1, so a caret range could let a future 6.1 break the lint step. No `tsconfig` option needed changing. `make verify`: 15 of 15 checks (typecheck and build clean, vitest 257 passed, npm audit 0 vulnerabilities, pytest 711 passed).
 
+## Stage 22: README screenshots
+
+### 96. Four pictures from the demo
+
+`scripts/screenshots.py`, run as `make screenshots` while `make demo` serves the console, signs in through the real form as the owner, Acme's admin and Globex's admin (passwords read from `.demo/`, never printed), opens four pages and captures them over WebDriver BiDi: the platform overview (also the README's first image), Acme's security events filtered to incidents over 30 days, the Acme account locked by an operator (found through `GET /admin/users?locked=true`), and Globex's overview. A preload script sets the dark theme and English before the console starts; a page counts as loaded when its heading shows and no skeleton is left. `make help` now says three organizations. Run three times against the same demo: four pictures, 41 to 45 KB each, Firefox and its temporary profile removed afterwards. The pictures and a README section for them wait for the interface redesign that comes next, so they are not committed yet. `make verify`: 15 of 15 checks (ruff and format now include `scripts/screenshots.py`, vitest 257 passed, pytest 711 passed).
+
 ## Stage 23: Redesign, part one
 
 ### 97. Tokens, shell and overview

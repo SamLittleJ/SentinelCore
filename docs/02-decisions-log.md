@@ -741,6 +741,14 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Kept on purpose.** `hash_password` and `verify_password` only forward to `pwdlib`, but they keep password hashing in one place. The audit and event pairs in the services stay as they are: folding them would touch the sealed audit history for little gain.
 - **A new file marks the build dirty.** `REVISION` in the `Makefile` read only `git diff`, so an image built with a new, uncommitted file under `backend/app` got the clean commit's tag. It now reads `git status --porcelain`, which also sees new files and still ignores what `.gitignore` and `.git/info/exclude` leave out.
 
+## README screenshots
+
+- **Taken from a running demo.** `make screenshots` photographs the console that `make demo` serves, instead of seeding its own database on other ports. The demo's data and passwords already exist in `.demo/`, so the script needs no copy of the seeding and no second backend; it fails with a hint when nothing answers at `localhost:5173`.
+- **WebDriver BiDi, no new dependency.** Headless Firefox is driven over WebDriver BiDi with `websockets`, already in the backend's environment. A page inside an `iframe`, the first idea, no longer loads: the console forbids framing (`frame-ancestors 'none'`) in development too.
+- **Four dark pictures, in English.** The platform overview, Acme's incidents with their MITRE ATT&CK badges, the account locked this morning, and Globex's admin view, at 1440×900. ImageMagick, when installed, reduces them to 256 colours without dithering (dithering speckled the dark backgrounds), about 45 KB each; without it they stay as Firefox wrote them.
+- **Local only.** Screenshots are not taken in CI: they change whenever the interface does, and a reviewer judges them by eye.
+- **The pictures wait for the redesign.** The interface is being redesigned next, so the script lands first and the pictures follow, taken from the new interface.
+
 ## Console redesign
 
 - **Why.** The console read as generated: uppercase, letter-spaced monospace captions everywhere, a breadcrumb above every title repeating the page's number, navigation numbered 01 to 06, a navy and electric-blue palette, identical rounded cards, and a threat band of coloured squares at the top of every page that decorated more than it informed.
