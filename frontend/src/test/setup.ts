@@ -22,7 +22,7 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 })
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 
 beforeEach(async () => {
   localStorage.clear()
