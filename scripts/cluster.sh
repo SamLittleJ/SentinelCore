@@ -42,7 +42,7 @@ create_cluster() {
     kind export kubeconfig --name "$CLUSTER" --kubeconfig "$KUBECONFIG" >/dev/null
   else
     say "Creating the kind cluster $CLUSTER"
-    kind create cluster --config "$ROOT/kind/cluster.yaml" --kubeconfig "$KUBECONFIG" --wait 2m
+    kind create cluster --config "$ROOT/kind/kind-config.yaml" --kubeconfig "$KUBECONFIG" --wait 2m
   fi
   chmod 600 "$KUBECONFIG"
   kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE"

@@ -14,7 +14,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PATH="$("$ROOT/scripts/tools.sh"):$PATH"
 cd "$ROOT"
 
-# The cluster's version (kind/cluster.yaml), and its schemas pinned to one
+# The cluster's version (kind/kind-config.yaml), and its schemas pinned to one
 # commit of the repository kubeconform reads them from, so a change there
 # cannot change the result.
 KUBERNETES_VERSION=1.35.0

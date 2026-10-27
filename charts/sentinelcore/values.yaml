@@ -43,7 +43,7 @@ backend:
 
 console:
   replicas: 1
-  # kind maps it to 127.0.0.1:8080 (kind/cluster.yaml).
+  # kind maps it to 127.0.0.1:8080 (kind/kind-config.yaml).
   nodePort: 30080
   resources:
     requests:

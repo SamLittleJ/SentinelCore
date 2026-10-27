@@ -13,7 +13,7 @@ KIND_VERSION=v0.31.0
 KIND_SHA256=eb244cbafcc157dff60cf68693c14c9a75c4e6e6fedaf9cd71c58117cb93e3fa
 HELM_VERSION=v3.19.0
 HELM_SHA256=a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496
-# Within one minor version of the cluster's (kind/cluster.yaml), as
+# Within one minor version of the cluster's (kind/kind-config.yaml), as
 # Kubernetes supports.
 KUBECTL_VERSION=v1.35.7
 KUBECTL_SHA256=12e97f9d23a9f6cbb87b89becd6bd291e1a858a3379a4e11e2c822c4c1530052
