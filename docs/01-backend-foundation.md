@@ -5368,3 +5368,27 @@ Every policy has `failurePolicy: Fail`. With Kyverno's Service pointing nowhere,
 - Kyverno unreachable: the probe pod is refused. Scaled to zero: its webhooks are gone and the probe is admitted (T-73).
 - `make deploy-lint` also validates the chart as registry mode renders it.
 
+## Phase R1: independent evaluation
+
+### 423. The rules on data not written for them
+
+`backend/simulator/rba.py` (`make evaluate-rba`, `scripts/evaluate-rba.sh`) replays the *Login Data Set for Risk-Based Authentication* (Wiefling et al., 2022, CC BY 4.0) through a SentinelCore running on a fresh `sentinelcore_eval` database, and writes `docs/evaluation/independent-rba.md` and `.json`. The data (1.1 GB, 31,269,264 sign-ins of 4,304,857 users from 2020-02-03 to 2021-02-28) is downloaded once into `.rba/` and refused unless its SHA-256 matches. Of its two labels, 3,096,977 sign-ins come from addresses on a list of known attackers (82,975 addresses), and 141 sign-ins of 138 users are takeovers confirmed by the service's incident response.
+
+Over the last 360 days of the data, experiment A takes the 116 users with a takeover there (22 more had theirs only before) and 20,000 others drawn in proportion to how often they sign in, as accounts of one organization written directly to the database; experiment B takes every sign-in of three random weeks (1,592,494), each in its own organization. Both go through the ingestion API, with the backend's rate limit raised for the run; their times are moved to end an hour before it. The thresholds are the application's settings.
+
+### 424. Results (seed 42)
+
+- **Unfamiliar network and device (T1078).** 9 of the 118 successful takeover sign-ins are flagged (7.6%, 95% CI 4.1–13.9%). Most takeover victims have almost no history: only 29 of those sign-ins came after the three successful sign-ins in 90 days the rule needs to compare with, and of those it flags 9 (31.0%, 17.3–49.2%). The rule raised 2,517 alerts on 78,842 sign-ins: 31.8 false alarms per 1,000, a precision of 0.4%.
+- **Dormant account.** 43.5 alerts per 1,000 sign-ins: most of the sampled users sign in a few times a year. The data has no label to judge them.
+- **Password spray (T1110.003).** No attacker address in any of the three weeks failed on more than five emails within 15 minutes, half the rule's threshold of ten: the data holds no spray of the shape the rule looks for, and the rule flags none (recall 0 of about 4,300 attacker addresses a week), with one false alarm in each of two weeks.
+- **B1, this application's lockout, replayed.** It would deny 50–53% of the attacker addresses' attempts, and 32–46 sign-ins a week that would have succeeded, of 22–35 legitimate users (about 0.02% of their sign-ins).
+
+### 425. What the data can and cannot show
+
+The synthesis generated a new address for each distinct real one, so two addresses of one real network rarely share a /24: on this data the T1078 rule recognises little more than exact addresses, which raises its false alarms. The times contain randomness, which may spread out bursts. The spray result therefore says that these attackers try a few emails each, slowly (the simulator's `slow-spray` variant, which also passes), not that sprays of the rule's shape pass. The B1 metric was first defined over every attempt from an address not marked as an attacker; the first run showed that most such attempts fail (the data's sign-ins fail 60% of the time), so many are attacks the label misses, and the metric now counts only sign-ins that would have succeeded. The thresholds were not changed.
+
+### 426. Local validation
+
+- `tests/test_rba.py`: 13 tests (Wilson intervals, proportional strata, weeks, the plan's window, the data's end, the event and its time, the lockout replay, the spray peak, eligibility, and two end-to-end runs through the API: a takeover from a new network and device caught and matched; a spraying address flagged and a slow one not). Mutations 9/9 caught; three first survived (every alert counted as a spray flag, takeovers after the window counted as before it, the spray peak without its window) and are caught by tests added for them.
+- `make evaluate-rba`: 51 minutes. A first run was stopped at its start, since `rba.py` was being mutated for the checks above as it loaded; two full runs followed with the same plan, the second after the B1 metric fix, with identical results for everything else; the report's `-dirty` commit is the working tree of this branch, whose `rba.py` differs from the committed one only by a `# nosec B105` comment added after the run.
+
