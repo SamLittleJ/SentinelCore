@@ -41,7 +41,7 @@ export function SearchForm({ label, submitLabel, clearLabel, value, onSubmit }: 
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={label}
-          className="pr-8 font-mono text-xs"
+          className="pr-8"
           autoComplete="off"
           spellCheck={false}
         />

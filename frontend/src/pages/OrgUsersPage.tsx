@@ -96,22 +96,22 @@ function UsersTable({ users }: { users: User[] }) {
       <table aria-label={t('users.tableLabel')} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('users.user')}
             </th>
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('users.role')}
             </th>
             {organizationOf && (
-              <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+              <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
                 {t('organizations.column')}
               </th>
             )}
             {/* On phones the state moves under the email, so it stays in view. */}
-            <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
               {t('users.state')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
               {t('users.memberSince')}
             </th>
           </tr>
@@ -123,7 +123,7 @@ function UsersTable({ users }: { users: User[] }) {
               onClick={(event) => openRow(event, user)}
               className="cursor-pointer border-b transition-colors last:border-b-0 hover:bg-accent/40"
             >
-              <td className="min-w-56 px-4 py-2.5">
+              <td className="min-w-56 px-4 py-2">
                 <div className="flex flex-col gap-0.5">
                   <Link
                     to={`/org/users/${user.id}`}
@@ -132,7 +132,7 @@ function UsersTable({ users }: { users: User[] }) {
                   >
                     {user.username}
                   </Link>
-                  <span className="font-mono text-xs text-muted-foreground">{user.email}</span>
+                  <span className="text-xs text-muted-foreground">{user.email}</span>
                   <span className="mt-1 flex flex-wrap items-center gap-2 sm:hidden">
                     <AccountState user={user} />
                     {organizationOf && (
@@ -143,16 +143,16 @@ function UsersTable({ users }: { users: User[] }) {
                   </span>
                 </div>
               </td>
-              <td className="px-4 py-2.5 whitespace-nowrap">{t(`roles.${user.role}`)}</td>
+              <td className="px-4 py-2 whitespace-nowrap">{t(`roles.${user.role}`)}</td>
               {organizationOf && (
-                <td className="hidden max-w-40 truncate px-4 py-2.5 sm:table-cell">
+                <td className="hidden max-w-40 truncate px-4 py-2 sm:table-cell">
                   {organizationOf(user.organization_id)}
                 </td>
               )}
-              <td className="hidden px-4 py-2.5 sm:table-cell">
+              <td className="hidden px-4 py-2 sm:table-cell">
                 <AccountState user={user} />
               </td>
-              <td className="hidden px-4 py-2.5 font-mono text-xs whitespace-nowrap text-muted-foreground md:table-cell">
+              <td className="hidden px-4 py-2 whitespace-nowrap text-muted-foreground tabular-nums md:table-cell">
                 <time dateTime={user.created_at} title={format.dateTime(user.created_at)}>
                   {format.date(user.created_at)}
                 </time>

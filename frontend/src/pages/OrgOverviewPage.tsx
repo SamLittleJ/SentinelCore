@@ -400,9 +400,9 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
                   {describe(event)}
                   {techniqueBadge(event)}
                 </span>
-                <span className="flex max-w-full gap-3 truncate font-mono text-xs text-muted-foreground">
+                <span className="flex max-w-full gap-3 truncate text-xs text-muted-foreground">
                   <span>{accountLabel(event, t)}</span>
-                  <span>{event.ip_address ?? t('orgLog.none')}</span>
+                  <span className="font-mono">{event.ip_address ?? t('orgLog.none')}</span>
                 </span>
               </div>
               <time
@@ -465,16 +465,16 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
       <table aria-label={t('orgOverview.byLevel')} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('organizations.organization')}
             </th>
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('orgOverview.level')}
             </th>
-            <th scope="col" className="px-4 py-2.5 text-right font-medium">
+            <th scope="col" className="px-4 py-2 text-right font-medium">
               {t('orgOverview.incidents24h')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 text-right font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 text-right font-medium sm:table-cell">
               {t('orgOverview.warnings24h')}
             </th>
           </tr>
@@ -482,7 +482,7 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
         <tbody>
           {levels.map((level) => (
             <tr key={level.id ?? 'platform'} className="border-b last:border-b-0">
-              <td className="min-w-40 px-4 py-2.5">
+              <td className="min-w-40 px-4 py-2">
                 <span className="flex flex-wrap items-center gap-2">
                   {level.id === null ? (
                     <span className="text-muted-foreground">{t('organizations.platform')}</span>
@@ -503,7 +503,7 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
                   )}
                 </span>
               </td>
-              <td className="px-4 py-2.5 whitespace-nowrap">
+              <td className="px-4 py-2 whitespace-nowrap">
                 {/* The level is written out, never shown by color alone. */}
                 <span className="flex items-center gap-2">
                   <span aria-hidden className={cn('size-2 rounded-full', LEVEL_DOTS[level.threat_level])} />
@@ -512,10 +512,10 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
                   </span>
                 </span>
               </td>
-              <td className="px-4 py-2.5 text-right font-mono text-xs tabular-nums">
+              <td className="px-4 py-2 text-right tabular-nums">
                 {format.number(level.last_24h.incident)}
               </td>
-              <td className="hidden px-4 py-2.5 text-right font-mono text-xs tabular-nums sm:table-cell">
+              <td className="hidden px-4 py-2 text-right tabular-nums sm:table-cell">
                 {format.number(level.last_24h.warn)}
               </td>
             </tr>
@@ -567,7 +567,7 @@ function DetectedTechniques({ summary }: { summary: SummaryQuery }) {
                 <span className="font-mono text-xs text-brand">{entry.technique}</span>
                 <span className="truncate text-xs text-muted-foreground">{techniqueName(entry.technique)}</span>
               </span>
-              <span className="font-mono text-xs tabular-nums">{format.number(entry.alerts)}</span>
+              <span className="tabular-nums">{format.number(entry.alerts)}</span>
             </span>
             <span aria-hidden className="h-1.5 rounded-full bg-muted">
               <span
@@ -627,7 +627,7 @@ function FailedLoginSources({ summary }: { summary: SummaryQuery }) {
                 style={{ width: `${(source.failed_logins / largest) * 100}%` }}
               />
             </span>
-            <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="text-right tabular-nums text-muted-foreground">
               {format.number(source.failed_logins)}
             </span>
           </Link>

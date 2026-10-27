@@ -41,14 +41,14 @@ export function LogTable<Item extends { id: number; created_at: string }>({
       <table aria-label={label} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('orgLog.time')}
             </th>
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('orgLog.event')}
             </th>
             {columns.map((column) => (
-              <th key={column.header} scope="col" className="px-4 py-2.5 font-medium">
+              <th key={column.header} scope="col" className="px-4 py-2 font-medium">
                 {column.header}
               </th>
             ))}
@@ -61,12 +61,12 @@ export function LogTable<Item extends { id: number; created_at: string }>({
               onClick={() => onSelect(item)}
               className="cursor-pointer border-b transition-colors last:border-b-0 hover:bg-accent/40"
             >
-              <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap text-muted-foreground">
+              <td className="px-4 py-2 whitespace-nowrap text-muted-foreground tabular-nums">
                 <time dateTime={item.created_at} title={format.relative(item.created_at)}>
                   {format.dateTime(item.created_at)}
                 </time>
               </td>
-              <td className="min-w-56 px-4 py-2.5">
+              <td className="min-w-56 px-4 py-2">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   {/* Its click, also from Enter or Space, bubbles to the row. */}
                   <button
@@ -79,7 +79,7 @@ export function LogTable<Item extends { id: number; created_at: string }>({
                 </div>
               </td>
               {columns.map((column) => (
-                <td key={column.header} className={cn('px-4 py-2.5', column.className)}>
+                <td key={column.header} className={cn('px-4 py-2', column.className)}>
                   {column.cell(item)}
                 </td>
               ))}

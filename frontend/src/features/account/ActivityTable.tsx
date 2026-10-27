@@ -20,16 +20,16 @@ export function ActivityTable({ events }: { events: ActivityEvent[] }) {
       <table aria-label={t('activity.tableLabel')} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('activity.event')}
             </th>
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('activity.severity')}
             </th>
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('activity.ipAddress')}
             </th>
-            <th scope="col" className="px-4 py-2.5 text-right font-medium">
+            <th scope="col" className="px-4 py-2 text-right font-medium">
               {t('activity.time')}
             </th>
           </tr>
@@ -37,14 +37,14 @@ export function ActivityTable({ events }: { events: ActivityEvent[] }) {
         <tbody>
           {events.map((event) => (
             <tr key={event.id} className="border-b last:border-b-0">
-              <td className="min-w-56 px-4 py-2.5">{describe(event)}</td>
-              <td className="px-4 py-2.5">
+              <td className="min-w-56 px-4 py-2">{describe(event)}</td>
+              <td className="px-4 py-2">
                 <SeverityBadge severity={event.severity} />
               </td>
-              <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+              <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
                 {event.ip_address ?? '—'}
               </td>
-              <td className="px-4 py-2.5 text-right whitespace-nowrap text-muted-foreground">
+              <td className="px-4 py-2 text-right whitespace-nowrap text-muted-foreground">
                 <time dateTime={event.created_at} title={format.relative(event.created_at)}>
                   {format.dateTime(event.created_at)}
                 </time>

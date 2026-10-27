@@ -137,6 +137,9 @@ describe('organization account page', () => {
     const title = screen.getByRole('heading', { name: 'mihai.pop', level: 1 }).parentElement
     expect(title).toHaveTextContent('mihai.pop@example.com')
     expect(title).toHaveTextContent('Activ')
+    expect(screen.getByText('Rol', { selector: 'dt' }).nextElementSibling).toHaveTextContent(
+      'Utilizator',
+    )
     const table = await screen.findByRole('table', { name: 'Istoricul contului' })
     const [alert, first, second] = within(table).getAllByRole('row').slice(1)
     expect(alert).toHaveTextContent('Tehnica MITRE ATT&CK T1078')

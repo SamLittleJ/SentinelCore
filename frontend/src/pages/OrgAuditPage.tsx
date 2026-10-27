@@ -79,7 +79,7 @@ export function OrgAuditPage() {
               {
                 header: t('orgLog.account'),
                 cell: (log) => accountLabel(log, t),
-                className: 'max-w-56 truncate font-mono text-xs',
+                className: 'max-w-56 truncate',
               },
               {
                 header: t('orgLog.ipAddress'),

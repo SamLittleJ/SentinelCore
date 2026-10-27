@@ -48,7 +48,7 @@ export function LogDetails({ record, title, badge, fields, actions, onClose }: L
 
           <div className="flex flex-wrap items-center gap-3">
             {badge}
-            <time dateTime={record.created_at} className="font-mono text-xs text-muted-foreground">
+            <time dateTime={record.created_at} className="text-xs text-muted-foreground tabular-nums">
               {format.dateTime(record.created_at)} · {format.relative(record.created_at)}
             </time>
           </div>

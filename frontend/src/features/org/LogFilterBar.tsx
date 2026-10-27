@@ -172,7 +172,7 @@ function SeverityToggles({
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   const { t } = useTranslation()
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border bg-card py-1 pr-1 pl-2.5 font-mono text-xs">
+    <span className="inline-flex items-center gap-1 rounded-md border bg-card py-1 pr-1 pl-2.5 text-xs">
       {label}
       <button
         type="button"

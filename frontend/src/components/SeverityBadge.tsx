@@ -5,7 +5,7 @@ import type { Severity } from '@/features/account/api'
 import { cn } from '@/lib/utils'
 
 const STYLES: Record<Severity, { icon: LucideIcon; className: string }> = {
-  info: { icon: Info, className: 'bg-sev-info-bg text-sev-info' },
+  info: { icon: Info, className: 'text-muted-foreground' },
   warn: { icon: TriangleAlert, className: 'bg-sev-warn-bg text-sev-warn' },
   incident: { icon: ShieldAlert, className: 'bg-sev-incident-bg text-sev-incident' },
 }

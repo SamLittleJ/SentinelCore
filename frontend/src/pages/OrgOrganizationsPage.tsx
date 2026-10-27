@@ -345,20 +345,20 @@ function OrganizationsTable({
       <table aria-label={t('organizations.tableLabel')} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               {t('organizations.organization')}
             </th>
             {/* On phones the state and members move under the name. */}
-            <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">
               {t('organizations.state')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 text-right font-medium sm:table-cell">
+            <th scope="col" className="hidden px-4 py-2 text-right font-medium sm:table-cell">
               {t('organizations.members')}
             </th>
-            <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">
+            <th scope="col" className="hidden px-4 py-2 font-medium md:table-cell">
               {t('organizations.createdAt')}
             </th>
-            <th scope="col" className="px-4 py-2.5 font-medium">
+            <th scope="col" className="px-4 py-2 font-medium">
               <span className="sr-only">{t('organizations.actions')}</span>
             </th>
           </tr>
@@ -368,7 +368,7 @@ function OrganizationsTable({
             const suspended = organization.suspended_at !== null
             return (
               <tr key={organization.id} className="border-b last:border-b-0">
-                <td className="min-w-48 px-4 py-2.5">
+                <td className="min-w-48 px-4 py-2">
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{organization.name}</span>
                     <span className="font-mono text-xs text-muted-foreground">{organization.slug}</span>
@@ -380,18 +380,18 @@ function OrganizationsTable({
                     </span>
                   </div>
                 </td>
-                <td className="hidden px-4 py-2.5 sm:table-cell">
+                <td className="hidden px-4 py-2 sm:table-cell">
                   <OrganizationStateBadge suspended={suspended} />
                 </td>
-                <td className="hidden px-4 py-2.5 text-right font-mono text-xs tabular-nums sm:table-cell">
+                <td className="hidden px-4 py-2 text-right tabular-nums sm:table-cell">
                   {format.number(organization.members)}
                 </td>
-                <td className="hidden px-4 py-2.5 font-mono text-xs whitespace-nowrap text-muted-foreground md:table-cell">
+                <td className="hidden px-4 py-2 whitespace-nowrap text-muted-foreground tabular-nums md:table-cell">
                   <time dateTime={organization.created_at} title={format.dateTime(organization.created_at)}>
                     {format.date(organization.created_at)}
                   </time>
                 </td>
-                <td className="px-4 py-2.5">
+                <td className="px-4 py-2">
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button
                       variant="outline"
