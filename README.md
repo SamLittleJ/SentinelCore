@@ -2,6 +2,8 @@
 
 An API-first platform for identity and access management, audit logging and security event monitoring (SIEM-light), built as a modular monolith.
 
+![The platform owner's overview in the demo: an active incident, the newest incidents, the day's counts and events per hour](docs/images/platform-overview.png)
+
 ## Repository layout
 
 ```text
@@ -82,9 +84,25 @@ Each run starts from scratch with the same seed, so the organizations and their 
 
 A short walk through the organizations:
 
-1. As the owner, the console is the **Platform**: the overview ranks Acme (an active incident), Globex and Initech (each with the alert its admin raised by joining) and the platform's own failed sign-ins. The organization picker in the sidebar narrows every page to one of them.
+1. As the owner, the console is the **Platform**: the overview ranks Acme (an active incident), Globex and Initech (each with the alert its admin raised by joining) and the platform's own failed sign-ins. The organization picker at the top of each page narrows it to one of them.
 2. As Globex's admin, the console is **Globex**: its people and events only, nothing of Acme's.
 3. As Initech's admin, sign-in is refused, as for a deactivated account: the organization is suspended.
+
+### What it looks like
+
+All four pictures come from `make demo`, taken by `make screenshots`.
+
+Acme's security events over 30 days, filtered to incidents, each detection with its MITRE ATT&CK technique:
+
+![Acme's security events filtered to incidents](docs/images/acme-events.png)
+
+The Acme account an operator locked today, with the actions an admin may take and the account's history:
+
+![A locked Acme account](docs/images/acme-locked-account.png)
+
+Globex's overview, as its admin sees it: Globex's own records only, nothing of Acme's:
+
+![Globex's overview](docs/images/globex-overview.png)
 
 What to know about the data:
 

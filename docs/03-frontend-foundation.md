@@ -890,3 +890,13 @@ The security events, audit log, users, account, API keys and organizations pages
 
 Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 4 of 4: the MITRE screen-reader label removed, its tooltip removed, the severity word removed, the account page's field labels removed (the last one was first missed and the test was strengthened). Real Firefox screenshots on `make demo` of the six pages, light and dark at 1440×900 and at phone width.
 
+## Stage 25: Redesign, part three
+
+### 99. Account pages, sign-in and the README's pictures
+
+`navigation.ts` names `/me` with the new `nav.myProfile` ("My profile", "Profilul meu"), and `MyOverviewPage` uses it as its title; `overview.greeting` is removed and `overview.profile` becomes "Account details". The page's counts follow the overview's `SummaryStrip` (ruled row, sentence-case labels, `text-2xl` tabular figures), and the details lose their `Card`. `PublicShell` shows `Wordmark` instead of the "SC" square; the invitation page's summary loses its card and its monospace email. `PageHeader` hides the owner's organization picker on `/org/organizations`. The organizations page and the overview's "Suspended" tag use the same `rounded` badge as the other states. `label-mono` and `--font-display` leave `index.css`. Tests that waited for the greeting wait for "My profile"; the organizations test checks that no picker is shown, and the sign-in test checks the name above the form.
+
+`make screenshots`, run on a fresh `make demo`, wrote the four pictures to `docs/images/` (42 to 61 KB), now committed; the README shows the overview under its introduction and the other three in the Demo section, whose walk-through now places the picker at the top of each page.
+
+Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 5 of 5: the picker back on the organizations page, the picker hidden everywhere, the menu's "Overview" back on `/me`, the page title changed, the sign-in logo removed (the last one was first missed and the sign-in test was strengthened). Real Firefox screenshots on `make demo` of the profile, sessions, activity, sign-in and organizations pages, light and dark at 1440×900 and at phone width.
+

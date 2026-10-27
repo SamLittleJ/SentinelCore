@@ -11,6 +11,7 @@ const ro = {
   nav: {
     label: 'Navigare principală',
     overview: 'Prezentare',
+    myProfile: 'Profilul meu',
     mySessions: 'Sesiunile mele',
     myActivity: 'Activitatea mea',
     securityEvents: 'Evenimente de securitate',
@@ -82,8 +83,7 @@ const ro = {
     },
   },
   overview: {
-    greeting: 'Bun venit, {{name}}',
-    profile: 'Profil',
+    profile: 'Detaliile contului',
     username: 'Nume de utilizator',
     email: 'Email',
     role: 'Rol',

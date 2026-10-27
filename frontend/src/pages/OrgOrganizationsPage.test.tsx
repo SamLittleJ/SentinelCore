@@ -44,6 +44,7 @@ describe('organizations page', () => {
     serveOrganizations(() => [acme, initech])
     const { table } = await openAsOwner()
 
+    expect(screen.queryByRole('combobox', { name: 'Organizația afișată' })).not.toBeInTheDocument()
     const [first, second] = rows(table)
     expect(first).toHaveTextContent('Acme')
     expect(first).toHaveTextContent('acme')

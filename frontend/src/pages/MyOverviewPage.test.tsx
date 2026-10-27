@@ -110,7 +110,7 @@ describe('my overview page', () => {
     renderApp('/me')
 
     expect(await screen.findByText('Indisponibil')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Bun venit, elena.radu' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Profilul meu' })).toBeInTheDocument()
     expect(stat('Alerte, ultimele 30 de zile')).toHaveTextContent('0')
   })
 })

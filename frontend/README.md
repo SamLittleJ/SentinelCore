@@ -64,7 +64,7 @@ The console's image (`Dockerfile`) serves the build with nginx and sends the sam
 
 ## Theme and translations
 
-- Type: Public Sans, bundled with the app through Fontsource; no font is loaded from a CDN. Emails, addresses and ids use the system's monospace font. The console is being redesigned as a sober monitoring tool; pages not redesigned yet still use `font-display` and `label-mono`, which go with them.
+- Type: Public Sans, bundled with the app through Fontsource; no font is loaded from a CDN. IP addresses and technical ids (MITRE codes, key prefixes, slugs, sources) use the system's monospace font; times, dates and counts use tabular figures. The console is styled as a sober monitoring tool: neutral greys, one blue accent, colour only for severity, sentence case.
 - `Ctrl+K` (`Cmd+K` on a Mac), or the search button in the sidebar, opens the command palette: jump to a page, open the user list or the event log filtered by what was typed, change the theme or the language, sign out. The palette itself makes no API requests.
 - The theme follows the system until the user picks light or dark from the account menu. Colors are defined as CSS variables in `src/index.css`; colour beyond the one blue accent marks severity only.
 - The default language is Romanian. Strings live in `src/i18n/locales/`; the English file is typed after the Romanian one, so a missing key fails the type check.

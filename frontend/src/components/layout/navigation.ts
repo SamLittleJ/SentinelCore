@@ -9,6 +9,7 @@ export type Scope = 'personal' | 'organization'
 
 export type NavKey =
   | 'nav.overview'
+  | 'nav.myProfile'
   | 'nav.mySessions'
   | 'nav.myActivity'
   | 'nav.securityEvents'
@@ -28,7 +29,7 @@ export interface NavItem {
 
 export const NAV: Record<Scope, NavItem[]> = {
   personal: [
-    { to: '/me', label: 'nav.overview', end: true },
+    { to: '/me', label: 'nav.myProfile', end: true },
     { to: '/me/sessions', label: 'nav.mySessions' },
     { to: '/me/activity', label: 'nav.myActivity' },
   ],

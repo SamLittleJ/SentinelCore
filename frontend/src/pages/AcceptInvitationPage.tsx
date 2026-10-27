@@ -151,9 +151,9 @@ function AcceptForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border bg-card px-4 py-3 text-sm">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
         <dt className="text-muted-foreground">{t('invite.email')}</dt>
-        <dd className="font-mono text-xs break-all">{invitation.email}</dd>
+        <dd className="break-all">{invitation.email}</dd>
         <dt className="text-muted-foreground">{t('invite.role')}</dt>
         <dd>{t(`roles.${invitation.role}`)}</dd>
         <dt className="text-muted-foreground">{t('invite.expires')}</dt>

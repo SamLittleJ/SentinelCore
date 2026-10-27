@@ -440,7 +440,7 @@ function OrganizationStateBadge({ suspended }: { suspended: boolean }) {
   return (
     <span
       className={cn(
-        'inline-flex rounded-full px-2 py-0.5 text-xs whitespace-nowrap',
+        'inline-flex items-center rounded px-2 py-0.5 text-xs font-medium whitespace-nowrap',
         suspended ? 'bg-sev-incident-bg text-sev-incident' : 'bg-sev-ok-bg text-sev-ok',
       )}
     >

@@ -21,7 +21,9 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, actions, className }: PageHeaderProps) {
   const { pathname } = useLocation()
   const { data: user } = useCurrentUser()
-  const picker = user?.role === 'owner' && scopeOf(pathname) === 'organization'
+  // The organizations page lists them all already; there is nothing to pick.
+  const picker =
+    user?.role === 'owner' && scopeOf(pathname) === 'organization' && pathname !== '/org/organizations'
 
   return (
     <header className={cn('flex flex-wrap items-start justify-between gap-x-6 gap-y-3', className)}>

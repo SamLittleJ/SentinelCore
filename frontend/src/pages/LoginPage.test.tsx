@@ -34,9 +34,11 @@ describe('LoginPage', () => {
     const bodies = loginResponds(204)
     const { router } = renderApp('/login')
 
+    // The same name and shield as in the console's sidebar.
+    expect(await screen.findByText('SentinelCore')).toBeInTheDocument()
     await submitLogin()
 
-    expect(await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Profilul meu' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/me')
     expect(bodies).toEqual([{ email: 'elena.radu@example.com', password: 'testpassword' }])
   })
@@ -63,7 +65,7 @@ describe('LoginPage', () => {
 
     await submitLogin()
 
-    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    await screen.findByRole('heading', { name: 'Profilul meu' })
     expect(router.state.location.pathname).toBe('/me')
   })
 
@@ -105,7 +107,7 @@ describe('LoginPage', () => {
 
     await submitLogin()
 
-    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    await screen.findByRole('heading', { name: 'Profilul meu' })
     expect(queryClient.getQueryData(['org', 'events'])).toBeUndefined()
   })
 
@@ -113,7 +115,7 @@ describe('LoginPage', () => {
     signedInAs(makeUser())
     const { router } = renderApp('/login')
 
-    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    await screen.findByRole('heading', { name: 'Profilul meu' })
     expect(router.state.location.pathname).toBe('/me')
   })
 })
