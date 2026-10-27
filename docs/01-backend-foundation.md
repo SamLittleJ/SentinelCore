@@ -5392,3 +5392,9 @@ The synthesis generated a new address for each distinct real one, so two address
 - `tests/test_rba.py`: 13 tests (Wilson intervals, proportional strata, weeks, the plan's window, the data's end, the event and its time, the lockout replay, the spray peak, eligibility, and two end-to-end runs through the API: a takeover from a new network and device caught and matched; a spraying address flagged and a slow one not). Mutations 9/9 caught; three first survived (every alert counted as a spray flag, takeovers after the window counted as before it, the spray peak without its window) and are caught by tests added for them.
 - `make evaluate-rba`: 51 minutes. A first run was stopped at its start, since `rba.py` was being mutated for the checks above as it loaded; two full runs followed with the same plan, the second after the B1 metric fix, with identical results for everything else; the report's `-dirty` commit is the working tree of this branch, whose `rba.py` differs from the committed one only by a `# nosec B105` comment added after the run.
 
+
+## Stage: Kyverno policy apply waits for its webhook
+
+### 427. The race and the retry
+
+Cluster CI failed on `main` after #80 and #81 with `connection refused` from Kyverno's policy webhook: `helm --wait` returns once Kyverno's pod is ready, but its Service may not route to it yet, so the first `kubectl apply` of `kyverno/pod-rules.yaml` is refused. `scripts/cluster.sh` now retries that apply every two seconds for a minute, then applies once more so a real error still stops `make up`. The policy itself is unchanged; a refused apply creates nothing, so retrying is safe.
