@@ -900,3 +900,9 @@ Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, 
 
 Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 5 of 5: the picker back on the organizations page, the picker hidden everywhere, the menu's "Overview" back on `/me`, the page title changed, the sign-in logo removed (the last one was first missed and the sign-in test was strengthened). Real Firefox screenshots on `make demo` of the profile, sessions, activity, sign-in and organizations pages, light and dark at 1440×900 and at phone width.
 
+## Stage 26: Dependency updates
+
+### 100. MSW 3
+
+MSW moves from 2.15.0 to 3.0.3 (#55), on its own branch as for TypeScript 6. The one change it needs is in `src/test/setup.ts`: the `onUnhandledRequest` option of `server.listen` is now `onUnhandledFrame`, since MSW 3 handles WebSocket connections as well as requests. The value stays `'error'`. A throwaway test that fetched an address with no handler still failed with MSW's "intercepted a request without a matching request handler" error, and with `'bypass'` it failed on the network instead, so the strategy is in effect. The range stays `^`: MSW is used only by the tests and no other tool constrains its version. `make verify`: 15 of 15 checks (vitest 258 passed, npm audit 0 vulnerabilities, pytest 711 passed).
+
