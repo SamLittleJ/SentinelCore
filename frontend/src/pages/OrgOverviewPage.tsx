@@ -15,6 +15,7 @@ import type {
   OrganizationLevel,
   SecurityEvent,
   SecuritySummary,
+  SeverityCounts,
   ThreatLevel,
 } from '@/features/org/api'
 import { DEFAULT_RANGE, type LogFilters, writeLogFilters } from '@/features/org/filters'
@@ -57,7 +58,6 @@ export function OrgOverviewPage() {
   const incidents = useRecentIncidents()
   // Only the owner's summary of the whole platform lists organizations.
   const levels = summary.data?.organizations ?? null
-
   const refreshing = summary.isFetching || incidents.isFetching
   const refresh = () => {
     // Both together, so the counts and the incidents describe the same moment.
@@ -69,43 +69,46 @@ export function OrgOverviewPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title={levels ? t('orgOverview.platformTitle') : t('orgOverview.title')}
-        description={levels ? t('orgOverview.platformSubtitle') : t('orgOverview.subtitle')}
         actions={
-          <div className="flex flex-col items-start gap-1 sm:items-end">
-            <Button variant="outline" disabled={refreshing} onClick={refresh}>
-              <RefreshCw aria-hidden className={cn(refreshing && 'animate-spin')} />
-              {t('orgLog.refresh')}
-            </Button>
+          <div className="flex items-center gap-3">
             {summary.data && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {t('orgOverview.updated')}{' '}
                 <time dateTime={summary.data.generated_at} title={format.dateTime(summary.data.generated_at)}>
                   {format.relative(summary.data.generated_at)}
                 </time>
               </p>
             )}
+            <Button variant="outline" disabled={refreshing} onClick={refresh}>
+              <RefreshCw aria-hidden className={cn(refreshing && 'animate-spin')} />
+              {t('orgLog.refresh')}
+            </Button>
           </div>
         }
       />
 
-      <SummaryTiles summary={summary} />
+      <ThreatStatus summary={summary} />
 
-      {levels && (
-        <section aria-labelledby="organizations-by-level" className="flex flex-col gap-3">
-          <SectionHeading id="organizations-by-level" help={t('orgOverview.byLevelHelp')}>
-            {t('orgOverview.byLevel')}
-          </SectionHeading>
-          <OrganizationsByLevel levels={levels} />
-        </section>
-      )}
+      <section aria-labelledby="recent-incidents" className="flex flex-col gap-3">
+        <SectionHeading id="recent-incidents" help={t('orgOverview.incidentsHelp')}>
+          {t('orgOverview.incidents')}
+        </SectionHeading>
+        <RecentIncidents query={incidents} />
+      </section>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <section aria-labelledby="recent-incidents" className="flex flex-col gap-3">
-          <SectionHeading id="recent-incidents" help={t('orgOverview.incidentsHelp')}>
-            {t('orgOverview.incidents')}
-          </SectionHeading>
-          <RecentIncidents query={incidents} />
-        </section>
+      <SummaryStrip summary={summary} />
+
+      <HourlyChart summary={summary} />
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        {levels && (
+          <section aria-labelledby="organizations-by-level" className="flex flex-col gap-3">
+            <SectionHeading id="organizations-by-level" help={t('orgOverview.byLevelHelp')}>
+              {t('orgOverview.byLevel')}
+            </SectionHeading>
+            <OrganizationsByLevel levels={levels} />
+          </section>
+        )}
 
         <section aria-labelledby="detected-techniques" className="flex flex-col gap-3">
           <SectionHeading id="detected-techniques" help={t('orgOverview.techniquesHelp')}>
@@ -113,22 +116,22 @@ export function OrgOverviewPage() {
           </SectionHeading>
           <DetectedTechniques summary={summary} />
         </section>
-      </div>
 
-      <section aria-labelledby="failed-login-sources" className="flex flex-col gap-3">
-        <SectionHeading id="failed-login-sources" help={t('orgOverview.sourcesHelp')}>
-          {t('orgOverview.sources')}
-        </SectionHeading>
-        <FailedLoginSources summary={summary} />
-      </section>
+        <section aria-labelledby="failed-login-sources" className="flex flex-col gap-3">
+          <SectionHeading id="failed-login-sources" help={t('orgOverview.sourcesHelp')}>
+            {t('orgOverview.sources')}
+          </SectionHeading>
+          <FailedLoginSources summary={summary} />
+        </section>
+      </div>
     </div>
   )
 }
 
 function SectionHeading({ id, help, children }: { id: string; help: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <h2 id={id} className="font-display text-xl font-semibold">
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+      <h2 id={id} className="text-base font-semibold">
         {children}
       </h2>
       <p className="text-sm text-muted-foreground">{help}</p>
@@ -143,24 +146,70 @@ interface SummaryQuery {
   refetch: () => unknown
 }
 
-const SEVERITY_TILES: { severity: Severity; icon: LucideIcon; iconClass: string }[] = [
+/** The organization's level and its latest detection, first thing on the
+ * page. Counts only, from the summary, which is not audited; the link opens
+ * the event log, which is. */
+function ThreatStatus({ summary }: { summary: SummaryQuery }) {
+  const { t } = useTranslation()
+  const format = useFormatters()
+
+  // The numbers below show the loading state and the retry.
+  if (!summary.data) return null
+  const data = summary.data
+  const level = data.threat_level
+  const latest = data.latest_detection
+  const latestTypes =
+    latest && data.techniques_7d.find((entry) => entry.technique === latest.technique)?.event_types
+
+  return (
+    <section aria-label={t('band.label')} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      {/* The level is written out, never shown by color alone. */}
+      <p className={cn('flex items-center gap-2 text-lg font-semibold', LEVEL_TEXT[level])}>
+        <span aria-hidden className={cn('size-2.5 rounded-full', LEVEL_DOTS[level])} />
+        {t(`band.levels.${level}`)}
+      </p>
+      <p className="text-muted-foreground">
+        {latest ? (
+          <>
+            {t('band.latest')}{' '}
+            <Link
+              to={eventsLink({ range: '24h', types: latestTypes ?? [] })}
+              className="text-foreground underline-offset-4 hover:underline"
+            >
+              {latest.technique} {techniqueName(latest.technique)}
+            </Link>
+            {', '}
+            <time dateTime={latest.created_at} title={format.dateTime(latest.created_at)}>
+              {format.time(latest.created_at)}
+            </time>
+          </>
+        ) : (
+          t('band.noDetection')
+        )}
+      </p>
+    </section>
+  )
+}
+
+const SEVERITY_ICONS: { severity: Severity; icon: LucideIcon; iconClass: string }[] = [
   { severity: 'incident', icon: ShieldAlert, iconClass: 'text-sev-incident' },
   { severity: 'warn', icon: TriangleAlert, iconClass: 'text-sev-warn' },
   { severity: 'info', icon: Info, iconClass: 'text-sev-info' },
 ]
 
-/** The headline counts. Each opens the records behind it. */
-function SummaryTiles({ summary }: { summary: SummaryQuery }) {
+/** The headline counts in one ruled row. Each opens the records behind it. */
+function SummaryStrip({ summary }: { summary: SummaryQuery }) {
   const { t } = useTranslation()
   const format = useFormatters()
+  const grid = 'grid grid-cols-2 gap-px border-y bg-border sm:grid-cols-3 xl:grid-cols-6'
 
   if (summary.isPending) {
     return (
-      <div role="status" aria-label={t('app.loading')} className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
+      <div role="status" aria-label={t('app.loading')} className={grid}>
         {Array.from({ length: 6 }, (_, index) => (
-          <div key={index} className="flex flex-col gap-2 bg-card px-4 py-4">
+          <div key={index} className="flex flex-col gap-2 bg-background px-4 py-3">
             <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-7 w-14" />
           </div>
         ))}
       </div>
@@ -173,12 +222,9 @@ function SummaryTiles({ summary }: { summary: SummaryQuery }) {
 
   const data = summary.data
   return (
-    <ul
-      aria-label={t('orgOverview.summaryLabel')}
-      className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3"
-    >
-      {SEVERITY_TILES.map(({ severity, icon, iconClass }) => (
-        <Tile
+    <ul aria-label={t('orgOverview.summaryLabel')} className={grid}>
+      {SEVERITY_ICONS.map(({ severity, icon, iconClass }) => (
+        <Stat
           key={severity}
           to={eventsLink({ range: '24h', severities: [severity] })}
           label={t(`orgOverview.severity.${severity}`)}
@@ -187,24 +233,22 @@ function SummaryTiles({ summary }: { summary: SummaryQuery }) {
           value={format.number(data.last_24h[severity])}
           unit={t('orgOverview.in24h')}
           detail={t('orgOverview.in7d', { value: format.number(data.last_7d[severity]) })}
-          trend={data.daily.map((day) => day.counts[severity])}
-          trendClass={TREND_STYLES[severity]}
         />
       ))}
-      <Tile
+      <Stat
         to={eventsLink({ range: '24h', types: ['login_failed'] })}
         label={t('orgOverview.failedLogins')}
         value={format.number(data.failed_logins_24h)}
         unit={t('orgOverview.in24h')}
         detail={t('orgOverview.lockedLogins', { count: data.locked_logins, value: format.number(data.locked_logins) })}
       />
-      <Tile
+      <Stat
         to={usersLink('locked')}
         label={t('orgOverview.accountsLocked')}
         value={format.number(data.accounts_locked)}
         detail={t('orgOverview.accountsLockedDetail')}
       />
-      <Tile
+      <Stat
         to={usersLink('inactive')}
         label={t('orgOverview.accountsInactive')}
         value={format.number(data.users_inactive)}
@@ -214,7 +258,7 @@ function SummaryTiles({ summary }: { summary: SummaryQuery }) {
   )
 }
 
-interface TileProps {
+interface StatProps {
   to: string
   label: string
   icon?: LucideIcon
@@ -222,55 +266,92 @@ interface TileProps {
   value: string
   unit?: string
   detail: string
-  // Counts for the last 7 days, oldest first, drawn as small bars.
-  trend?: number[]
-  trendClass?: string
 }
 
-const TREND_STYLES: Record<Severity, string> = {
-  incident: 'bg-sev-incident',
-  warn: 'bg-sev-warn',
-  info: 'bg-sev-info',
-}
-
-/** Small bars scaled to the busiest day. Decorative: the tile's own text
- * gives the 24-hour and 7-day numbers. */
-function Sparkline({ values, className }: { values: number[]; className?: string }) {
-  const largest = Math.max(...values, 1)
-  return (
-    <span aria-hidden className="grid h-9 w-24 shrink-0 grid-cols-7 items-end gap-[3px]">
-      {values.map((value, index) => (
-        <span
-          key={index}
-          className={cn('rounded-[1px]', value > 0 ? className : 'bg-border')}
-          style={{ height: `${Math.max(6, (value / largest) * 100)}%` }}
-        />
-      ))}
-    </span>
-  )
-}
-
-function Tile({ to, label, icon: Icon, iconClass, value, unit, detail, trend, trendClass }: TileProps) {
+function Stat({ to, label, icon: Icon, iconClass, value, unit, detail }: StatProps) {
   return (
     <li className="flex">
       <Link
         to={to}
-        className="flex w-full flex-col gap-2 bg-card px-5 py-5 transition-colors hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
+        className="flex w-full flex-col gap-0.5 bg-background px-4 py-3 transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-inset"
       >
-        <span className="label-mono flex items-center gap-1.5 text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
           {Icon && <Icon aria-hidden className={cn('size-3.5', iconClass)} />}
           {label}
         </span>
-        <span className="flex items-end justify-between gap-3">
-          <span className="flex items-baseline gap-2">
-            <span className="font-display text-5xl leading-none font-semibold">{value}</span>
-            {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-          </span>
-          {trend && <Sparkline values={trend} className={trendClass} />}
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tabular-nums">{value}</span>
+          {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
         </span>
         <span className="text-xs text-muted-foreground">{detail}</span>
       </Link>
     </li>
+  )
+}
+
+const BAR_STYLES: Record<Severity, string> = {
+  info: 'bg-sev-info/45',
+  warn: 'bg-sev-warn',
+  incident: 'bg-sev-incident',
+}
+
+/** The last 24 hours, hour by hour, each hour's events stacked by severity
+ * and scaled to the busiest hour. The totals are read out once; the bars
+ * are for the eye. */
+function HourlyChart({ summary }: { summary: SummaryQuery }) {
+  const { t } = useTranslation()
+  const format = useFormatters()
+
+  if (!summary.data) return null
+  const { hourly, last_24h: totals } = summary.data
+  const total = (counts: SeverityCounts) => counts.info + counts.warn + counts.incident
+  const largest = Math.max(1, ...hourly.map((bucket) => total(bucket.counts)))
+
+  return (
+    <section aria-labelledby="events-per-hour" className="flex flex-col gap-3">
+      <SectionHeading id="events-per-hour" help={t('orgOverview.perHourHelp')}>
+        {t('orgOverview.perHour')}
+      </SectionHeading>
+      <p className="sr-only">
+        {t('band.totals', { incident: totals.incident, warn: totals.warn, info: totals.info })}
+      </p>
+      <div aria-hidden className="flex flex-col gap-1.5">
+        <div className="flex gap-4 text-xs text-muted-foreground">
+          {(['incident', 'warn', 'info'] as const).map((severity) => (
+            <span key={severity} className="flex items-center gap-1.5">
+              <span className={cn('size-2.5 rounded-[2px]', BAR_STYLES[severity])} />
+              {t(`severity.${severity}`)}
+            </span>
+          ))}
+        </div>
+        <div className="flex h-36 items-end gap-[3px] border-b">
+          {hourly.map((bucket) => (
+            <div
+              key={bucket.start}
+              title={t('band.hour', {
+                time: format.time(bucket.start),
+                incident: bucket.counts.incident,
+                warn: bucket.counts.warn,
+                info: bucket.counts.info,
+              })}
+              className="flex h-full flex-1 flex-col-reverse"
+            >
+              {(['info', 'warn', 'incident'] as const).map((severity) => (
+                <span
+                  key={severity}
+                  className={BAR_STYLES[severity]}
+                  style={{ height: `${(bucket.counts[severity] / largest) * 100}%` }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span>{t('band.dayAgo')}</span>
+          <span>{t('band.now')}</span>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -281,6 +362,8 @@ interface IncidentsQuery {
   refetch: () => unknown
 }
 
+/** The newest incidents, the first thing an operator acts on. Open shows a
+ * record's details, which records the read in the audit log. */
 function RecentIncidents({ query }: { query: IncidentsQuery }) {
   const { t } = useTranslation()
   const format = useFormatters()
@@ -290,8 +373,8 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
   if (query.isPending) {
     return (
       <div role="status" aria-label={t('app.loading')} className="flex flex-col gap-2">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
       </div>
     )
   }
@@ -304,42 +387,44 @@ function RecentIncidents({ query }: { query: IncidentsQuery }) {
   return (
     <div className="flex flex-col items-start gap-3">
       {items.length === 0 ? (
-        <p className="w-full rounded-lg border bg-card px-4 py-4 text-muted-foreground">
-          {t('orgOverview.noIncidents')}
-        </p>
+        <p className="w-full rounded-md border px-4 py-3 text-muted-foreground">{t('orgOverview.noIncidents')}</p>
       ) : (
-        <ol aria-label={t('orgOverview.incidents')} className="flex w-full flex-col">
-          {items.map((event, index) => (
-            <li key={event.id} className="grid grid-cols-[3.5rem_1rem_minmax(0,1fr)] gap-x-3">
-              <time
-                dateTime={event.created_at}
-                title={format.dateTime(event.created_at)}
-                className="pt-2.5 font-mono text-xs text-muted-foreground"
-              >
-                {format.time(event.created_at)}
-              </time>
-              <span aria-hidden className="flex flex-col items-center">
-                <span className="mt-3.5 size-2.5 shrink-0 rounded-full bg-sev-incident ring-4 ring-sev-incident-bg" />
-                {index < items.length - 1 && <span className="w-px flex-1 bg-border" />}
-              </span>
-              <button
-                type="button"
-                onClick={() => setSelected(event)}
-                className="mb-1 flex min-w-0 flex-col items-start gap-1 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-              >
-                <span className="flex flex-wrap items-center gap-2">
+        <ol aria-label={t('orgOverview.incidents')} className="w-full divide-y overflow-hidden rounded-md border">
+          {items.map((event) => (
+            <li
+              key={event.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-l-[3px] border-l-sev-incident py-3 pr-3 pl-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="flex flex-wrap items-center gap-2 font-medium">
                   {describe(event)}
                   {techniqueBadge(event)}
                 </span>
-                <span className="max-w-full truncate font-mono text-xs text-muted-foreground">
-                  {accountLabel(event, t)} · {event.ip_address ?? t('orgLog.none')}
+                <span className="flex max-w-full gap-3 truncate font-mono text-xs text-muted-foreground">
+                  <span>{accountLabel(event, t)}</span>
+                  <span>{event.ip_address ?? t('orgLog.none')}</span>
                 </span>
-              </button>
+              </div>
+              <time
+                dateTime={event.created_at}
+                title={format.dateTime(event.created_at)}
+                className="hidden text-sm whitespace-nowrap text-muted-foreground sm:block"
+              >
+                {format.relative(event.created_at)}
+              </time>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelected(event)}
+                aria-label={t('orgOverview.openIncident', { name: describe(event) })}
+              >
+                {t('orgOverview.open')}
+              </Button>
             </li>
           ))}
         </ol>
       )}
-      <Button asChild variant="outline" size="sm">
+      <Button asChild variant="link" size="sm" className="px-0">
         <Link to={eventsLink({ severities: ['incident'] })}>{t('orgOverview.viewIncidents')}</Link>
       </Button>
 
@@ -376,7 +461,7 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
   const { choose } = useOrganizationView()
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border bg-card">
+    <div className="w-full overflow-x-auto rounded-md border">
       <table aria-label={t('orgOverview.byLevel')} className="w-full text-left text-sm">
         <thead className="text-xs text-muted-foreground">
           <tr className="border-b">
@@ -422,7 +507,7 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
                 {/* The level is written out, never shown by color alone. */}
                 <span className="flex items-center gap-2">
                   <span aria-hidden className={cn('size-2 rounded-full', LEVEL_DOTS[level.threat_level])} />
-                  <span className={cn('label-mono', LEVEL_TEXT[level.threat_level])}>
+                  <span className={LEVEL_TEXT[level.threat_level]}>
                     {t(`band.levels.${level.threat_level}`)}
                   </span>
                 </span>
@@ -457,7 +542,7 @@ function DetectedTechniques({ summary }: { summary: SummaryQuery }) {
   const techniques = summary.data.techniques_7d
   if (techniques.length === 0) {
     return (
-      <p className="rounded-lg border bg-card px-4 py-4 text-muted-foreground">
+      <p className="rounded-md border px-4 py-4 text-muted-foreground">
         {t('orgOverview.noTechniques')}
       </p>
     )
@@ -465,7 +550,7 @@ function DetectedTechniques({ summary }: { summary: SummaryQuery }) {
 
   const largest = Math.max(...techniques.map((entry) => entry.alerts))
   return (
-    <ol aria-label={t('orgOverview.techniques')} className="flex flex-col rounded-lg border bg-card">
+    <ol aria-label={t('orgOverview.techniques')} className="flex flex-col rounded-md border">
       {techniques.map((entry) => (
         <li key={entry.technique} className="border-b last:border-b-0">
           <Link
@@ -516,7 +601,7 @@ function FailedLoginSources({ summary }: { summary: SummaryQuery }) {
   const sources = summary.data.top_failed_login_sources
   if (sources.length === 0) {
     return (
-      <p className="rounded-lg border bg-card px-4 py-4 text-muted-foreground">
+      <p className="rounded-md border px-4 py-4 text-muted-foreground">
         {t('orgOverview.noSources')}
       </p>
     )
@@ -524,7 +609,7 @@ function FailedLoginSources({ summary }: { summary: SummaryQuery }) {
 
   const largest = Math.max(...sources.map((source) => source.failed_logins))
   return (
-    <ol aria-label={t('orgOverview.sources')} className="flex flex-col rounded-lg border bg-card">
+    <ol aria-label={t('orgOverview.sources')} className="flex flex-col rounded-md border">
       {sources.map((source) => (
         <li key={source.ip_address} className="border-b last:border-b-0">
           <Link

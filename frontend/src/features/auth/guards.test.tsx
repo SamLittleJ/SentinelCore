@@ -66,33 +66,33 @@ describe('route guards and navigation', () => {
   })
 
   it.each(['admin', 'owner', 'security_analyst'] as const)(
-    'shows both perspectives to %s',
+    'shows the organization and the account to %s',
     async (role) => {
       signedInAs(makeUser(role))
       renderApp('/org')
 
       // The owner looks at the whole platform; a member at their organization.
       const owner = role === 'owner'
-      const scope = await screen.findByRole('navigation', { name: 'Perspectivă' })
-      expect(
-        within(scope).getByRole('link', { name: owner ? 'Platformă' : 'Acme' }),
-      ).toHaveAttribute('aria-current', 'page')
-      const nav = screen.getByRole('navigation', { name: 'Navigare principală' })
+      const nav = await screen.findByRole('navigation', { name: owner ? 'Platformă' : 'Acme' })
+      expect(within(nav).getByRole('link', { name: 'Prezentare' })).toHaveAttribute('aria-current', 'page')
       expect(within(nav).getByRole('link', { name: 'Evenimente de securitate' })).toBeInTheDocument()
       expect(within(nav).getByRole('link', { name: 'Chei API' })).toBeInTheDocument()
       expect(within(nav).queryByRole('link', { name: 'Organizații' }) !== null).toBe(owner)
+      const account = screen.getByRole('navigation', { name: 'Contul meu' })
+      expect(within(account).getByRole('link', { name: 'Sesiunile mele' })).toBeInTheDocument()
     },
   )
 
-  it('shows the account navigation in the personal perspective', async () => {
-    signedInAs(makeUser('admin'))
+  it("shows a user their account's pages only, without a group name", async () => {
+    signedInAs(makeUser())
     renderApp('/me')
 
     const nav = await screen.findByRole('navigation', { name: 'Navigare principală' })
     expect(within(nav).getByRole('link', { name: 'Prezentare' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('link', { name: 'Sesiunile mele' })).toBeInTheDocument()
-    expect(within(nav).queryByRole('link', { name: 'Utilizatori' })).not.toBeInTheDocument()
-    expect(within(nav).queryByRole('link', { name: 'Chei API' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Utilizatori' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Chei API' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Contul meu')).not.toBeInTheDocument()
   })
 
   it('shows a not found page for unknown addresses', async () => {

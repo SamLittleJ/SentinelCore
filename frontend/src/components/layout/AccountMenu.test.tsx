@@ -1,11 +1,21 @@
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/api'
 import { renderApp } from '@/test/render'
 import { makeUser, server, signedInAs } from '@/test/server'
+
+/** The operating system's theme, as the browser reports it. */
+function systemPrefersDark(dark: boolean) {
+  const fake = window.matchMedia('(prefers-color-scheme: dark)')
+  vi.spyOn(window, 'matchMedia').mockReturnValue({ ...fake, matches: dark })
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 async function openMenu() {
   const user = userEvent.setup()
@@ -14,15 +24,17 @@ async function openMenu() {
 }
 
 describe('account menu', () => {
-  it('starts in the dark theme', async () => {
+  it.each([true, false])('follows the system until a theme is picked (dark: %s)', async (dark) => {
+    systemPrefersDark(dark)
     signedInAs(makeUser())
     renderApp('/me')
 
     await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
-    expect(document.documentElement).toHaveClass('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(dark)
   })
 
-  it('switches to the light theme and remembers it', async () => {
+  it('switches to the light theme and remembers it, whatever the system prefers', async () => {
+    systemPrefersDark(true)
     signedInAs(makeUser())
     renderApp('/me')
 

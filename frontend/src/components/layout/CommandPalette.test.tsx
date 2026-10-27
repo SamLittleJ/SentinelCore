@@ -142,19 +142,29 @@ describe('sidebar', () => {
 
     await screen.findByRole('heading', { name: 'Sesiunile mele' })
     expect(summaries).toBe(0)
-    await userEvent.setup().click(screen.getByRole('link', { name: 'Acme' }))
+    const organization = screen.getByRole('navigation', { name: 'Acme' })
+    await userEvent.setup().click(within(organization).getByRole('link', { name: 'Prezentare' }))
     await waitFor(() => expect(summaries).toBeGreaterThan(0))
-    expect(screen.getByRole('link', { name: /Evenimente de securitate/ })).toHaveTextContent(
-      /^02Evenimente de securitate$/,
+    expect(within(organization).getByRole('link', { name: /Evenimente de securitate/ })).toHaveTextContent(
+      /^Evenimente de securitate$/,
     )
   })
 
-  it('says where each page sits, an account page included', async () => {
+  it("groups the organization's pages and the account's, the current one marked", async () => {
     signedInAs(makeUser('admin'))
     renderApp('/org/users')
 
-    expect(await screen.findByText('Acme / 04 Utilizatori')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: 'Utilizatori' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Utilizatori' })).toBeInTheDocument()
+    const organization = screen.getByRole('navigation', { name: 'Acme' })
+    expect(within(organization).getByRole('link', { name: 'Utilizatori' })).toHaveAttribute('aria-current', 'page')
+    const account = screen.getByRole('navigation', { name: 'Contul meu' })
+    expect(within(account).getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Prezentare',
+      'Sesiunile mele',
+      'Activitatea mea',
+    ])
+    // No page numbers and no "Acme / 04" trail above the title.
+    expect(screen.queryByText(/\/ 0\d/)).not.toBeInTheDocument()
   })
 
   it('places an account page under Users', async () => {
@@ -162,6 +172,7 @@ describe('sidebar', () => {
     renderApp('/org/users/7')
 
     await screen.findByRole('heading', { level: 1, name: 'elena.radu' })
-    expect(screen.getByText('Acme / 04 Utilizatori')).toBeInTheDocument()
+    const organization = screen.getByRole('navigation', { name: 'Acme' })
+    expect(within(organization).getByRole('link', { name: 'Utilizatori' })).toHaveAttribute('aria-current', 'page')
   })
 })

@@ -863,3 +863,15 @@ The npm group (#69, ten minor and patch updates: `@tanstack/react-query`, `i18ne
 ### 95. TypeScript 6
 
 TypeScript moves from 5.9.3 to 6.0.3 (#70), on its own branch because the Dependabot one conflicted with `main` after #72. The range stays `~` (patches only): `typescript-eslint` 8.72 accepts TypeScript below 6.1, so a caret range could let a future 6.1 break the lint step. No `tsconfig` option needed changing. `make verify`: 15 of 15 checks (typecheck and build clean, vitest 257 passed, npm audit 0 vulnerabilities, pytest 711 passed).
+
+## Stage 23: Redesign, part one
+
+### 97. Tokens, shell and overview
+
+The palette in `src/index.css` is new: white and near-black backgrounds, neutral greys, one blue accent, and severity colours, every text colour at 4.5:1 or more on the page, the sidebar and its own tinted background in both themes (checked with the WCAG formula; the lowest is 4.66:1). Public Sans replaces IBM Plex; `font-display` now points at it until the remaining pages drop it. The theme follows the system by default, and `index.html` no longer forces the dark class, so the page's first paint already matches the system.
+
+The sidebar has one menu in two groups, named after the organization (or "Platform" for the owner) and "My account", without numbers; on a phone each group is one scrolling row. `PageHeader` loses the breadcrumb above the title and shows the owner's organization picker beside the page's actions. The threat band is removed (`ThreatBand.tsx`).
+
+The overview now opens with the level and the latest detection, then the newest incidents as a list, each with an Open button for its details (still recorded in the audit log), then the six counts in one ruled row, a chart of the last 24 hours stacked by severity, and the organizations, techniques and failed sign-in sources below. The band's tests moved to `OrgOverviewStatus.test.tsx`, for the status and the chart; the sidebar, theme and navigation tests describe the new shell.
+
+Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, npm audit 0). Mutations caught 6 of 6: the incident count loaded on personal pages, the chart scaled to incidents only, the default theme back to dark, Open doing nothing, the latest detection's link without its alert types, the picker shown to members. Real Firefox screenshots on `make demo`: the overview, the events page, an account page and Globex's overview, light and dark at 1440×900 and at phone width.

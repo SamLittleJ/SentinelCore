@@ -94,7 +94,7 @@ describe('the owner’s choice of organization', () => {
     await user.click(screen.getByRole('button', { name: 'Incident' }))
     await waitFor(() => expect(router.state.location.search).toBe('?severity=incident&org=2'))
 
-    const nav = screen.getByRole('navigation', { name: 'Navigare principală' })
+    const nav = screen.getByRole('navigation', { name: 'Platformă' })
     await user.click(within(nav).getByRole('link', { name: /Utilizatori/ }))
     await waitFor(() => expect(router.state.location.search).toBe('?org=2'))
     expect(router.state.location.pathname).toBe('/org/users')
@@ -200,7 +200,7 @@ describe('a member', () => {
     const table = await screen.findByRole('table', { name: 'Evenimente de securitate' })
     expect(within(table).queryByRole('columnheader', { name: 'Organizație' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Organizația afișată')).not.toBeInTheDocument()
-    expect(screen.getByText('Acme / 02 Evenimente de securitate')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Acme' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Meniul contului' })).toHaveTextContent('Administrator · Acme')
     await waitFor(() => expect(summaries).not.toHaveLength(0))
     expect([...named, ...summaries].every((organization) => organization === null)).toBe(true)

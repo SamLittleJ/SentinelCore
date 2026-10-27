@@ -8,7 +8,6 @@ const en: typeof ro = {
     loading: 'Loading…',
   },
   scope: {
-    label: 'Perspective',
     personal: 'My account',
     organization: 'Organization',
     platform: 'Platform',
@@ -423,6 +422,10 @@ const en: typeof ro = {
     incidentsHelp: 'The 5 newest incidents of the last 7 days. Showing them is recorded in the audit log.',
     noIncidents: 'No incidents in the last 7 days.',
     viewIncidents: 'View all incidents',
+    open: 'Open',
+    openIncident: 'Open {{name}}',
+    perHour: 'Security events per hour',
+    perHourHelp: 'The last 24 hours, by severity.',
     sources: 'Failed sign-in sources',
     sourcesHelp: 'The IP addresses with the most failed sign-ins in the last 24 hours.',
     noSources: 'No failed sign-ins in the last 24 hours.',

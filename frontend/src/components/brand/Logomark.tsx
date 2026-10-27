@@ -21,20 +21,12 @@ export function Logomark({ className }: { className?: string }) {
   )
 }
 
-/** "SENTINEL core": the condensed name and the mono suffix, read as one
- * word by screen readers. */
+/** The mark and the name, read once by screen readers. */
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <span className={cn('flex items-center gap-2.5', className)}>
-      <Logomark className="text-brand" />
-      <span aria-label="SentinelCore" role="img" className="flex items-baseline gap-0.5">
-        <span aria-hidden className="font-display text-lg font-bold tracking-[0.08em]">
-          SENTINEL
-        </span>
-        <span aria-hidden className="font-mono text-sm font-medium text-brand">
-          core
-        </span>
-      </span>
+    <span className={cn('flex items-center gap-2', className)}>
+      <Logomark className="size-6 text-brand" />
+      <span className="text-[15px] font-semibold">SentinelCore</span>
     </span>
   )
 }
