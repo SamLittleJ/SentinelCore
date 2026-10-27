@@ -2,7 +2,6 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/features/theme/ThemeProvider'
 import { createQueryClient } from '@/lib/query-client'
 import { appRoutes } from '@/routes'
@@ -16,9 +15,7 @@ export function renderApp(path: string) {
   const result = render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <RouterProvider router={router} />
-        </TooltipProvider>
+        <RouterProvider router={router} />
       </ThemeProvider>
     </QueryClientProvider>,
   )

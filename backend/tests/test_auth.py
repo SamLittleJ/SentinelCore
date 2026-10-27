@@ -61,6 +61,27 @@ def test_login_unknown_email_returns_401_and_still_verifies_a_hash(
     assert verified_hashes == [DUMMY_PASSWORD_HASH]
 
 
+def test_login_unknown_email_is_recorded_with_that_email(
+    client: TestClient, db_session: Session
+) -> None:
+    """No account matches, so the email is all that names the attempt, in the
+    audit log and in the security event alike."""
+    client.post(
+        "/auth/login",
+        json={"email": "nobody@example.com", "password": "testpassword"},
+    )
+
+    audit_email = db_session.scalar(
+        select(AuditLog.email).where(AuditLog.event_type == AuditEventType.LOGIN_FAILED)
+    )
+    event_email = db_session.scalar(
+        select(SecurityEvent.email).where(
+            SecurityEvent.event_type == SecurityEventType.LOGIN_FAILED
+        )
+    )
+    assert audit_email == event_email == "nobody@example.com"
+
+
 def test_login_inactive_user_returns_403_and_records_failed_login(
     client: TestClient,
     db_session: Session,

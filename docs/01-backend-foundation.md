@@ -5333,3 +5333,16 @@ The push of the fix (`5bb9867`, #63) published, signed and attested both images;
 - Mutations: 2/2 caught (no status check; 500 accepted as a guess).
 - The pipe: with `pipefail`, 3000 lines of `429` through `xargs -P 40` into `grep -qx 429` failed 3 of 3 times (exit 125, signal 13); into `grep -cx 429` passed 3 of 3, and failed with no 429.
 - `make deploy-lint`: clean. `make cluster-check`: 21/21, twice.
+
+## Lean pass after the audit
+
+### 417. What was removed and merged
+
+The decisions log ("Lean pass after the audit") lists every removal and merge. On the backend: three unused settings, the `/users/admin-only` route, four functions with no caller or that only called `db.get`, one shared `role_name`, the sign-in's four audit-and-event pairs folded into one `record` in `_sign_in`, `grant_admin` through `change_role` and the simulator's `Person.devices`. `REVISION` in the `Makefile` now also sees new files.
+
+### 418. Local validation
+
+- Auth tests (`test_auth`, `test_cookie_auth`, `test_login_protection`, `test_protected_routes`, `test_sign_in_address_limit`, `test_detection`): 145 passed before the new test.
+- Mutations on `record`: 5/5 caught (no audit record; no security event; the event without its user; without its user agent; the audit record without the email). The last one first survived, before and after the change; `test_login_unknown_email_is_recorded_with_that_email` now catches it.
+- `REVISION` in a temporary worktree: clean gives the commit; a new file under `backend/app` and a changed tracked file both give `-dirty`.
+- `make verify`: 15 of 15 checks (pytest 711 passed, vitest 257 passed, npm audit 0 vulnerabilities).

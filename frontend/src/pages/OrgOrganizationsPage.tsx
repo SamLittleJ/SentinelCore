@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ActionForm, ActionNotice, ConfirmForm, type Notice } from '@/features/org/ActionForm'
+import { ActionForm, ActionNotice, type Notice } from '@/features/org/ActionForm'
 import type { NewOrganization, Organization } from '@/features/org/api'
 import {
   organizationsKey,
@@ -125,12 +125,12 @@ export function OrgOrganizationsPage() {
             }
           />
         ) : step?.kind === 'reactivate' ? (
-          <ConfirmForm
+          <ActionForm
             title={t('organizations.reactivateTitle', { name: step.organization.name })}
             help={t('organizations.reactivateHelp')}
             pending={pending}
             onCancel={() => setStep(null)}
-            onConfirm={() =>
+            onSubmit={() =>
               reactivate.mutate(step.organization.id, {
                 onSuccess: (organization) =>
                   done(t('organizations.reactivatedDone', { name: organization.name })),

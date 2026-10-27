@@ -11,7 +11,6 @@ from app.models.user import User, UserRole
 from app.schemas.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead
 from app.services.api_key_service import (
     create_api_key,
-    get_api_key,
     list_api_keys,
     revoke_api_key,
 )
@@ -25,7 +24,7 @@ READ_ROLES = (UserRole.ADMIN, UserRole.OWNER, UserRole.SECURITY_ANALYST)
 
 
 def _get_key_or_404(db: Session, key_id: int) -> ApiKey:
-    api_key = get_api_key(db, key_id)
+    api_key = db.get(ApiKey, key_id)
     if api_key is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -13,7 +13,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router'
 
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/features/theme/ThemeProvider'
 import { createQueryClient } from '@/lib/query-client'
 import { appRoutes } from '@/routes'
@@ -25,9 +24,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <RouterProvider router={router} />
-        </TooltipProvider>
+        <RouterProvider router={router} />
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>,

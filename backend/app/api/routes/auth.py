@@ -99,29 +99,44 @@ def _sign_in(
     refusal is an HTTPException."""
     email = user_in.email
 
-    # A locked email is rejected before the password is checked, so guesses
-    # made during the lockout reveal nothing.
-    lockout_seconds = get_lockout_seconds_remaining(db, email)
-    if lockout_seconds:
-        message = f"Login blocked for locked email: {email}"
+    def record(
+        audit_type: AuditEventType,
+        event_type: SecurityEventType,
+        severity: SecuritySeverity,
+        message: str,
+        user: User | None = None,
+    ) -> None:
+        """One outcome of this sign-in, in the audit log and as a security
+        event, with the same message."""
         create_audit_log(
             db=db,
-            event_type=AuditEventType.LOGIN_BLOCKED,
+            event_type=audit_type,
+            user=user,
             email=email,
             ip_address=client_ip,
             message=message,
         )
-
         create_security_event(
             db=db,
-            event_type=SecurityEventType.LOGIN_BLOCKED,
-            severity=SecuritySeverity.WARN,
+            event_type=event_type,
+            severity=severity,
+            user=user,
             email=email,
             ip_address=client_ip,
             user_agent=user_agent,
             message=message,
         )
 
+    # A locked email is rejected before the password is checked, so guesses
+    # made during the lockout reveal nothing.
+    lockout_seconds = get_lockout_seconds_remaining(db, email)
+    if lockout_seconds:
+        record(
+            AuditEventType.LOGIN_BLOCKED,
+            SecurityEventType.LOGIN_BLOCKED,
+            SecuritySeverity.WARN,
+            f"Login blocked for locked email: {email}",
+        )
         raise too_many_login_attempts(lockout_seconds)
 
     user = authenticate_user(db, email, user_in.password)
@@ -133,24 +148,12 @@ def _sign_in(
         else:
             message = f"Login attempt for a member of a suspended organization: {email}"
 
-        create_audit_log(
-            db=db,
-            event_type=AuditEventType.LOGIN_FAILED,
-            user=user,
-            email=email,
-            ip_address=client_ip,
-            message=message,
-        )
-
-        create_security_event(
-            db=db,
-            event_type=SecurityEventType.LOGIN_FAILED,
-            severity=SecuritySeverity.WARN,
-            user=user,
-            email=email,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            message=message,
+        record(
+            AuditEventType.LOGIN_FAILED,
+            SecurityEventType.LOGIN_FAILED,
+            SecuritySeverity.WARN,
+            message,
+            user,
         )
 
         if count_recent_failed_logins(db, email) >= settings.login_max_failed_attempts:
@@ -172,48 +175,24 @@ def _sign_in(
     # say when the lock ends: during a suspected compromise that someone may
     # be the attacker.
     if is_account_locked(db, user):
-        message = f"Login with valid password blocked for locked user: {email}"
-        create_audit_log(
-            db=db,
-            event_type=AuditEventType.LOGIN_BLOCKED,
-            user=user,
-            email=email,
-            ip_address=client_ip,
-            message=message,
+        record(
+            AuditEventType.LOGIN_BLOCKED,
+            SecurityEventType.LOGIN_BLOCKED,
+            SecuritySeverity.WARN,
+            f"Login with valid password blocked for locked user: {email}",
+            user,
         )
-
-        create_security_event(
-            db=db,
-            event_type=SecurityEventType.LOGIN_BLOCKED,
-            severity=SecuritySeverity.WARN,
-            user=user,
-            email=email,
-            ip_address=client_ip,
-            user_agent=user_agent,
-            message=message,
-        )
-
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=ACCOUNT_LOCKED_DETAIL,
         )
 
-    create_audit_log(
-        db=db,
-        event_type=AuditEventType.LOGIN_SUCCESS,
-        user=user,
-        ip_address=client_ip,
-        message=f"Successful login for user: {user.email}",
-    )
-
-    create_security_event(
-        db=db,
-        event_type=SecurityEventType.LOGIN_SUCCESS,
-        severity=SecuritySeverity.INFO,
-        user=user,
-        ip_address=client_ip,
-        user_agent=user_agent,
-        message=f"Successful login for user: {user.email}",
+    record(
+        AuditEventType.LOGIN_SUCCESS,
+        SecurityEventType.LOGIN_SUCCESS,
+        SecuritySeverity.INFO,
+        f"Successful login for user: {user.email}",
+        user,
     )
 
     session = create_session(db, user, client_ip, user_agent)

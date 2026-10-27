@@ -17,7 +17,6 @@ from app.schemas.organization import (
 from app.services.audit_service import create_audit_log
 from app.services.organization_service import (
     create_organization,
-    get_organization,
     list_organizations,
     reactivate_organization,
     rename_organization,
@@ -36,7 +35,7 @@ NAME_TAKEN = HTTPException(
 
 
 def get_organization_or_404(db: Session, organization_id: int) -> Organization:
-    organization = get_organization(db, organization_id)
+    organization = db.get(Organization, organization_id)
     if organization is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

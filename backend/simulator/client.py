@@ -198,12 +198,7 @@ class SentinelCore:
 
     def grant_admin(self, user_id: int) -> float:
         started = time.perf_counter()
-        response = self.http.patch(
-            f"/admin/users/{user_id}/role",
-            json={"role": "admin"},
-            headers=self.as_operator,
-        )
-        check(response, f"Granting admin to user_id={user_id}")
+        self.change_role(user_id, "admin")
         return (time.perf_counter() - started) * 1000
 
     def change_role(self, user_id: int, role: str) -> None:

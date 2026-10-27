@@ -22,8 +22,6 @@ backend:
   replicas: 2
   # The settings the API runs with in the cluster (app/core/config.py).
   config:
-    APP_ENV: production
-    APP_DEBUG: "false"
     API_DOCS_ENABLED: "false"
     LOG_FORMAT: json
     HSTS_MAX_AGE: "0"

@@ -8,7 +8,7 @@ import type { User } from '@/features/auth/api'
 import { ApiError } from '@/lib/api'
 import { useFormatters } from '@/lib/format'
 
-import { ActionForm, ActionNotice, type Notice, ConfirmForm } from './ActionForm'
+import { ActionForm, ActionNotice, type Notice } from './ActionForm'
 import {
   ASSIGNABLE_ROLES,
   type AssignableRole,
@@ -132,12 +132,12 @@ export function AccountActions({ actor, account }: { actor: User; account: User 
       />
     ),
     unlock: () => (
-      <ConfirmForm
+      <ActionForm
         title={t('userDetail.unlock')}
         help={t('userDetail.unlockHelp')}
         pending={pending}
         onCancel={cancel}
-        onConfirm={() =>
+        onSubmit={() =>
           unlock.mutate(undefined, {
             onSuccess: () => settle(t('userDetail.unlockedDone')),
             onError: fail,
@@ -146,13 +146,13 @@ export function AccountActions({ actor, account }: { actor: User; account: User 
       />
     ),
     deactivate: () => (
-      <ConfirmForm
+      <ActionForm
         title={t('userDetail.deactivate')}
         help={t('userDetail.deactivateHelp')}
         destructive
         pending={pending}
         onCancel={cancel}
-        onConfirm={() =>
+        onSubmit={() =>
           status.mutate(false, {
             onSuccess: () => settle(t('userDetail.deactivatedDone')),
             onError: fail,
@@ -161,12 +161,12 @@ export function AccountActions({ actor, account }: { actor: User; account: User 
       />
     ),
     activate: () => (
-      <ConfirmForm
+      <ActionForm
         title={t('userDetail.activate')}
         help={t('userDetail.activateHelp')}
         pending={pending}
         onCancel={cancel}
-        onConfirm={() =>
+        onSubmit={() =>
           status.mutate(true, {
             onSuccess: () => settle(t('userDetail.activatedDone')),
             onError: fail,

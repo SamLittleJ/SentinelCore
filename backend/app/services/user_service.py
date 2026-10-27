@@ -26,11 +26,6 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(statement)
 
 
-def get_user_by_username(db: Session, username: str) -> User | None:
-    statement = select(User).where(User.username == username)
-    return db.scalar(statement)
-
-
 def stage_user(
     db: Session, user_in: UserCreate, role: UserRole, organization_id: int | None
 ) -> User:
@@ -167,7 +162,7 @@ def get_user_by_id(db: Session, user_id: int) -> User | None:
     return db.scalar(statement)
 
 
-def _role_name(actor: User) -> str:
+def role_name(actor: User) -> str:
     """The actor's role as written in event messages, e.g. "Security analyst"."""
     return actor.role.value.replace("_", " ").capitalize()
 
@@ -265,7 +260,7 @@ def update_user_status(
         return user  # No change needed
 
     action = "activated" if is_active else "deactivated"
-    message = f"{_role_name(actor)} {action} user_id={user.id}"
+    message = f"{role_name(actor)} {action} user_id={user.id}"
 
     user.is_active = is_active
     if not is_active:
@@ -302,7 +297,7 @@ def revoke_all_user_sessions(
     with the audit and security events. Returns the number revoked."""
     revoked = stage_revoke_all_sessions(db, user.id)
     message = (
-        f"{_role_name(actor)} revoked {revoked} session(s) "
+        f"{role_name(actor)} revoked {revoked} session(s) "
         f"for user_id={user.id}. Reason: {reason}"
     )
 
@@ -340,7 +335,7 @@ def lock_account(
     user.locked_until = database_now(db) + timedelta(hours=duration_hours)
     revoked = stage_revoke_all_sessions(db, user.id)
     message = (
-        f"{_role_name(actor)} locked user_id={user.id} for "
+        f"{role_name(actor)} locked user_id={user.id} for "
         f"{duration_hours} hour(s) and revoked {revoked} session(s). "
         f"Reason: {reason}"
     )
@@ -368,7 +363,7 @@ def unlock_account(
         return user  # No change needed
 
     user.locked_until = None
-    message = f"{_role_name(actor)} unlocked user_id={user.id}"
+    message = f"{role_name(actor)} unlocked user_id={user.id}"
 
     return _commit_user_change(
         db=db,

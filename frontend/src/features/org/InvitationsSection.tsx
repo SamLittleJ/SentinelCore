@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { User } from '@/features/auth/api'
 import { invitationLink } from '@/features/auth/invitation-link'
-import { ActionForm, ActionNotice, ConfirmForm, type Notice } from '@/features/org/ActionForm'
+import { ActionForm, ActionNotice, type Notice } from '@/features/org/ActionForm'
 import type { AssignableRole, Invitation, NewInvitation } from '@/features/org/api'
 import { useCreateInvitation, useInvitations, useRevokeInvitation } from '@/features/org/hooks'
 import { useOrganizationName } from '@/features/org/organization-column'
@@ -123,13 +123,13 @@ export function InvitationsSection({ me }: { me: User }) {
               onSubmit={submitNew}
             />
           ) : revoking ? (
-            <ConfirmForm
+            <ActionForm
               title={t('invitations.revokeTitle', { email: revoking.email })}
               help={t('invitations.revokeHelp')}
               destructive
               pending={pending}
               onCancel={() => setRevoking(null)}
-              onConfirm={() => confirmRevoke(revoking)}
+              onSubmit={() => confirmRevoke(revoking)}
             />
           ) : (
             <Button
