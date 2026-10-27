@@ -32,6 +32,10 @@ echo "== kubeconform"
 {
   helm template postgresql charts/postgresql
   helm template sentinelcore charts/sentinelcore --set image.tag="$TAG"
+  # As `make up FROM=registry` installs it: our images by digest.
+  helm template sentinelcore charts/sentinelcore --set image.tag="$TAG" \
+    --set image.backend=ghcr.io/samlittlej/sentinelcore-backend \
+    --set image.digests.backend="sha256:$(printf '0%.0s' {1..64})"
 } | kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" \
   -schema-location "$SCHEMAS/{{.NormalizedKubernetesVersion}}-standalone{{.StrictSuffix}}/{{.ResourceKind}}{{.KindSuffix}}.json"
 

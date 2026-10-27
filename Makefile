@@ -44,9 +44,9 @@ $(error FROM can only be empty or registry, not '$(FROM)')
 endif
 
 up: $(UP_IMAGES) ## SentinelCore on a local kind cluster, at http://localhost:8080 (FROM=registry: the signed GHCR images)
-	@REVISION=$(REVISION) ./scripts/cluster.sh up
+	@REVISION=$(REVISION) FROM=$(FROM) ./scripts/cluster.sh up
 
-verify-images: ## Check the signature and attestations of this commit's GHCR images, then pull them
+verify-images: ## Check the signature and attestations of this commit's GHCR images, and record their digests
 	@./scripts/verify-images.sh $(REVISION)
 
 down: ## Delete the kind cluster and its data (asks first)

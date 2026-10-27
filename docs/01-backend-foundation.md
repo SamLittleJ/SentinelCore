@@ -5346,3 +5346,25 @@ The decisions log ("Lean pass after the audit") lists every removal and merge. O
 - Mutations on `record`: 5/5 caught (no audit record; no security event; the event without its user; without its user agent; the audit record without the email). The last one first survived, before and after the change; `test_login_unknown_email_is_recorded_with_that_email` now catches it.
 - `REVISION` in a temporary worktree: clean gives the commit; a new file under `backend/app` and a changed tracked file both give `-dirty`.
 - `make verify`: 15 of 15 checks (pytest 711 passed, vitest 257 passed, npm audit 0 vulnerabilities).
+
+## Phase E1: admission policies
+
+### 419. What the cluster refuses
+
+`make up` now installs Kyverno 1.19.1 (Helm chart 3.9.1, downloaded by `scripts/tools.sh` against its SHA-256; 3.9.2 was six days old, inside the seven-day cooldown) before the application, with only its admission controller and its images pinned by digest (`kyverno/values.yaml`). The namespace carries the `restricted` Pod Security Standard label, so Kubernetes itself refuses root, privilege escalation and added capabilities. `kyverno/pod-rules.yaml`, a `ValidatingPolicy` (CEL), adds what that standard lacks: a read-only root filesystem, CPU and memory requests and limits, no service account token, and images pinned by digest, except our own local builds, which carry the commit as their tag. Kyverno also applies it to Deployments, ReplicaSets, StatefulSets, Jobs and CronJobs, so a bad workload is refused before its pods are attempted. The policies use the `policies.kyverno.io/v1` types: Kyverno 1.19 marks `ClusterPolicy` as deprecated.
+
+### 420. Signed images in the cluster
+
+With `make up FROM=registry`, `scripts/verify-images.sh` no longer pulls and retags the images: it records their verified digests in `.kind/verified-images`, and the chart names them as `ghcr.io/samlittlej/sentinelcore-*@sha256:…` (`image.digests`), which the node pulls. `kyverno/signatures.yaml` is applied only then: an `ImageValidatingPolicy` requires the cosign signature, the SLSA v1 provenance and the SPDX SBOM attestation from `images-ci.yml` on main, and a `ValidatingPolicy` refuses our images under a local name. Kyverno's verifier reads cosign 3's Sigstore bundles and GitHub's attestations alike. A plain `make up` deletes the signature policies again, since its images are unsigned. The signature checks run for pods only (`autogen` off): they take 21 to 25 seconds on a cold cache, under the 30 seconds Kubernetes allows a webhook, and about 14 once warm.
+
+### 421. Fail closed, and when not
+
+Every policy has `failurePolicy: Fail`. With Kyverno's Service pointing nowhere, the API server refuses the probe pod. Kyverno deletes its own webhooks when its Deployment is deleted or scaled to zero (`IsGoingDown` in `pkg/utils/runtime/utils.go`), so a cluster admin can switch the checks off; that is accepted (T-73).
+
+### 422. Local validation
+
+- `make cluster-check`: 28 checks, 7 of them new: a probe pod meeting every rule is admitted, and one each running as root, able to gain privileges, with a writable root filesystem, without limits, with a token and with an image by tag only is refused, each for its own reason. Without the Kyverno policy the four Kyverno checks fail; without the namespace label the two Pod Security checks fail.
+- Registry mode, by hand on `95f40c1337d2`: the signed images run; `aaa8f0eda0c7`'s unsigned backend, a local name and another signing identity (the policy's subject changed to another workflow) are refused; changing the policy's provenance or SBOM predicate type refuses the signed image.
+- Kyverno unreachable: the probe pod is refused. Scaled to zero: its webhooks are gone and the probe is admitted (T-73).
+- `make deploy-lint` also validates the chart as registry mode renders it.
+

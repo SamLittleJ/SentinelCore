@@ -128,6 +128,46 @@ check "the API's database role is bound by row-level security" app_role
 
 check "the audit history is intact" in_pod "$backend" backend 'python -m app.cli verify-audit-chain'
 
+# Admission: a pod that breaks one rule is refused, each for its own reason
+# (the namespace's "restricted" Pod Security Standard, kyverno/pod-rules.yaml).
+# Asked with --dry-run=server, so nothing is created. The probe is a pod that
+# meets every rule, on the PostgreSQL image already pinned in the chart.
+probe() {
+  local image
+  image="$(awk '/repository:/ {r=$2} /digest:/ {d=$2} END {print r "@" d}' "$ROOT/charts/postgresql/values.yaml")"
+  jq -n --arg image "$image" --arg namespace "$NAMESPACE" '{
+    apiVersion: "v1", kind: "Pod",
+    metadata: {name: "admission-probe", namespace: $namespace},
+    spec: {
+      automountServiceAccountToken: false,
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, seccompProfile: {type: "RuntimeDefault"}},
+      containers: [{
+        name: "probe", image: $image,
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}},
+        resources: {requests: {cpu: "10m", memory: "16Mi"}, limits: {cpu: "10m", memory: "16Mi"}}
+      }]
+    }}'
+}
+admit() { kubectl apply --dry-run=server -f - 2>&1; }
+probe_admitted() { probe | admit >/dev/null; }
+check "a pod that meets every rule is admitted" probe_admitted
+
+# refused <reason in the refusal> <jq change to the probe>
+refused() {
+  local answer
+  answer="$(probe | jq "$2" | admit)" && return 1
+  grep -qF "$1" <<<"$answer"
+}
+check "a pod running as root is refused" refused 'violates PodSecurity' '.spec.securityContext.runAsUser = 0'
+check "a pod that may gain privileges is refused" refused 'violates PodSecurity' \
+  '.spec.containers[0].securityContext.allowPrivilegeEscalation = true'
+check "a pod with a writable root file system is refused" refused 'readOnlyRootFilesystem' \
+  '.spec.containers[0].securityContext.readOnlyRootFilesystem = false'
+check "a pod without resource limits is refused" refused 'requests and limits' 'del(.spec.containers[0].resources.limits)'
+check "a pod with a Kubernetes token is refused" refused 'automountServiceAccountToken' \
+  '.spec.automountServiceAccountToken = true'
+check "an image by tag only is refused" refused 'pinned by digest' '.spec.containers[0].image = "postgres:17"'
+
 if ((failed > 0)); then
   printf '%d check(s) failed\n' "$failed"
   exit 1
