@@ -5398,3 +5398,31 @@ The synthesis generated a new address for each distinct real one, so two address
 ### 427. The race and the retry
 
 Cluster CI failed on `main` after #80 and #81 with `connection refused` from Kyverno's policy webhook: `helm --wait` returns once Kyverno's pod is ready, but its Service may not route to it yet, so the first `kubectl apply` of `kyverno/pod-rules.yaml` is refused. `scripts/cluster.sh` now retries that apply every two seconds for a minute, then applies once more so a real error still stops `make up`. The policy itself is unchanged; a refused apply creates nothing, so retrying is safe.
+
+## Phase R2: baselines and thresholds
+
+### 428. The replay, and why it is trusted
+
+`simulator/rba_offline.py` replays the T1078, dormant account and password spray rules in Python on R1's sample, so a threshold can be tried in seconds instead of an hour through the API. It mirrors what the API stores and when each rule sees it: invalid addresses skipped, user agents cut to 255 characters, sign-ins at one moment not seeing each other for the account rules, every failure of its moment for the spray rule, a first sign-in never dormant (the accounts are created after the moved times). At the application's thresholds it must reproduce every number of `independent-rba.json`, or `make evaluate-rba-offline` writes nothing; it did, exactly. A test also runs a small scenario through the API with batches of four and compares the alerts one by one.
+
+### 429. B2, the Freeman et al. risk score
+
+`simulator/freeman.py` scores each successful sign-in as Wiefling et al. applied Freeman et al.'s model to this data's source: p(x)/p(x | u, legit) for the address and the user agent, times p(u | attack)/p(u | legit), without the reputation term the data cannot give. Each feature is estimated at three or four levels (address, ASN, country; user agent, browser, OS, device type), smoothed by Freeman's Eq. 8 and combined by Eq. 11 with Wiefling's published weights. Reading those weights as Eq. 11's coefficients is our interpretation, and the report says so. p(x) counts every successful sign-in of the whole data before the one scored; the user's history is their sign-ins of the last 90 days in R1's window. Every address in the data has one ASN and country, and every user agent one browser, OS and device type, which lets one count per value serve every level (a `shortcut:` comment names the limit).
+
+### 430. Results (seed 42)
+
+- **B2 against T1078**, on the 29 takeover sign-ins with enough history for the rule: area under the curve 0.31, below the 0.5 of random scores; at the rule's false alarm rate (11.2% of those sign-ins) it detects none, where the rule detects 9 (31%). On all 118: 0.48.
+- **Why.** Splitting the score into its terms: the takeovers are more unfamiliar to their users than other sign-ins (1 / p(x | u) higher), but their addresses had never been seen anywhere in the data and their user agents are about ten times rarer, and p(x), Freeman's stand-in for the attacker's distribution, lowers their score more. Freeman et al. correct it with reputation data this set lacks; the attacker label would fit the baseline to the labels it is judged by.
+- **A variant added after seeing that**, marked as such: p(x | attack) uniform, so only the novelty to the user counts. Area 0.82, and 19 of 29 (66%) at the rule's false alarm rate. Chosen after seeing this data, it is a hypothesis for other data, not a finding.
+- **T1078 thresholds.** Counting an ASN as the familiar network instead of a /24 keeps the 9 of 29 and cuts false alarms from 31.8 to 8.3 per 1,000 sign-ins; a new ASN alone, without a new device, detects 21 of 29 at 17.6. The application does not know ASNs, and these too were seen on the evaluation data.
+- **Spray.** Lowering the threshold to 4 emails flags 0.2–0.3% of the attacker addresses with 25–29% precision; to 3, 3–5% with 18–22%. No setting reaches the attackers here, who try a few emails each, slowly.
+- **B1.** A limit of 10 failures instead of 5 still denies 49–52% of the attackers' attempts and at most one legitimate user a week, instead of 22–35.
+
+### 431. What it does and does not change
+
+No setting changes: these thresholds were tried on the data they are judged by, and one data set, synthesized for privacy, cannot settle them. They are leads for the dissertation's discussion and for a later, separate change, which would need other data to confirm.
+
+### 432. Local validation
+
+- `tests/test_rba_offline.py` (16 tests) and `tests/test_freeman.py` (7): the replay against the API alert by alert; each rule's boundaries (same moment, lookback, minimum, missing user agent, idle period, spray window and repeat); the score against a hand computation; Eq. 8 and 9 per level; back-off; scoring before learning; the curve, its area and operating points; the rule placed on the same sign-ins. Mutations 22/22 caught; five first survived: two were code that changed no result (removed), three became new assertions.
+- `make evaluate-rba-offline`: about 10 minutes; the replay reproduced R1 exactly.

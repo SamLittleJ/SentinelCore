@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean evaluate-rba screenshots images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images verify-images
+.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images verify-images
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -66,6 +66,9 @@ cluster-check: ## Check the running cluster's security properties, one line each
 
 evaluate-rba: ## The detection rules on the RBA login data set (docs/evaluation/independent-rba.md); about an hour
 	@./scripts/evaluate-rba.sh
+
+evaluate-rba-offline: ## B2 and other thresholds on the same sample, replayed without the API (independent-rba-baselines.md); about 10 minutes
+	@./scripts/evaluate-rba-offline.sh
 
 demo-clean: ## Remove the demo database and .demo/
 	@docker exec sentinelcore-postgres psql -q -U sentinelcore -d postgres \
