@@ -5095,7 +5095,7 @@ Phase B runs SentinelCore on a local Kubernetes cluster. Its first step builds t
 ### 378. Tools and cluster
 
 - **Pinned tools.** `scripts/tools.sh` downloads kind 0.31.0, Helm 3.19.0 and kubectl 1.35.7 into `.tools/` (git-ignored) and refuses a file whose SHA-256 differs from the one written in the script. `make up` always uses these, whatever the system has; kubectl stays within one minor version of the cluster, as Kubernetes supports.
-- **One node.** `kind/cluster.yaml` creates the cluster `sentinelcore` on `kindest/node:v1.35.0`, pinned by digest, and maps the console's NodePort, 30080, to `127.0.0.1:8080` only.
+- **One node.** `kind/kind-config.yaml` creates the cluster `sentinelcore` on `kindest/node:v1.35.0`, pinned by digest, and maps the console's NodePort, 30080, to `127.0.0.1:8080` only.
 - **Its own kubeconfig.** The cluster's credentials go to `.kind/kubeconfig` (mode 600, git-ignored); `~/.kube/config` is left alone.
 
 ### 379. The charts
