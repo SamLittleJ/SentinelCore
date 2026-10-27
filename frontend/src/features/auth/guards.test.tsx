@@ -53,7 +53,7 @@ describe('route guards and navigation', () => {
     signedInAs(makeUser('user'))
     renderApp('/me')
 
-    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    await screen.findByRole('heading', { name: 'Profilul meu' })
     expect(screen.queryByRole('navigation', { name: 'Perspectivă' })).not.toBeInTheDocument()
   })
 
@@ -88,7 +88,7 @@ describe('route guards and navigation', () => {
     renderApp('/me')
 
     const nav = await screen.findByRole('navigation', { name: 'Navigare principală' })
-    expect(within(nav).getByRole('link', { name: 'Prezentare' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Profilul meu' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('link', { name: 'Sesiunile mele' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Utilizatori' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Chei API' })).not.toBeInTheDocument()

@@ -118,9 +118,6 @@
   --font-sans: "Public Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   /* Only for data read character by character: emails, addresses, ids. */
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
-  /* shortcut: the pages not redesigned yet still use font-display; it goes
-     with them in the next pull requests. */
-  --font-display: var(--font-sans);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -171,16 +168,6 @@
   --color-sev-incident-bg: var(--sev-incident-bg);
   --color-sev-ok: var(--sev-ok);
   --color-sev-ok-bg: var(--sev-ok-bg);
-}
-
-/* The console's small captions: section names, column heads, units.
-   Uppercase mono, spaced out so short words stay legible. */
-@utility label-mono {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.4;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 @layer base {

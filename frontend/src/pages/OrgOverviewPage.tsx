@@ -497,7 +497,7 @@ function OrganizationsByLevel({ levels }: { levels: OrganizationLevel[] }) {
                     </button>
                   )}
                   {level.suspended && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                       {t('organizations.states.suspended')}
                     </span>
                   )}

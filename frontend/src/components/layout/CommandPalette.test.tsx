@@ -159,7 +159,7 @@ describe('sidebar', () => {
     expect(within(organization).getByRole('link', { name: 'Utilizatori' })).toHaveAttribute('aria-current', 'page')
     const account = screen.getByRole('navigation', { name: 'Contul meu' })
     expect(within(account).getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'Prezentare',
+      'Profilul meu',
       'Sesiunile mele',
       'Activitatea mea',
     ])

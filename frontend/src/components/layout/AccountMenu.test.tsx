@@ -29,7 +29,7 @@ describe('account menu', () => {
     signedInAs(makeUser())
     renderApp('/me')
 
-    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    await screen.findByRole('heading', { name: 'Profilul meu' })
     expect(document.documentElement.classList.contains('dark')).toBe(dark)
   })
 
@@ -52,7 +52,7 @@ describe('account menu', () => {
     const user = await openMenu()
     await user.click(screen.getByRole('menuitemradio', { name: 'English' }))
 
-    expect(await screen.findByRole('heading', { name: 'Welcome, elena.radu' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'My profile' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'My sessions' })).toBeInTheDocument()
     expect(document.documentElement.lang).toBe('en')
     expect(localStorage.getItem('sentinelcore.language')).toBe('en')
@@ -82,7 +82,7 @@ describe('account menu', () => {
   it('returns to the login page when the session ends during use', async () => {
     signedInAs(makeUser())
     const { queryClient } = renderApp('/me')
-    await screen.findByRole('heading', { name: 'Bun venit, elena.radu' })
+    await screen.findByRole('heading', { name: 'Profilul meu' })
 
     // The session was revoked elsewhere; the next check of the user fails.
     signedInAs(null)

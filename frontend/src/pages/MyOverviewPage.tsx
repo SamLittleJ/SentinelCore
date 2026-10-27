@@ -5,7 +5,6 @@ import { Link } from 'react-router'
 
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ActivityTable } from '@/features/account/ActivityTable'
 import { ALERT_SEVERITIES } from '@/features/account/api'
@@ -30,8 +29,8 @@ export function MyOverviewPage() {
     new Date(user.created_at),
   )
 
-  const rows: { label: string; value: string; mono?: boolean }[] = [
-    { label: t('overview.username'), value: user.username, mono: true },
+  const rows: { label: string; value: string }[] = [
+    { label: t('overview.username'), value: user.username },
     { label: t('overview.email'), value: user.email },
     { label: t('overview.role'), value: t(`roles.${user.role}`) },
     { label: t('overview.memberSince'), value: memberSince },
@@ -39,32 +38,30 @@ export function MyOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t('overview.greeting', { name: user.username })} />
+      <PageHeader title={t('nav.myProfile')} />
 
       <SecuritySummary />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-display text-lg">{t('overview.profile')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-[max-content_1fr]">
-            {rows.map((row) => (
-              <div key={row.label} className="contents">
-                <dt className="text-muted-foreground">{row.label}</dt>
-                <dd className={row.mono ? 'font-mono' : undefined}>{row.value}</dd>
-              </div>
-            ))}
-            <dt className="text-muted-foreground">{t('overview.status')}</dt>
-            <dd>
-              <span className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium text-sev-ok bg-sev-ok-bg">
-                <span aria-hidden className="size-1.5 rounded-full bg-sev-ok" />
-                {t('overview.active')}
-              </span>
-            </dd>
-          </dl>
-        </CardContent>
-      </Card>
+      <section aria-labelledby="account-details" className="flex flex-col gap-3">
+        <h2 id="account-details" className="text-base font-semibold">
+          {t('overview.profile')}
+        </h2>
+        <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-[max-content_1fr]">
+          {rows.map((row) => (
+            <div key={row.label} className="contents">
+              <dt className="text-muted-foreground">{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+          <dt className="text-muted-foreground">{t('overview.status')}</dt>
+          <dd>
+            <span className="inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium text-sev-ok bg-sev-ok-bg">
+              <span aria-hidden className="size-1.5 rounded-full bg-sev-ok" />
+              {t('overview.active')}
+            </span>
+          </dd>
+        </dl>
+      </section>
     </div>
   )
 }
@@ -94,13 +91,13 @@ function SecuritySummary() {
 
   return (
     <section aria-labelledby="security-summary" className="flex flex-col gap-4">
-      <h2 id="security-summary" className="font-display text-xl font-semibold">
+      <h2 id="security-summary" className="text-base font-semibold">
         {t('overview.security')}
       </h2>
 
-      <dl className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
+      <dl className="grid gap-px border-y bg-border sm:grid-cols-3">
         <Stat label={t('overview.activeSessions')} query={sessions}>
-          <span className="font-display text-4xl leading-none font-semibold">{sessions.data?.length}</span>
+          <span className="text-2xl font-semibold tabular-nums">{sessions.data?.length}</span>
           <Link to="/me/sessions" className="text-xs text-brand underline-offset-4 hover:underline">
             {t('overview.manageSessions')}
           </Link>
@@ -128,7 +125,7 @@ function SecuritySummary() {
         <Stat label={t('overview.alerts')} query={alerts}>
           <span
             className={cn(
-              'font-display text-4xl leading-none font-semibold',
+              'text-2xl font-semibold tabular-nums',
               alertItems.length > 0 ? 'text-sev-warn' : 'text-sev-ok',
             )}
           >
@@ -139,7 +136,7 @@ function SecuritySummary() {
 
       {alerts.isSuccess && (
         <div className="flex flex-col gap-3">
-          <h3 className="font-display text-lg font-semibold">{t('overview.recentAlerts')}</h3>
+          <h3 className="font-semibold">{t('overview.recentAlerts')}</h3>
           {alertItems.length === 0 ? (
             <p className="rounded-lg border bg-card px-4 py-4 text-muted-foreground">
               {t('overview.noAlerts')}
@@ -167,8 +164,8 @@ interface StatProps {
 function Stat({ label, query, children }: StatProps) {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col gap-1.5 bg-card px-4 py-4">
-      <dt className="label-mono text-muted-foreground">{label}</dt>
+    <div className="flex flex-col gap-0.5 bg-background px-4 py-3">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="flex flex-col items-start gap-1">
         {query.isPending ? (
           <Skeleton className="h-8 w-16" />

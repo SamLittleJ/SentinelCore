@@ -15,6 +15,7 @@ const en: typeof ro = {
   nav: {
     label: 'Main navigation',
     overview: 'Overview',
+    myProfile: 'My profile',
     mySessions: 'My sessions',
     myActivity: 'My activity',
     securityEvents: 'Security events',
@@ -86,8 +87,7 @@ const en: typeof ro = {
     },
   },
   overview: {
-    greeting: 'Welcome, {{name}}',
-    profile: 'Profile',
+    profile: 'Account details',
     username: 'Username',
     email: 'Email',
     role: 'Role',
