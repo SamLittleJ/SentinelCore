@@ -15,6 +15,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
 ├── kind/                 # the local kind cluster's configuration
 ├── kyverno/              # admission policies and the Kyverno values (make up)
+├── network-policies/     # the only network flows allowed in the cluster (make up)
 ├── scripts/              # make verify, make screenshots, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
 ├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain, images and CodeQL
@@ -172,6 +173,8 @@ make deploy-lint     # the charts, rendered manifests, Dockerfiles and scripts, 
 Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned versions, checked against their SHA-256, into `.tools/`, and keeps the cluster's kubeconfig in `.kind/kubeconfig`, leaving `~/.kube/config` alone (`export KUBECONFIG=$PWD/.kind/kubeconfig` to use `kubectl` on it). It installs `charts/postgresql`, then `charts/sentinelcore`, whose migrations run first as a Job, and creates the first owner, `owner@example.com`, with a random password written only to `.kind/owner.txt`. The secret key, the audit chain key, the database passwords and the metrics token are generated once as Kubernetes Secrets and never printed. Run `make up` again after a change: it rebuilds the images and replaces the pods whose image changed. `make up FROM=registry` builds nothing: it runs `make verify-images` and stops, with nothing installed, unless the signature and both attestations pass; it needs `gh auth login` and a clean tree, or `REVISION=<sha>`.
 
 Before the application, `make up` installs Kyverno (pinned chart and images) and marks the namespace with Kubernetes' `restricted` Pod Security Standard. A pod that runs as root, can gain privileges, writes to its root filesystem, has no CPU and memory limits, mounts a Kubernetes token or names an image without a digest is refused (`kyverno/pod-rules.yaml`), and `make cluster-check` proves each refusal. With `FROM=registry` the pods run the GHCR images by digest, and Kyverno checks their signature and both attestations again before each pod starts (`kyverno/signatures.yaml`).
+
+Inside the cluster, NetworkPolicies allow only the flows the application needs (`network-policies/`): the console reaches the API, the API and the Jobs reach PostgreSQL, every pod reaches DNS, and nothing reaches the internet. `make cluster-check` connects from inside the pods to prove both the allowed and the refused flows.
 
 ## Continuous integration
 

@@ -31,15 +31,6 @@ exceptions:
 
   # The cluster's accepted risks of docs/04 (TA2, E11), for phase E.
   - tool: checkov
-    id: CKV2_K8S_6
-    resources: ["Pod.default.sentinelcore-*"]
-    reason: >-
-      No NetworkPolicy yet: threat T-62, accepted for phase E. Every
-      database connection needs a password, and the API's role is bound by
-      row-level security.
-    expires: 2027-03-31
-
-  - tool: checkov
     id: CKV_K8S_35
     resources: ["Deployment.default.sentinelcore-backend", "Job.default.sentinelcore-migrations"]
     reason: >-

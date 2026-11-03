@@ -11,6 +11,7 @@ on:
             - "charts/**"
             - "kind/**"
             - "kyverno/**"
+            - "network-policies/**"
             - "backend/Dockerfile"
             - "frontend/Dockerfile"
             - "scripts/**"
