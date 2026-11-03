@@ -128,6 +128,27 @@ check "the API's database role is bound by row-level security" app_role
 
 check "the audit history is intact" in_pod "$backend" backend 'python -m app.cli verify-audit-chain'
 
+# Network: only the flows the application needs (network-policies/). A
+# connection that should be refused is tried by IP address, so a policy that
+# broke name resolution could not pass it; allowed ones go by name, which
+# checks DNS too.
+# reaches <pod> <container> <host> <port>: a TCP connection within 3 seconds.
+reaches() {
+  if [[ "$2" == console ]]; then
+    in_pod "$1" "$2" "nc -z -w 3 $3 $4"
+  else
+    in_pod "$1" "$2" "timeout 3 bash -c '</dev/tcp/$3/$4'"
+  fi
+}
+blocked() { ! reaches "$@"; }
+postgresql_ip="$(kubectl get pod -n "$NAMESPACE" sentinelcore-postgresql-0 -o jsonpath='{.status.podIP}')"
+backend_ip="$(kubectl get service -n "$NAMESPACE" sentinelcore-backend -o jsonpath='{.spec.clusterIP}')"
+check "the console reaches the API" reaches "$console" console sentinelcore-backend 8000
+check "the API reaches the database" reaches "$backend" backend sentinelcore-postgresql 5432
+check "the console cannot reach the database" blocked "$console" console "$postgresql_ip" 5432
+check "the database cannot reach the API" blocked pod/sentinelcore-postgresql-0 postgresql "$backend_ip" 8000
+check "the API cannot reach the internet" blocked "$backend" backend 1.1.1.1 443
+
 # Admission: a pod that breaks one rule is refused, each for its own reason
 # (the namespace's "restricted" Pod Security Standard, kyverno/pod-rules.yaml).
 # Asked with --dry-run=server, so nothing is created. The probe is a pod that

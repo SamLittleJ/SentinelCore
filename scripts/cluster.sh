@@ -51,6 +51,8 @@ create_cluster() {
   kubectl label namespace "$NAMESPACE" --overwrite \
     pod-security.kubernetes.io/enforce=restricted \
     pod-security.kubernetes.io/enforce-version=v1.35 >/dev/null
+  # Only the flows the application needs, before any of its pods starts.
+  kubectl apply -f "$ROOT/network-policies/" >/dev/null
 }
 
 # Kyverno refuses, at admission, a pod in the namespace that breaks
@@ -187,6 +189,9 @@ spec:
   backoffLimit: 0
   activeDeadlineSeconds: 120
   template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sentinelcore-owner
     spec:
       restartPolicy: Never
       serviceAccountName: sentinelcore-backend

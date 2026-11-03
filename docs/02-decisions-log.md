@@ -774,6 +774,15 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Fail closed, in one namespace, enforced at once.** `failurePolicy: Fail`; only `sentinelcore` is in scope, since kind's own components are not ours to constrain; no audit-only period, as our pods already met every rule.
 - **Admission controller only.** The background, cleanup and reports controllers report or tidy up; on kind they would only take memory. The chart's upgrade and uninstall hooks are off: the version is pinned and `make down` deletes the cluster.
 
+## Network policies (E2)
+
+- **kindnet, not Calico.** kind's own network plugin enforces NetworkPolicy; a negative test written first failed on the cluster without policies and passes with them, so no second plugin is needed.
+- **A directory applied by `cluster.sh`, not the chart.** The migrations Job is a Helm pre-install hook and must reach PostgreSQL before the chart's own resources exist; applying `network-policies/` right after the namespace, as for the Pod Security label, covers every pod from its start, the owner Job included.
+- **Default deny, then one policy per kind of pod.** One policy refuses everything in the namespace except DNS; the console, the API, PostgreSQL and the two Jobs each get the flows they need, selected by `app.kubernetes.io/name`. The owner Job, left out of the grill, gets that label and the Jobs' policy.
+- **No internet, no switch.** Nothing in the namespace calls out; a setting to turn the policies off would only be a way around them.
+- **No exception for the kubelet's probes.** The pods stay ready with the policies on, so none was added.
+- **Checked from inside the pods.** `make cluster-check` connects with `kubectl exec` from the pods that run; refused flows are tried by IP address, so a policy that broke DNS could not pass them.
+
 ## Independent evaluation (phase R1)
 
 - **Why.** The simulator writes both the attacks and the rules' test, so its 30 of 30 shows the rules do what they were designed for, not that they work on attacks no one designed for them. The independent evaluation answers that, on data the rules were not written for.

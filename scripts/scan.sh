@@ -31,7 +31,7 @@ echo "== checkov"
 helm template postgresql charts/postgresql >"$WORK/postgresql.yaml"
 helm template sentinelcore charts/sentinelcore --set image.tag=scan >"$WORK/sentinelcore.yaml"
 files=()
-for file in "$WORK/postgresql.yaml" "$WORK/sentinelcore.yaml" backend/Dockerfile frontend/Dockerfile .github/workflows/*.yml; do
+for file in "$WORK/postgresql.yaml" "$WORK/sentinelcore.yaml" network-policies/*.yaml backend/Dockerfile frontend/Dockerfile .github/workflows/*.yml; do
   files+=(-f "$file")
 done
 "$SCANNERS/checkov" --quiet --compact -o json --framework kubernetes dockerfile github_actions \

@@ -36,6 +36,8 @@ echo "== kubeconform"
   helm template sentinelcore charts/sentinelcore --set image.tag="$TAG" \
     --set image.backend=ghcr.io/samlittlej/sentinelcore-backend \
     --set image.digests.backend="sha256:$(printf '0%.0s' {1..64})"
+  echo ---
+  cat network-policies/*.yaml
 } | kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" \
   -schema-location "$SCHEMAS/{{.NormalizedKubernetesVersion}}-standalone{{.StrictSuffix}}/{{.ResourceKind}}{{.KindSuffix}}.json"
 

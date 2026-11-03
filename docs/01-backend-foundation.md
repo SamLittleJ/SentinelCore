@@ -5437,3 +5437,23 @@ Images CI failed on `main` after #85 (a Prometheus bump in `docker-compose.yml`)
 
 - `make scan-images`: 0 open (backend high 60, 0 fixable). Before the bump, CI's scan fails with the Critical finding.
 - `make verify`: 15/15 (pytest 747, vitest 258).
+
+## Phase E2: network policies
+
+### 435. The flows
+
+`network-policies/sentinelcore.yaml` holds five NetworkPolicies for the `sentinelcore` namespace. `default-deny` refuses all traffic in and out except DNS to kube-dns. The others allow anyone → console on 8080, console → API on 8000, and the API, the migrations Job and the owner Job → PostgreSQL on 5432. Pods are selected by `app.kubernetes.io/name`; the owner Job (`scripts/cluster.sh::create_owner`) now carries that label on its pod. Nothing may reach the internet. This closes threat T-62, and Checkov's CKV2_K8S_6 exception is gone.
+
+### 436. Applied before any pod
+
+`scripts/cluster.sh::create_cluster` applies the directory right after the namespace and its Pod Security label. The migrations Job is a Helm pre-install hook, so policies in the chart would not exist yet when it runs. kindnet, kind's own network plugin, enforces the policies.
+
+### 437. The checks, written first
+
+`make cluster-check` has five new checks: two allowed flows by name (console → API, API → database, which also checks DNS) and three refused ones by IP address (console → database, database → API, API → 1.1.1.1:443), so a policy that broke DNS could not pass them. The console has busybox `nc`; the API and PostgreSQL use `bash` and `/dev/tcp`. On the cluster without policies the three refused checks failed, as intended.
+
+### 438. Local validation
+
+- `make down` then `make up` from scratch: passes in 1 m 40 s, migrations and owner Job included; `make cluster-check`: 33/33.
+- Mutations on the running cluster: the API's egress opened to all fails "the API cannot reach the internet"; DNS removed from `default-deny` fails seven checks. Opening the database's ingress, or the API's, alone fails nothing: each refused flow is also refused by the other end's policy.
+- `make scan`: 0 open; without the policies, Checkov reports CKV2_K8S_6 for the three pods again. `make deploy-lint`: clean, the policies validated by kubeconform.
