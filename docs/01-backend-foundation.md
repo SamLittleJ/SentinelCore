@@ -5426,3 +5426,14 @@ No setting changes: these thresholds were tried on the data they are judged by, 
 
 - `tests/test_rba_offline.py` (16 tests) and `tests/test_freeman.py` (7): the replay against the API alert by alert; each rule's boundaries (same moment, lookback, minimum, missing user agent, idle period, spray window and repeat); the score against a hand computation; Eq. 8 and 9 per level; back-off; scoring before learning; the curve, its area and operating points; the rule placed on the same sign-ins. Mutations 22/22 caught; five first survived: two were code that changed no result (removed), three became new assertions.
 - `make evaluate-rba-offline`: about 10 minutes; the replay reproduced R1 exactly.
+
+## Stage: Python 3.12.16 base image
+
+### 433. The finding and the fix
+
+Images CI failed on `main` after #85 (a Prometheus bump in `docker-compose.yml`), and on every open Dependabot pull request, with one Critical finding: CVE-2026-115557 in the backend's Python 3.12.15, fixed in 3.12.16. The change being tested had nothing to do with it; Grype's database had added the advisory after the last green build. Upstream had already rebuilt `python:3.12-slim` with 3.12.16, so `backend/Dockerfile` (both stages) and the image `scripts/verify.sh` runs pytest in move to the new digest. No package is patched on top.
+
+### 434. Local validation
+
+- `make scan-images`: 0 open (backend high 60, 0 fixable). Before the bump, CI's scan fails with the Critical finding.
+- `make verify`: 15/15 (pytest 747, vitest 258).
