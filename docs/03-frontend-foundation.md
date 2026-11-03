@@ -906,3 +906,12 @@ Local validation: `make verify` 15 of 15 (vitest 258 passed, pytest 711 passed, 
 
 MSW moves from 2.15.0 to 3.0.3 (#55), on its own branch as for TypeScript 6. The one change it needs is in `src/test/setup.ts`: the `onUnhandledRequest` option of `server.listen` is now `onUnhandledFrame`, since MSW 3 handles WebSocket connections as well as requests. The value stays `'error'`. A throwaway test that fetched an address with no handler still failed with MSW's "intercepted a request without a matching request handler" error, and with `'bypass'` it failed on the network instead, so the strategy is in effect. The range stays `^`: MSW is used only by the tests and no other tool constrains its version. `make verify`: 15 of 15 checks (vitest 258 passed, npm audit 0 vulnerabilities, pytest 711 passed).
 
+
+### 101. libexpat in the console's image
+
+On 2026-11-03, Grype's database added four High findings in the console's libexpat 2.9.0-r0 (CVE-2026-113351, -115506, -117610, -118370), fixed in 2.10.0-r0. The nginx-unprivileged base was still at the same digest. `frontend/Dockerfile` now also installs `libexpat=2.10.0-r0`, the same patch as for zlib, brotli-libs and curl.
+
+### 102. Local validation
+
+- `make scan-images`: 0 open; console medium 3 (0 fixable), unknown 2 (2).
+- Reverse check: without the patch, `make scan-images` fails with the four libexpat findings.
