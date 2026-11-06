@@ -22,6 +22,8 @@ secrets:
   api: sentinelcore-api
   # MIGRATIONS_DATABASE_URL (the owner of the tables): the migration Job only.
   migrations: sentinelcore-migrations
+  # FALCO_INGEST_TOKEN, which falcosidekick sends (scripts/cluster.sh).
+  falco: sentinelcore-falco
 
 backend:
   replicas: 2

@@ -69,11 +69,11 @@ check "console routes fall back to the console" spa_route
 
 hidden() {
   local path
-  for path in /api/metrics /api/docs /api/redoc /api/openapi.json; do
+  for path in /api/metrics /api/docs /api/redoc /api/openapi.json /api/ingest/runtime; do
     [[ "$(status_of "$URL$path")" == 404 ]] || return 1
   done
 }
-check "metrics and API docs are not served outside" hidden
+check "metrics, API docs and Falco's endpoint are not served outside" hidden
 
 # The API records the address nginx saw: not the one the client wrote in
 # X-Forwarded-For, nor nginx's own in the pod network (FORWARDED_ALLOW_IPS).
@@ -149,6 +149,7 @@ check "the console cannot reach the database" blocked "$console" console "$postg
 check "the database cannot reach the API" blocked pod/sentinelcore-postgresql-0 postgresql "$backend_ip" 8000
 check "the API cannot reach the internet" blocked "$backend" backend 1.1.1.1 443
 
+
 # Admission: a pod that breaks one rule is refused, each for its own reason
 # (the namespace's "restricted" Pod Security Standard, kyverno/pod-rules.yaml).
 # Asked with --dry-run=server, so nothing is created. The probe is a pod that
@@ -188,6 +189,32 @@ check "a pod without resource limits is refused" refused 'requests and limits' '
 check "a pod with a Kubernetes token is refused" refused 'automountServiceAccountToken' \
   '.spec.automountServiceAccountToken = true'
 check "an image by tag only is refused" refused 'pinned by digest' '.spec.containers[0].image = "postgres:17"'
+
+# Runtime detection: a shell with a terminal in a pod of the namespace
+# reaches the database as Falco's alert, through falcosidekick (falco/,
+# phase E3). The probe pod gets a new name each run: the same alert within
+# ten minutes is stored once. Python gives kubectl the terminal it needs.
+runtime_alert() {
+  local pod before found=1
+  pod="runtime-probe-$(date +%s)"
+  before="$(sql "SELECT coalesce(max(id), 0) FROM security_events")"
+  probe | jq --arg pod "$pod" '.metadata.name = $pod | .spec.containers[0].command = ["sleep", "120"]' |
+    kubectl apply -f - >/dev/null || return 1
+  if kubectl wait --namespace "$NAMESPACE" --for=condition=ready "pod/$pod" --timeout=60s >/dev/null &&
+    python3 -c 'import pty, sys; sys.exit(pty.spawn(sys.argv[1:]) >> 8)' \
+      kubectl exec -it --namespace "$NAMESPACE" "$pod" -- sh -c true >/dev/null; then
+    for _ in $(seq 1 30); do
+      if [[ "$(sql "SELECT count(*) FROM security_events WHERE id > $before AND source = 'falco' AND event_type = 'CONTAINER_SHELL_DETECTED' AND message LIKE '% of pod $pod %'")" == 1 ]]; then
+        found=0
+        break
+      fi
+      sleep 1
+    done
+  fi
+  kubectl delete pod --namespace "$NAMESPACE" "$pod" --now >/dev/null
+  return "$found"
+}
+check "a shell in a container is reported by Falco within 30 seconds" runtime_alert
 
 if ((failed > 0)); then
   printf '%d check(s) failed\n' "$failed"

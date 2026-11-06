@@ -46,6 +46,14 @@ INGEST_REFUSED_EVENTS = Counter(
     ["source"],
 )
 
+# What POST /ingest/runtime did with each of Falco's alerts: stored,
+# ignored (a rule it does not keep) or duplicate (stored already).
+RUNTIME_ALERTS = Counter(
+    "sentinelcore_runtime_alerts_total",
+    "Falco alerts received, by what was done with them.",
+    ["outcome"],
+)
+
 LOGIN_REFUSED = Counter(
     "sentinelcore_login_refused_total",
     "Sign-in attempts refused because their address was over its limit.",

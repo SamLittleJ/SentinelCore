@@ -1,6 +1,9 @@
 // The MITRE ATT&CK techniques SentinelCore detects. Their names are proper
 // names, kept in English in every language, as MITRE publishes them.
 const TECHNIQUE_NAMES: Record<string, string> = {
+  'T1003.008': 'OS Credential Dumping: /etc/passwd and /etc/shadow',
+  'T1059': 'Command and Scripting Interpreter',
+  'T1059.004': 'Command and Scripting Interpreter: Unix Shell',
   'T1070': 'Indicator Removal',
   'T1078': 'Valid Accounts',
   'T1098': 'Account Manipulation',

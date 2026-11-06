@@ -143,6 +143,18 @@ Each key has a rate limit: it may send `INGEST_BURST_EVENTS` events at once (def
 
 Every valid batch, refused or not, is counted in the key's current UTC hour by the time it arrives (`api_key_usage`). The volume spike rule compares that hour with the key's usual busiest hour, the median of each day's busiest hour over the last `DETECTION_VOLUME_LOOKBACK_DAYS` days with traffic, today left out. It raises `api_key_volume_spike` once per hour, with the sending address, and only once the key has `DETECTION_VOLUME_MIN_DAYS` days of traffic. The counts are kept `API_KEY_USAGE_RETENTION_DAYS` days (default 30).
 
+## Runtime alerts (Falco)
+
+In the kind cluster, Falco watches the node's system calls and falcosidekick sends its alerts to `POST /ingest/runtime` with `Authorization: Bearer <FALCO_INGEST_TOKEN>`, which `make up` generates. Without the setting the endpoint does not exist, and nginx never forwards it. Four of Falco's default rules are kept, as platform alerts with the source `falco`; any other rule is answered alike and dropped:
+
+| Alert | Technique | Falco rule |
+| --- | --- | --- |
+| `container_shell_detected` (incident) | T1059 | Terminal shell in container |
+| `sensitive_file_read` (incident) | T1003.008 | Read sensitive file untrusted |
+| `container_network_tool` (warn) | T1059.004 | Redirect STDOUT/STDIN to Network Connection in Container, Netcat Remote Code Execution in Container |
+
+The server writes the message (namespace, pod, container, and the file for a sensitive read), never Falco's command line. The same alert within ten minutes of its time is stored once. Every valid alert gets `204 No Content`; `sentinelcore_runtime_alerts_total{outcome}` counts them as `stored`, `ignored` or `duplicate`.
+
 ## Attack simulator
 
 `simulator/` measures the detection rules. It drives a running instance through its public API, as an outside system would, and writes `docs/evaluation/report.md` and `report.json`.

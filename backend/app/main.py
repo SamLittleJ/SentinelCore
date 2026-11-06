@@ -15,6 +15,7 @@ from app.api.routes import (
     invitations,
     metrics,
     organizations,
+    runtime,
     security,
     users,
 )
@@ -82,6 +83,9 @@ def create_app(settings: Settings) -> FastAPI:
     app.include_router(invitations.router)
     app.include_router(invitations.public_router)
     app.include_router(ingest.router)
+    # Falco's alerts: without a token, the path is an unknown one.
+    if settings.falco_ingest_token is not None:
+        app.include_router(runtime.runtime_router(settings.falco_ingest_token))
     return app
 
 

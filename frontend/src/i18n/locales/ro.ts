@@ -177,6 +177,9 @@ const ro = {
     api_key_volume_spike: 'Volum neobișnuit de evenimente pe o cheie API',
     cross_organization_spray_detected: 'Atac de tip password spray între organizații detectat',
     audit_chain_broken: 'Istoricul de audit nu mai trece verificarea',
+    container_shell_detected: 'Shell deschis într-un container',
+    sensitive_file_read: 'Fișier sensibil citit într-un container',
+    container_network_tool: 'Shell conectat la rețea într-un container',
   },
   eventsAsTarget: {
     user_role_changed: 'Rolul tău a fost schimbat',
@@ -265,6 +268,9 @@ const ro = {
       api_key_volume_spike: 'Volum neobișnuit pe o cheie API',
       cross_organization_spray_detected: 'Password spray între organizații',
       audit_chain_broken: 'Istoric de audit rupt',
+      container_shell_detected: 'Shell într-un container',
+      sensitive_file_read: 'Fișier sensibil citit',
+      container_network_tool: 'Shell prin rețea într-un container',
     },
   },
   audit: {

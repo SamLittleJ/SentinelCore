@@ -341,6 +341,38 @@ describe('organization security events page', () => {
     expect(within(panel).queryByRole('link', { name: 'Deschide contul' })).not.toBeInTheDocument()
   })
 
+  it("shows Falco's alert of a shell over the network with its technique and source", async () => {
+    const user = userEvent.setup()
+    const redirected = makeSecurityEvent({
+      id: 510,
+      event_type: 'container_network_tool',
+      severity: 'warn',
+      user_id: null,
+      email: null,
+      organization_id: null,
+      ip_address: null,
+      source: 'falco',
+      message:
+        'Shell input or output sent over the network in container backend of pod sentinelcore-backend-1 (namespace sentinelcore)',
+      mitre_technique: 'T1059.004',
+    })
+    serveEvents(() => [redirected])
+    const { table } = await openEvents()
+
+    const [row] = rows(table)
+    expect(row).toHaveTextContent('Tehnica MITRE ATT&CK T1059.004')
+    expect(within(row).getByTitle('Command and Scripting Interpreter: Unix Shell')).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Shell prin rețea într-un container' }))
+    const panel = await screen.findByRole('dialog', { name: 'Shell prin rețea într-un container' })
+    expect(panel).toHaveTextContent('falco')
+    expect(panel).toHaveTextContent('pod sentinelcore-backend-1 (namespace sentinelcore)')
+    expect(within(panel).getByRole('link', { name: /Deschide pe attack\.mitre\.org/ })).toHaveAttribute(
+      'href',
+      'https://attack.mitre.org/techniques/T1059/004/',
+    )
+  })
+
   it('shows a limited sign-in address with its technique and the address', async () => {
     const user = userEvent.setup()
     const limited = makeSecurityEvent({

@@ -14,6 +14,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── infra/                # Prometheus and Grafana configuration
 ├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
 ├── kind/                 # the local kind cluster's configuration
+├── falco/                # Falco's values: runtime detection in the cluster (make up)
 ├── kyverno/              # admission policies and the Kyverno values (make up)
 ├── network-policies/     # the only network flows allowed in the cluster (make up)
 ├── scripts/              # make verify, make screenshots, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
@@ -175,6 +176,8 @@ Needs Docker and `openssl`. `make up` downloads kind, Helm and kubectl at pinned
 Before the application, `make up` installs Kyverno (pinned chart and images) and marks the namespace with Kubernetes' `restricted` Pod Security Standard. A pod that runs as root, can gain privileges, writes to its root filesystem, has no CPU and memory limits, mounts a Kubernetes token or names an image without a digest is refused (`kyverno/pod-rules.yaml`), and `make cluster-check` proves each refusal. With `FROM=registry` the pods run the GHCR images by digest, and Kyverno checks their signature and both attestations again before each pod starts (`kyverno/signatures.yaml`).
 
 Inside the cluster, NetworkPolicies allow only the flows the application needs (`network-policies/`): the console reaches the API, the API and the Jobs reach PostgreSQL, every pod reaches DNS, and nothing reaches the internet. `make cluster-check` connects from inside the pods to prove both the allowed and the refused flows.
+
+Falco watches the node's system calls (`falco/`, pinned chart and images, no downloads at start). falcosidekick sends its alerts to the API's internal `/ingest/runtime`, with a token `make up` generates, and the API keeps four of Falco's rules as platform alerts with their MITRE technique: a shell with a terminal in a container (T1059), a sensitive file read (T1003.008) and a shell sent over the network (T1059.004). `make cluster-check` opens a shell in a probe pod and waits for the alert to reach the database.
 
 ## Continuous integration
 

@@ -9,6 +9,7 @@ from app.core.metrics import record_security_event
 from app.models.organization import Organization
 from app.models.security_event import (
     DETECTION_SOURCE,
+    FALCO_SOURCE,
     MITRE_TECHNIQUES,
     SecurityEvent,
     SecurityEventType,
@@ -192,6 +193,10 @@ def _level_of(incidents: int, detections: bool) -> ThreatLevel:
     return "warn" if detections else "calm"
 
 
+# The rules' own alerts and Falco's: each raises the level to at least warn.
+ALERT_SOURCES = (DETECTION_SOURCE, FALCO_SOURCE)
+
+
 def _threat_level(
     db: Session, in_scope: list[ColumnElement[bool]], since: datetime, incidents: int
 ) -> ThreatLevel:
@@ -201,7 +206,7 @@ def _threat_level(
         select(SecurityEvent.id)
         .where(
             *in_scope,
-            SecurityEvent.source == DETECTION_SOURCE,
+            SecurityEvent.source.in_(ALERT_SOURCES),
             SecurityEvent.created_at >= since,
         )
         .limit(1)
@@ -228,7 +233,7 @@ def _organization_levels(db: Session, since: datetime) -> list[OrganizationLevel
                 func.count().filter(
                     SecurityEvent.severity == SecuritySeverity.INCIDENT
                 ),
-                func.count().filter(SecurityEvent.source == DETECTION_SOURCE),
+                func.count().filter(SecurityEvent.source.in_(ALERT_SOURCES)),
             )
             .where(SecurityEvent.created_at >= since)
             .group_by(SecurityEvent.organization_id)

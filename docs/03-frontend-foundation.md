@@ -923,3 +923,12 @@ The same day, Grype added CVE-2026-107891 (High) in the console's musl and musl-
 ### 104. Local validation
 
 - `make scan-images`: 0 open; console medium 3 (0 fixable). Without the patch, CI's scan fails with the two musl findings.
+
+### 105. Falco's alerts in the console
+
+Phase E3 adds three alert types of the platform, with the source `falco`: `container_shell_detected`, `sensitive_file_read` and `container_network_tool`. `SECURITY_EVENT_TYPES` lists them, both languages name them in the personal and the organization views, and `features/org/mitre.ts` names their techniques (T1059, T1003.008, T1059.004), so the badge's tooltip and the record's panel show them like any detection. No page changed.
+
+### 106. Local validation
+
+- `npm test`: 259 passed; the new test opens a Falco alert's record and finds its label, technique, link, source and message. Without the T1059.004 name or the Romanian label, it fails.
+- End to end on the kind cluster, with real Falco alerts: the owner's events page and an alert's panel in both themes, at 1440 px and 390 px, headless Firefox over WebDriver BiDi; no horizontal overflow on the events page. The overview at 390 px overflows by about 20 px, through the "Organizations by level" section; it did with the console built before this change too, so it is left for its own fix.

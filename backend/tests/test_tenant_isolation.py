@@ -340,6 +340,26 @@ def test_the_owners_summary_ranks_every_organization_and_the_platform(
         assert level["threat_level"] == own["threat_level"]
 
 
+def test_a_falco_alert_counts_as_a_detection_of_the_platform(
+    client: TestClient, db_session: Session, platform: Platform
+) -> None:
+    # Falco's warnings are detections too, though not the rules' own.
+    db_session.add(
+        SecurityEvent(
+            event_type=SecurityEventType.CONTAINER_NETWORK_TOOL,
+            severity=SecuritySeverity.WARN,
+            source="falco",
+            message="seeded",
+        )
+    )
+    db_session.commit()
+
+    levels = summary_counts(client, platform.owner)["organizations"]
+
+    [platform_level] = [level for level in levels if level["id"] is None]
+    assert platform_level["threat_level"] == "warn"
+
+
 @pytest.mark.parametrize("reader", ["ada", "ana"])
 def test_only_the_owners_whole_platform_summary_lists_organizations(
     client: TestClient, platform: Platform, reader: str

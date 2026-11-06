@@ -1,0 +1,71 @@
+# The flows Falco needs in the falco namespace (falco/values.yaml), and no
+# other. Falco reads the node's system calls through the kernel, not the
+# network; its alerts go to falcosidekick, which sends them to the API.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: falco
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# Falco: sends its alerts to falcosidekick only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: falco
+  namespace: falco
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: falco
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: falcosidekick
+      ports:
+        - {protocol: TCP, port: 2801}
+---
+# falcosidekick: reached by Falco, talks only to the API's runtime endpoint.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: falcosidekick
+  namespace: falco
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: falcosidekick
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: falco
+      ports:
+        - {protocol: TCP, port: 2801}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sentinelcore
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sentinelcore-backend
+      ports:
+        - {protocol: TCP, port: 8000}
