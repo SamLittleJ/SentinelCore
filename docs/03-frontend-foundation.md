@@ -932,3 +932,7 @@ Phase E3 adds three alert types of the platform, with the source `falco`: `conta
 
 - `npm test`: 259 passed; the new test opens a Falco alert's record and finds its label, technique, link, source and message. Without the T1059.004 name or the Romanian label, it fails.
 - End to end on the kind cluster, with real Falco alerts: the owner's events page and an alert's panel in both themes, at 1440 px and 390 px, headless Firefox over WebDriver BiDi; no horizontal overflow on the events page. The overview at 390 px overflows by about 20 px, through the "Organizations by level" section; it did with the console built before this change too, so it is left for its own fix.
+
+### 107. zlib 1.4 in the console's image
+
+On 2026-11-06 the console's image stopped building anywhere: Alpine 3.24's repository replaced zlib 1.3.2-r1 with 1.4-r0, so `apk add zlib=1.3.2-r1` found no such package. Exact pins fail this way whenever Alpine moves a package on. `frontend/Dockerfile` now installs `zlib=1.4-r0`; the other pinned packages were still available. `make scan-images`: 0 open (console: 3 Medium, none fixable at High or Critical).
