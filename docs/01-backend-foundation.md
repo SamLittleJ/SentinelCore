@@ -5457,3 +5457,13 @@ Images CI failed on `main` after #85 (a Prometheus bump in `docker-compose.yml`)
 - `make down` then `make up` from scratch: passes in 1 m 40 s, migrations and owner Job included; `make cluster-check`: 33/33.
 - Mutations on the running cluster: the API's egress opened to all fails "the API cannot reach the internet"; DNS removed from `default-deny` fails seven checks. Opening the database's ingress, or the API's, alone fails nothing: each refused flow is also refused by the other end's policy.
 - `make scan`: 0 open; without the policies, Checkov reports CKV2_K8S_6 for the three pods again. `make deploy-lint`: clean, the policies validated by kubeconform.
+
+## Stage: apt 3.0.4 in the base image
+
+### 439. The finding and the fix
+
+On 2026-11-06 Images CI failed on the pull request of phase E3 (#91) with a High finding unrelated to it: CVE-2026-109518 in the backend's apt and libapt-pkg7.0 3.0.3, fixed in 3.0.4. Upstream had rebuilt `python:3.12-slim` with apt 3.0.4 (Python still 3.12.16), so `backend/Dockerfile` (both stages) and `scripts/verify.sh` move to the new digest, as for Python 3.12.16 (§433).
+
+### 440. Local validation
+
+- `make scan-images`: 0 open (backend high 61, 0 fixable). With the old digest, CI's scan fails with the two apt findings.

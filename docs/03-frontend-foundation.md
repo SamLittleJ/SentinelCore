@@ -915,3 +915,11 @@ On 2026-11-03, Grype's database added four High findings in the console's libexp
 
 - `make scan-images`: 0 open; console medium 3 (0 fixable), unknown 2 (2).
 - Reverse check: without the patch, `make scan-images` fails with the four libexpat findings.
+
+### 103. musl in the console's image
+
+The same day, Grype added CVE-2026-107891 (High) in the console's musl and musl-utils 1.2.6-r2, fixed in 1.2.6-r3, while the nginx-unprivileged base was still at the same digest. `frontend/Dockerfile` now also installs `musl=1.2.6-r3` and `musl-utils=1.2.6-r3`, the same patch as for zlib, brotli-libs, curl and libexpat.
+
+### 104. Local validation
+
+- `make scan-images`: 0 open; console medium 3 (0 fixable). Without the patch, CI's scan fails with the two musl findings.
