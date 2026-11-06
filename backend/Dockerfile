@@ -1,7 +1,7 @@
 # The API, its migrations and its command line in one image: the migration
 # Job runs the same code the API serves. Base images are pinned by digest.
 
-FROM python:3.12-slim@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30 AS build
+FROM python:3.12-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54 AS build
 # Every dependency is pinned with its hashes (requirements.lock, generated
 # with `uv pip compile --generate-hashes`): a changed package is refused.
 COPY requirements.lock /tmp/requirements.lock
@@ -13,7 +13,7 @@ COPY migrations /srv/sentinelcore/migrations
 # Compiled now, since the running container cannot write.
 RUN /opt/venv/bin/python -m compileall -q /srv/sentinelcore /opt/venv
 
-FROM python:3.12-slim@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
+FROM python:3.12-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="sentinelcore-backend" \
       org.opencontainers.image.source="https://github.com/SamLittleJ/SentinelCore" \

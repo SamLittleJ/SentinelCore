@@ -14,7 +14,7 @@ LOGS="$ROOT/.verify"
 BACKEND="$ROOT/backend"
 PY="$BACKEND/.venv/bin"
 POSTGRES=sentinelcore-postgres
-PYTHON_IMAGE=python:3.12-slim@sha256:b18b261e1b4974b4f321451ad5251ded85abb22c2b8b262da527dda1d031ab30
+PYTHON_IMAGE=python:3.12-slim@sha256:4840d514c583a4d3d8cad3940e68dee6f0f6f3635c12fcd0a3d74c21a5b93a54
 # What Gitleaks scans, one path per run.
 GITLEAKS_PATHS=(backend frontend docs scripts infra charts kind kyverno network-policies security .github README.md SECURITY.md Makefile docker-compose.yml)
 
