@@ -43,6 +43,10 @@ COSIGN_SHA256=4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71
 # 3.9.2: that one was six days old, inside the seven-day cooldown.
 KYVERNO_CHART_VERSION=3.9.1
 KYVERNO_CHART_SHA256=7b7fe51a431b5b133b0ce7eb9dcb222b6a37fb967c163223cf480054ad14d752
+# Runtime detection (falco/), as its Helm chart, with falcosidekick. 9.2.1
+# (Falco 0.45.1), not 9.2.2: that one was four days old, inside the cooldown.
+FALCO_CHART_VERSION=9.2.1
+FALCO_CHART_SHA256=726c1fe08c3fd3e2789d4072b34f9eee94ecccad734fee471cc7546124570c6c
 
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
@@ -68,7 +72,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -162,6 +166,13 @@ if wanted kyverno && [[ ! -f "$TOOLS/kyverno.tgz" || "$(cat "$TOOLS/kyverno.tgz.
   fetch "https://kyverno.github.io/kyverno/kyverno-$KYVERNO_CHART_VERSION.tgz" \
     "$KYVERNO_CHART_SHA256" "$TOOLS/kyverno.tgz"
   echo "$KYVERNO_CHART_VERSION" >"$TOOLS/kyverno.tgz.version"
+fi
+
+# A chart, not a binary: helm installs .tools/falco.tgz.
+if wanted falco && [[ ! -f "$TOOLS/falco.tgz" || "$(cat "$TOOLS/falco.tgz.version" 2>/dev/null)" != "$FALCO_CHART_VERSION" ]]; then
+  fetch "https://github.com/falcosecurity/charts/releases/download/falco-$FALCO_CHART_VERSION/falco-$FALCO_CHART_VERSION.tgz" \
+    "$FALCO_CHART_SHA256" "$TOOLS/falco.tgz"
+  echo "$FALCO_CHART_VERSION" >"$TOOLS/falco.tgz.version"
 fi
 
 # The Python scanners of `make scan` (Checkov, pip-audit), in an environment

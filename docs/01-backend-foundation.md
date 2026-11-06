@@ -5467,3 +5467,33 @@ On 2026-11-06 Images CI failed on the pull request of phase E3 (#91) with a High
 ### 440. Local validation
 
 - `make scan-images`: 0 open (backend high 61, 0 fixable). With the old digest, CI's scan fails with the two apt findings.
+
+## Phase E3: Falco runtime detection
+
+### 441. Falco in the cluster
+
+`make up` installs Falco 0.45.1 and falcosidekick 2.32.0 from the Falco chart 9.2.1 (pinned with its SHA-256 in `scripts/tools.sh`, images by digest in `falco/values.yaml`), in a namespace `falco` labelled `privileged` for Pod Security, before the application. Falco reads system calls with its built-in `modern_ebpf` driver, which needs the kernel's BTF and compiles nothing. falcoctl, which would download rules and the container plugin at start and then follow them, is off: the image's own default rules and plugin run. falcosidekick forwards every alert from Notice up to the API. NetworkPolicies in `network-policies/falco.yaml` let Falco reach only falcosidekick, and falcosidekick only the API on 8000; the API's own policy admits falcosidekick beside nginx.
+
+### 442. The endpoint
+
+`POST /ingest/runtime` (`app/api/routes/runtime.py`) exists only when `FALCO_INGEST_TOKEN` is set (at least 32 bytes); `create_app` adds its router then, so without it the path answers like any unknown one. `make up` generates the token once into two Secrets, `sentinelcore-falco` for the API and `falcosidekick-webhook` for falcosidekick, and restarts both if it had to write a new pair. The token is compared in constant time and a missing or wrong one gets one answer, `401`. nginx answers the path with 404, so it is reached only from inside the cluster.
+
+The body is falcosidekick's payload (`app/schemas/runtime.py`): unknown top-level fields are refused, the output fields are read for the namespace, pod, container (Kubernetes name rules) and file only. `app/services/runtime_alert_service.py` keeps four rules as three types (table in `backend/README.md`), writes its own message and stores the alert with the source `falco` and no organization, at Falco's time. The same message within ten minutes of that time is not stored again. Kept, ignored or repeated, the answer is `204`; `sentinelcore_runtime_alerts_total{outcome}` counts each. The writes need the system scope, since the platform's rows belong to no organization. The owner's threat level now counts `falco` alerts as detections, like the rules' own (`ALERT_SOURCES`).
+
+### 443. What was found on kind
+
+- A shell opened by `kubectl exec -it` is caught only with a real terminal; `script` is not on every system, so the check gives kubectl one with Python's `pty`.
+- Our pods run as a user other than root and cannot open `/etc/shadow`, so "Read sensitive file untrusted" never fires there; its recorded alert came from a root pod in the `falco` namespace.
+- The network checks of `make cluster-check` (`bash` with `/dev/tcp`) raise "Redirect STDOUT/STDIN to Network Connection in Container" on every run: true alerts, kept as known noise.
+- kind's node is itself a container, so the kubelet's `mount` calls raise "Drop and execute new binary in container" (Critical) as pods start; the rule is not kept.
+- When falcosidekick restarts, Falco's output to it blocks ("all output channels are blocked") and its alerts arrive up to about two minutes late; without the NetworkPolicies of `falco` the delay did not appear. They are delayed, not lost (T-76).
+
+### 444. The check
+
+`make cluster-check` creates a probe pod with a new name each run (the admission check's probe, sleeping), opens a shell with a terminal in it and waits up to 30 seconds for a `container_shell_detected` alert naming that pod; a new name, because the same alert within ten minutes is stored once. It also checks that nginx answers `/api/ingest/runtime` with 404.
+
+### 445. Local validation
+
+- `pytest`: 777 passed; `tests/test_runtime_alerts.py` (28) uses alerts falcosidekick sent on kind (`tests/data/falco_alerts.json`). Mutations, each failing a test: token check off, every rule kept, deduplication off or widened to 12 minutes, another source, `falco` not reserved, names not required, the endpoint on without a token, a short token accepted, Falco's alerts not counted in the threat level.
+- `make down`, `make up` from scratch (about 2 minutes, Falco ready in about 25 seconds), `make cluster-check` 34/34 five times in a row. On the cluster, without falcosidekick in the API's policy or with another token in falcosidekick's Secret, the shell is not reported (falcosidekick logs `401`).
+- `make up` over a cluster from before E3 adds Falco, the token and the migration.

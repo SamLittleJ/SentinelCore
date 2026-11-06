@@ -181,6 +181,9 @@ const en: typeof ro = {
     api_key_volume_spike: 'Unusual event volume on an API key',
     cross_organization_spray_detected: 'Password spray across organizations detected',
     audit_chain_broken: 'Audit history no longer verifies',
+    container_shell_detected: 'Shell opened in a container',
+    sensitive_file_read: 'Sensitive file read in a container',
+    container_network_tool: 'Shell connected to the network in a container',
   },
   eventsAsTarget: {
     user_role_changed: 'Your role was changed',
@@ -269,6 +272,9 @@ const en: typeof ro = {
       api_key_volume_spike: 'Unusual volume on an API key',
       cross_organization_spray_detected: 'Password spray across organizations',
       audit_chain_broken: 'Audit history broken',
+      container_shell_detected: 'Shell in a container',
+      sensitive_file_read: 'Sensitive file read',
+      container_network_tool: 'Shell over the network in a container',
     },
   },
   audit: {

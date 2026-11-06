@@ -47,13 +47,19 @@ class SecurityEventType(StrEnum):
     API_KEY_VOLUME_SPIKE = "api_key_volume_spike"
     CROSS_ORGANIZATION_SPRAY_DETECTED = "cross_organization_spray_detected"
     AUDIT_CHAIN_BROKEN = "audit_chain_broken"
+    # Falco's alerts from the cluster (services/runtime_alert_service.py).
+    CONTAINER_SHELL_DETECTED = "container_shell_detected"
+    SENSITIVE_FILE_READ = "sensitive_file_read"
+    CONTAINER_NETWORK_TOOL = "container_network_tool"
 
 
 # The sources this application stamps on its own events. Ingested events
 # carry their API key's source, which may not be one of these.
 BACKEND_SOURCE = "backend"
 DETECTION_SOURCE = "detection"
-RESERVED_SOURCES = frozenset({BACKEND_SOURCE, DETECTION_SOURCE})
+# Falco in the platform's own cluster; never an ingestion key's.
+FALCO_SOURCE = "falco"
+RESERVED_SOURCES = frozenset({BACKEND_SOURCE, DETECTION_SOURCE, FALCO_SOURCE})
 
 # The MITRE ATT&CK technique each detection stands for
 # (https://attack.mitre.org/techniques/).
@@ -74,6 +80,12 @@ MITRE_TECHNIQUES: dict[SecurityEventType, str] = {
     SecurityEventType.API_KEY_VOLUME_SPIKE: "T1499",
     # Indicator Removal: history changed or deleted to hide what happened
     SecurityEventType.AUDIT_CHAIN_BROKEN: "T1070",
+    # Command and Scripting Interpreter: a shell opened in a container
+    SecurityEventType.CONTAINER_SHELL_DETECTED: "T1059",
+    # OS Credential Dumping: /etc/passwd and /etc/shadow, and files like them
+    SecurityEventType.SENSITIVE_FILE_READ: "T1003.008",
+    # Unix Shell: a shell's input or output sent over the network
+    SecurityEventType.CONTAINER_NETWORK_TOOL: "T1059.004",
 }
 
 

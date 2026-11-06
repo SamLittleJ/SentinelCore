@@ -46,6 +46,10 @@ create_cluster() {
   fi
   chmod 600 "$KUBECONFIG"
   kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE"
+  # Falco reads the node's system calls, which only a privileged pod may.
+  kubectl get namespace falco >/dev/null 2>&1 || kubectl create namespace falco
+  kubectl label namespace falco --overwrite \
+    pod-security.kubernetes.io/enforce=privileged >/dev/null
   # Kubernetes' own "restricted" Pod Security Standard: no root, no
   # privilege escalation, no added capabilities.
   kubectl label namespace "$NAMESPACE" --overwrite \
@@ -77,6 +81,36 @@ install_policies() {
   fi
   kubectl wait validatingpolicies,imagevalidatingpolicies --all \
     --for=jsonpath='{.status.conditionStatus.ready}'=true --timeout=2m >/dev/null
+}
+
+# The token falcosidekick sends to the API, in a Secret in each namespace.
+# Nothing is kept with it, so a missing half is replaced by a new pair.
+create_falco_token() {
+  if kubectl get secret sentinelcore-falco --namespace "$NAMESPACE" >/dev/null 2>&1 &&
+    kubectl get secret falcosidekick-webhook --namespace falco >/dev/null 2>&1; then
+    return
+  fi
+  local token
+  token="$(random)"
+  kubectl delete secret sentinelcore-falco --namespace "$NAMESPACE" --ignore-not-found >/dev/null
+  printf 'FALCO_INGEST_TOKEN=%s\n' "$token" | secret sentinelcore-falco
+  kubectl delete secret falcosidekick-webhook --namespace falco --ignore-not-found >/dev/null
+  printf 'WEBHOOK_CUSTOMHEADERS=Authorization:Bearer %s\n' "$token" |
+    kubectl create secret generic falcosidekick-webhook --namespace falco --from-env-file=/dev/stdin >/dev/null
+  # Running pods read the Secrets only when they start.
+  local deployment
+  for deployment in "$NAMESPACE/sentinelcore-backend" falco/falco-falcosidekick; do
+    if kubectl get deployment --namespace "${deployment%/*}" "${deployment#*/}" >/dev/null 2>&1; then
+      kubectl rollout restart deployment --namespace "${deployment%/*}" "${deployment#*/}" >/dev/null
+    fi
+  done
+}
+
+# Falco and falcosidekick, which sends its alerts to the API.
+install_falco() {
+  say "Installing Falco"
+  helm upgrade --install falco "$ROOT/.tools/falco.tgz" \
+    --namespace falco --wait --timeout 5m --values "$ROOT/falco/values.yaml"
 }
 
 # image <name>: what the pods run, as the chart and the owner Job name it.
@@ -247,6 +281,8 @@ up() {
   : "${REVISION:?run through make up, which builds the images}"
   create_cluster
   install_policies
+  create_falco_token
+  install_falco
   load_images
   create_secrets
   install_charts

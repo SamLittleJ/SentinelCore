@@ -20,6 +20,17 @@ MAX_CLOCK_SKEW = timedelta(minutes=5)
 MAX_EVENT_AGE = timedelta(days=365)
 
 
+def check_event_time(value: datetime) -> datetime:
+    """`value`, if a sender could have seen it: not ahead of our clock by
+    more than the skew, and at most a year old."""
+    now = datetime.now(UTC)
+    if value > now + MAX_CLOCK_SKEW:
+        raise ValueError("occurred_at is in the future")
+    if value < now - MAX_EVENT_AGE:
+        raise ValueError("occurred_at is more than a year ago")
+    return value
+
+
 class IngestedEvent(BaseModel):
     """A sign-in reported by another system. The server sets the severity and
     the message; the sender only states what happened."""
@@ -35,12 +46,7 @@ class IngestedEvent(BaseModel):
     @field_validator("occurred_at")
     @classmethod
     def check_occurred_at(cls, value: datetime) -> datetime:
-        now = datetime.now(UTC)
-        if value > now + MAX_CLOCK_SKEW:
-            raise ValueError("occurred_at is in the future")
-        if value < now - MAX_EVENT_AGE:
-            raise ValueError("occurred_at is more than a year ago")
-        return value
+        return check_event_time(value)
 
 
 class IngestRequest(BaseModel):

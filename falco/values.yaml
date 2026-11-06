@@ -1,0 +1,36 @@
+# Falco for SentinelCore's kind cluster (scripts/cluster.sh): it watches the
+# node's system calls and falcosidekick sends its alerts to the API's
+# internal POST /ingest/runtime, which keeps the ones it knows.
+image:
+  tag: 0.45.1@sha256:69e957f91b3a6beb5c82e2afae33ec3e4479dab2d4421475d288d0cd113cedf6
+
+# Built into Falco, so nothing is compiled or downloaded on the node; it
+# needs the kernel's BTF, which Fedora and GitHub's runners have.
+driver:
+  kind: modern_ebpf
+
+# falcoctl would download rules and plugins from the internet at start and
+# then follow them; the image's own default rules and container plugin are
+# used instead, so what runs is what was pinned.
+falcoctl:
+  artifact:
+    install:
+      enabled: false
+    follow:
+      enabled: false
+
+falcosidekick:
+  enabled: true
+  replicaCount: 1
+  image:
+    tag: 2.32.0@sha256:1976da72151850aae4436f33a5ed94bdef469f42a9b61c182b4feeb5441fb081
+  webui:
+    enabled: false
+  config:
+    # WEBHOOK_CUSTOMHEADERS, with the token, comes from this Secret, which
+    # cluster.sh writes; envFrom reads it after the chart's own, so it wins.
+    existingSecret: falcosidekick-webhook
+    webhook:
+      address: http://sentinelcore-backend.sentinelcore.svc.cluster.local:8000/ingest/runtime
+      # "Terminal shell in container" is a Notice.
+      minimumpriority: notice

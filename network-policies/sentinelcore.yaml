@@ -47,7 +47,8 @@ spec:
       ports:
         - {protocol: TCP, port: 8000}
 ---
-# The API: reached only by nginx, talks only to the database.
+# The API: reached only by nginx and by falcosidekick (falco.yaml), talks
+# only to the database.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -63,6 +64,12 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: sentinelcore-console
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: falco
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: falcosidekick
       ports:
         - {protocol: TCP, port: 8000}
   egress:

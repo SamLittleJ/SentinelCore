@@ -76,6 +76,19 @@ class Settings(BaseSettings):
     # pages run code from a public CDN and the schema maps every route, so they
     # are off unless turned on, for development.
     api_docs_enabled: bool = False
+    # What falcosidekick sends as a Bearer token to POST /ingest/runtime, in
+    # the cluster (scripts/cluster.sh). Unset, the endpoint does not exist.
+    falco_ingest_token: SecretStr | None = None
+
+    @field_validator("falco_ingest_token")
+    @classmethod
+    def check_falco_ingest_token(cls, value: SecretStr | None) -> SecretStr | None:
+        # An empty FALCO_INGEST_TOKEN= in .env means no token, not an empty one.
+        if value is None or not value.get_secret_value():
+            return None
+        if len(value.get_secret_value().encode()) < 32:
+            raise ValueError("FALCO_INGEST_TOKEN must be at least 32 bytes long")
+        return value
 
     @field_validator("secret_key")
     @classmethod

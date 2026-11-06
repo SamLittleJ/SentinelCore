@@ -12,6 +12,7 @@ on:
             - "kind/**"
             - "kyverno/**"
             - "network-policies/**"
+            - "falco/**"
             - "backend/Dockerfile"
             - "frontend/Dockerfile"
             - "scripts/**"

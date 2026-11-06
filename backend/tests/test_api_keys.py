@@ -138,6 +138,7 @@ def test_regular_users_cannot_see_keys(client: TestClient, db_session: Session) 
     [
         {"source": "backend"},
         {"source": "detection"},
+        {"source": "falco"},
         {"source": " Backend "},
         {"source": "has space"},
         {"source": "x"},

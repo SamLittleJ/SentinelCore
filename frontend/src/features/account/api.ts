@@ -40,6 +40,10 @@ export const SECURITY_EVENT_TYPES = [
   'api_key_volume_spike',
   'cross_organization_spray_detected',
   'audit_chain_broken',
+  // Falco's alerts from the platform's cluster.
+  'container_shell_detected',
+  'sensitive_file_read',
+  'container_network_tool',
 ] as const
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number]
 
