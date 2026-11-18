@@ -5497,3 +5497,14 @@ The body is falcosidekick's payload (`app/schemas/runtime.py`): unknown top-leve
 - `pytest`: 777 passed; `tests/test_runtime_alerts.py` (28) uses alerts falcosidekick sent on kind (`tests/data/falco_alerts.json`). Mutations, each failing a test: token check off, every rule kept, deduplication off or widened to 12 minutes, another source, `falco` not reserved, names not required, the endpoint on without a token, a short token accepted, Falco's alerts not counted in the threat level.
 - `make down`, `make up` from scratch (about 2 minutes, Falco ready in about 25 seconds), `make cluster-check` 34/34 five times in a row. On the cluster, without falcosidekick in the API's policy or with another token in falcosidekick's Secret, the shell is not reported (falcosidekick logs `401`).
 - `make up` over a cluster from before E3 adds Falco, the token and the migration.
+
+## Stage: CVE fixes of 2026-11-18
+
+### 446. The findings and the fixes
+
+On 2026-11-18 the scans failed on every open pull request, all of them Dependabot updates, with findings unrelated to them. `make scan` found CVE-2026-126360 in opentelemetry-api 1.45.1 (pulled in by FastAPI; fixed in 1.45.2) and CVE-2026-128089 in dnspython 2.9.0 (pulled in by email-validator; fixed in 2.9.2). `requirements.lock` moves only these two packages (`uv pip compile --upgrade-package`); both releases are more than seven days old. `make scan-images` found CVE-2026-85091 in the backend's zlib1g; Debian's fix (`1:1.3.dfsg+really1.3.1-1+deb13u1`) is not in any `python:3.12-slim` digest yet, including the one Dependabot proposes (#97), so the runtime stage installs it, pinned, as the console does with Alpine packages. Remove it once the base image's digest includes it.
+
+### 447. Local validation
+
+- `make scan`: 0 open. `make scan-images`: 0 open.
+- `make verify`: 14/15, `pytest` 777 passed. Pyright reports 4 errors that are already on `main` (SQLAlchemy 2.1.5 in the lock); they are fixed in the pull request of phase E4.
