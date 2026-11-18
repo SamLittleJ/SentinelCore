@@ -19,7 +19,12 @@ LABEL org.opencontainers.image.title="sentinelcore-backend" \
       org.opencontainers.image.source="https://github.com/SamLittleJ/SentinelCore" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.licenses="MIT"
-RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin sentinelcore
+# zlib1g deb13u1 fixes CVE-2026-85091, which the base image does not have yet
+# (`make scan-images`). Remove once the base image's digest includes it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends zlib1g=1:1.3.dfsg+really1.3.1-1+deb13u1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin sentinelcore
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build /srv/sentinelcore /srv/sentinelcore
 WORKDIR /srv/sentinelcore

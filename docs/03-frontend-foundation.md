@@ -936,3 +936,7 @@ Phase E3 adds three alert types of the platform, with the source `falco`: `conta
 ### 107. zlib 1.4 in the console's image
 
 On 2026-11-06 the console's image stopped building anywhere: Alpine 3.24's repository replaced zlib 1.3.2-r1 with 1.4-r0, so `apk add zlib=1.3.2-r1` found no such package. Exact pins fail this way whenever Alpine moves a package on. `frontend/Dockerfile` now installs `zlib=1.4-r0`; the other pinned packages were still available. `make scan-images`: 0 open (console: 3 Medium, none fixable at High or Critical).
+
+### 108. libxslt 1.1.43-r4 in the console's image
+
+On 2026-11-18 `make scan-images` found CVE-2026-9947, -87636 and -125350 (High) in the console's libxslt 1.1.43-r3, which the nginx-unprivileged base still ships. `frontend/Dockerfile` installs `libxslt=1.1.43-r4` on top, next to the other pinned fixes. `make scan-images`: 0 open.
