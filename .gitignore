@@ -44,3 +44,7 @@ infra/prometheus/metrics_token
 .tools/
 .kind/
 .scan/
+
+# skillshare: per-machine sync manifests
+.claude/skills/.skillshare-manifest.json
+.agents/skills/.skillshare-manifest.json
