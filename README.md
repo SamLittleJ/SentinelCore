@@ -169,6 +169,8 @@ make up              # the images, a kind cluster and both Helm charts; then htt
 make up FROM=registry  # the same, with this commit's signed GHCR images instead of a local build
 make cluster-check   # the running cluster's security properties, one line each
 make grafana         # the cluster's Grafana at http://127.0.0.1:3001 (user admin, password in .kind/grafana.txt)
+make backup          # a database dump now, from the nightly backup (docs/06-backups.md)
+make backup-check    # restore the newest dump into a database of its own and compare it with the live one
 make down            # deletes the cluster and its data, after typing its name
 make deploy-lint     # the charts, rendered manifests, Dockerfiles and scripts, without a cluster
 ```
@@ -184,6 +186,8 @@ Falco watches the node's system calls (`falco/`, pinned chart and images, no dow
 The API traces each request and its SQL queries with OpenTelemetry (`observability/`, pinned charts and images): the Collector takes the traces to Tempo, Prometheus scrapes each API pod with the metrics token, and Grafana shows both, reached only through `make grafana`. Spans keep the path and the route, never the query string, the sender's address or headers, and a trace sent from outside is not joined. `make cluster-check` finds a request's trace by its `X-Request-ID` within 30 seconds, with its SQL.
 
 Three service level objectives are measured in the cluster's Prometheus ([`docs/05-slos.md`](docs/05-slos.md)): 99.5% of API requests without a server error, 95% of sign-ins within 0.5 s and 99% of Falco's alerts at the API within 60 s, each over 30 days. Multi-window burn-rate alerts (`observability/slo-rules.yaml`) are unit-tested with promtool in `make deploy-lint`, and the "SentinelCore SLOs" dashboard in `make grafana` shows them; alerts are not sent anywhere yet.
+
+The database is dumped every night at 02:00 UTC, seven kept, on a volume in the cluster ([`docs/06-backups.md`](docs/06-backups.md)). `make backup-check` proves the newest dump by restoring it into a database of its own: its checksum and age, its audit chains verified with the key, and each chain's last record found in the live database with the same seal. Cluster CI runs it on every change to the deployment. On kind, `make down` deletes the backups with the cluster.
 
 ## Continuous integration
 
@@ -218,6 +222,7 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [03 - Frontend Foundation](docs/03-frontend-foundation.md): the technical journal of the frontend
 - [04 - Threat Model](docs/04-threat-model.md): a STRIDE analysis of the system, with the boundary between organizations at its centre, each mitigation linked to the test that proves it
 - [05 - SLOs](docs/05-slos.md): the service level objectives, how each is measured, and what to check when one of their alerts fires
+- [06 - Backups](docs/06-backups.md): the nightly dump, how a restore is proven, and the steps to restore for real
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 - [Independent evaluation](docs/evaluation/independent-rba.md): the detection rules on a public, labelled data set of 31 million sign-ins (`make evaluate-rba`), with this application's lockout as a baseline
 - [Baselines and thresholds](docs/evaluation/independent-rba-baselines.md): the Freeman et al. risk score against the same rules on the same sample, and the rules under other thresholds (`make evaluate-rba-offline`)

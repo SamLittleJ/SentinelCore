@@ -10,3 +10,11 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 app.kubernetes.io/name: postgresql
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{- define "postgresql.backupLabels" -}}
+app.kubernetes.io/name: sentinelcore-backup
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/part-of: sentinelcore
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+{{- end }}

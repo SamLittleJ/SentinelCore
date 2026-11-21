@@ -1,7 +1,8 @@
 name: Cluster CI
 
 # SentinelCore on a real kind cluster: `make up`, then `make cluster-check`,
-# its security properties checked from outside and inside. Several minutes,
+# its security properties checked from outside and inside, then a backup
+# taken and restored (`make backup`, `make backup-check`). Several minutes,
 # so only when the deployment or what it runs changes.
 on:
     workflow_dispatch:
@@ -25,6 +26,7 @@ on:
             - "scripts/**"
             - "backend/migrations/**"
             - "backend/app/cli.py"
+            - "backend/app/services/restore_check.py"
             - ".github/workflows/cluster-ci.yml"
     pull_request:
         branches:
@@ -47,6 +49,7 @@ on:
             - "scripts/**"
             - "backend/migrations/**"
             - "backend/app/cli.py"
+            - "backend/app/services/restore_check.py"
             - ".github/workflows/cluster-ci.yml"
 
 # The jobs only read the code; the token gets no write access.
@@ -79,6 +82,11 @@ jobs:
 
             - name: Run make cluster-check
               run: make cluster-check
+
+            - name: Take a backup and restore it
+              run: |
+                  make backup
+                  make backup-check
 
             # The cluster's state for the log, never the Secrets' values.
             - name: Show the cluster when a step failed

@@ -821,6 +821,17 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **No Alertmanager yet.** Alerts show in Prometheus and on a dashboard of their own; sending them needs a real receiver, in D2. Each carries a `runbook_url` to its section of `docs/05-slos.md`, which phase F turns into runbooks.
 - **Cluster only.** Like tracing, Docker Compose has no rules and no SLO dashboard.
 
+## Backups (E6)
+
+- **pg_dump from PostgreSQL's own image.** The custom format, from the image the database runs, pinned by the same digest, so it passes the admission rules and matches the server's version. As the owner of the tables, since row-level security would hide rows from any other role; the roles themselves are left out, because `make up` creates them and their dump would carry password hashes.
+- **Nightly, seven kept.** A CronJob at 02:00 UTC, never two at once, with a day's starting deadline so a laptop asleep at night still gets that day's dump; RPO 24 hours. Older dumps go only once a new one is written.
+- **On a volume in the cluster.** On kind it is deleted with the cluster by `make down`, which is documented: the backup protects against a broken database or data deleted by mistake. A copy outside the cluster, and its encryption, come with D2.
+- **A restore is the test.** `make backup-check` restores the newest dump into a database of its own and compares it with the live one: the SHA-256, an age of at most 26 hours, the audit chains verified with the key, and each chain's last restored record live with the same seal, so the dump is a prefix of the real history. A dump can be complete and wrong; only a restore shows it is neither.
+- **Two images, one Job.** PostgreSQL's image restores (an init container), the backend's compares (`compare-restore`), since neither has the other's tools; the Job and the restored database are removed whatever happens.
+- **No `make restore`.** Replacing the live database is documented step by step in `docs/06-backups.md` and was exercised once on kind, not wrapped in a command that is easy to run by mistake.
+- **No alert yet.** Without kube-state-metrics, Prometheus does not see CronJobs; the age check stands in for one.
+- **Postgres installed without `--wait`.** kind binds the backups' volume only when the first backup uses it, so Helm's wait on volumes would never end; `make up` waits for the database's StatefulSet instead.
+
 ## Independent evaluation (phase R1)
 
 - **Why.** The simulator writes both the attacks and the rules' test, so its 30 of 30 shows the rules do what they were designed for, not that they work on attacks no one designed for them. The independent evaluation answers that, on data the rules were not written for.

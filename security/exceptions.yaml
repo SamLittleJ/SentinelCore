@@ -48,9 +48,10 @@ exceptions:
 
   - tool: checkov
     id: CKV_K8S_40
-    resources: ["Deployment.default.sentinelcore-console", "StatefulSet.default.sentinelcore-postgresql"]
+    resources: ["Deployment.default.sentinelcore-console", "StatefulSet.default.sentinelcore-postgresql", "CronJob.default.sentinelcore-backup"]
     reason: >-
-      The images' own users, nginx 101 and postgres 999, own their files;
+      The images' own users, nginx 101 and postgres 999 (the database and its
+      nightly backup), own their files;
       the backend runs as 10001. Every pod already runs as non-root, without
       capabilities or privilege escalation (T-65).
     expires: 2027-03-31

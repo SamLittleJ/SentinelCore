@@ -5,6 +5,7 @@ Usage, from the backend directory:
     python -m app.cli grant-api-login
     python -m app.cli cleanup-sessions
     python -m app.cli verify-audit-chain
+    python -m app.cli compare-restore --restored-database sentinelcore_restore_check
     python -m app.cli create-owner --email owner@example.com --username owner
 
 `grant-api-login` lets the API's database role sign in with the password in
@@ -14,6 +15,13 @@ after the migrations have created the role.
 `verify-audit-chain` checks every audit chain, prints one line for each with
 its length and head, and exits with 1 if any is broken. It only reads: it
 raises no alert, which the periodic check does.
+
+`compare-restore` compares a restored backup, in another database of the same
+server, with the live one, both as the owner of the tables
+(MIGRATIONS_DATABASE_URL): the copy's chains verify, each chain's last record
+is live with the same seal, and the append-only tables hold rows, no more than
+live. It prints counts, never contents, and exits with 1 on any problem
+(`make backup-check`, docs/06-backups.md).
 
 `create-owner` reads the password from SENTINELCORE_OWNER_PASSWORD, or asks
 for it without echoing it, so it stays out of the shell history. With
@@ -31,6 +39,7 @@ from psycopg import sql
 from pydantic import ValidationError
 from sqlalchemy import create_engine, make_url, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal
@@ -38,6 +47,7 @@ from app.core.logging import configure_logging
 from app.core.row_security import APP_ROLE, restrict_rows
 from app.schemas.user import UserCreate
 from app.services.audit_chain_service import verify_chains
+from app.services.restore_check import compare_restore
 from app.services.session_cleanup import run_session_cleanup
 from app.services.tenancy import SYSTEM
 from app.services.user_service import OwnerExistsError, create_owner
@@ -146,6 +156,34 @@ def _verify_audit_chain() -> None:
         raise SystemExit(1)
 
 
+def _compare_restore(restored_database: str) -> None:
+    if settings.migrations_database_url is None:
+        raise SystemExit("Set MIGRATIONS_DATABASE_URL to the owner of the tables.")
+    live_url = make_url(settings.migrations_database_url)
+    live_engine = create_engine(live_url)
+    restored_engine = create_engine(live_url.set(database=restored_database))
+    try:
+        with Session(live_engine) as live, Session(restored_engine) as restored:
+            report = compare_restore(live, restored)
+    finally:
+        live_engine.dispose()
+        restored_engine.dispose()
+
+    for count in report.counts:
+        print(f"{count.table}: restored {count.restored}, live {count.live}")
+    for chain in report.chains:
+        state = "intact" if chain.check.intact else "BROKEN"
+        seal = "same seal as live" if chain.in_live else "NOT in live"
+        print(
+            f"chain {chain.check.label}: {chain.check.records} records, {state}, {seal}"
+        )
+    if report.problems:
+        for problem in report.problems:
+            print(f"PROBLEM {problem}")
+        raise SystemExit(1)
+    print("The restored copy matches the live history.")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -163,6 +201,12 @@ def main(argv: list[str] | None = None) -> None:
         "verify-audit-chain",
         help="Check the seal of every audit record; exits with 1 if a chain is broken.",
     )
+    compare_parser = commands.add_parser(
+        "compare-restore",
+        help="Compare a restored backup with the live database, as the owner in "
+        "MIGRATIONS_DATABASE_URL; exits with 1 on any problem.",
+    )
+    compare_parser.add_argument("--restored-database", required=True)
     create_owner_parser = commands.add_parser(
         "create-owner",
         help="Create the organization's first owner, who invites everyone else. "
@@ -186,6 +230,8 @@ def main(argv: list[str] | None = None) -> None:
         print(f"Deleted {deleted} stale session(s).")
     elif args.command == "verify-audit-chain":
         _verify_audit_chain()
+    elif args.command == "compare-restore":
+        _compare_restore(args.restored_database)
     elif args.command == "create-owner":
         _create_owner(args.email, args.username, args.if_missing)
 
