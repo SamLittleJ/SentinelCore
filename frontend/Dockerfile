@@ -20,12 +20,23 @@ LABEL org.opencontainers.image.title="sentinelcore-console" \
 # brotli-libs 1.2.1-r0 fixes CVE-2026-111497, curl and libcurl 8.23.0-r0 fix
 # CVE-2026-92392, libexpat 2.10.0-r0 fixes CVE-2026-113351, -115506, -117610
 # and -118370, musl and musl-utils 1.2.6-r3 fix CVE-2026-107891, libxslt
-# 1.1.43-r4 fixes CVE-2026-9947, -87636 and -125350. Remove each once the
-# base image's digest includes it.
+# 1.1.43-r4 fixes CVE-2026-9947, -87636 and -125350, libcrypto3 and libssl3
+# 3.5.9-r1 fix CVE-2026-88823, -95691, -95692 and -107496, libxml2 2.13.9-r3
+# fixes CVE-2026-86144. nginx 1.30.7-r1 fixes CVE-2026-113425, -118899,
+# -121810, -123007, -123633 and -123634; it comes from nginx.org, like the
+# base image's own nginx (signed with the nginx_signing key the image already
+# trusts), and its modules are pinned to the exact nginx version, so they move
+# with it. Remove each once the base image's digest includes it.
 USER root
 RUN apk add --no-cache zlib=1.4-r0 brotli-libs=1.2.1-r0 \
         curl=8.23.0-r0 libcurl=8.23.0-r0 libexpat=2.10.0-r0 \
-        musl=1.2.6-r3 musl-utils=1.2.6-r3 libxslt=1.1.43-r4
+        musl=1.2.6-r3 musl-utils=1.2.6-r3 libxslt=1.1.43-r4 \
+        libcrypto3=3.5.9-r1 libssl3=3.5.9-r1 libxml2=2.13.9-r3 \
+    && apk add --no-cache \
+        --repository https://nginx.org/packages/alpine/v3.24/main \
+        nginx=1.30.7-r1 nginx-module-geoip=1.30.7-r1 \
+        nginx-module-image-filter=1.30.7-r1 nginx-module-xslt=1.30.7-r1 \
+        nginx-module-njs=1.30.7.1.0.2-r1
 # The image's own default site is replaced, not added to.
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY nginx/proxy.conf /etc/nginx/snippets/proxy.conf

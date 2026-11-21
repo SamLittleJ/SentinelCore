@@ -940,3 +940,7 @@ On 2026-11-06 the console's image stopped building anywhere: Alpine 3.24's repos
 ### 108. libxslt 1.1.43-r4 in the console's image
 
 On 2026-11-18 `make scan-images` found CVE-2026-9947, -87636 and -125350 (High) in the console's libxslt 1.1.43-r3, which the nginx-unprivileged base still ships. `frontend/Dockerfile` installs `libxslt=1.1.43-r4` on top, next to the other pinned fixes. `make scan-images`: 0 open.
+
+### 109. nginx 1.30.7, OpenSSL and libxml2 in the console's image
+
+On 2026-11-20 the Images CI run on `main` failed: Grype found five Critical and one High CVEs in the console's nginx 1.30.6-r1 (CVE-2026-113425, -118899, -121810, -123007, -123633, -123634), four High in libcrypto3 and libssl3 3.5.9-r0 and one High in libxml2 2.13.9-r2. The nginx-unprivileged `stable-alpine` tag was still at the same digest. libcrypto3, libssl3 3.5.9-r1 and libxml2 2.13.9-r3 come from Alpine. The base image's nginx is nginx.org's package, not Alpine's, so `frontend/Dockerfile` installs `nginx=1.30.7-r1` from the nginx.org repository for that one command (`--repository`, signed with the key the image already trusts; published 2026-11-11), with its four modules pinned to the same version, since they depend on the exact nginx release. No module is loaded. `make scan-images`: 0 open; the image passes `nginx -t` and serves the console.
