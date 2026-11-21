@@ -521,7 +521,7 @@ The technical decisions behind SentinelCore, in the order they were made, one pe
 
 ## Agent skills copied, not installed
 
-- Three skills from [mattpocock/skills](https://github.com/mattpocock/skills) are kept in `.claude/skills/`: `grill-me` and `grilling`, an interview in numbered rounds with a recommended answer for each question, and `tdd`, a red → green loop at seams agreed beforehand. The first is meant for the STRIDE threat model.
+- Three skills from [mattpocock/skills](https://github.com/mattpocock/skills) are kept in the repository (since moved to `.skillshare/skills/`, see "Agent skills shared through skillshare"): `grill-me` and `grilling`, an interview in numbered rounds with a recommended answer for each question, and `tdd`, a red → green loop at seams agreed beforehand. The first is meant for the STRIDE threat model.
 - They are copied at a fixed commit, with their MIT license, rather than installed as the plugin. The plugin updates itself, so the instructions the agent follows would change without review. A copy changes only through a pull request.
 - Only these three are taken. The plugin's other 24 skills either repeat what the project already has (the learning notes, the decisions log, Claude Code's own `/code-review`) or assume an issue tracker the project does not use. Each skill's description is also loaded at the start of every session.
 - OpenSpec, a spec-driven workflow, was considered and set aside for now: it would duplicate the journals and the decisions log.
@@ -854,3 +854,10 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **One variant chosen after seeing the data, and labelled so.** B2 with a uniform attacker distribution, to test the explanation; its good result is a hypothesis for other data, not a finding.
 - **No setting changes from R2.** ASN networks, a new network alone and a higher lockout limit all look better on this data, but they were found on it. The application does not know ASNs either; adding them is a separate decision.
 - **Shared data download.** `scripts/rba-data.sh` holds the data set's address and SHA-256 for both evaluation scripts.
+
+## Agent skills shared through skillshare
+
+- The project's skills (`grill-me`, `grilling`, `tdd`) now live in `.skillshare/skills/`, and [skillshare](https://github.com/runkids/skillshare) links them into `.claude/skills/` for Claude Code and `.agents/skills/` for Codex. One copy serves both agents, rather than a second copy for Codex that could drift.
+- The links are committed, with skillshare's own manifests ignored, so a fresh clone and CI see the skills without skillshare installed. Leaving the links out of Git was considered: it would make skillshare a requirement for anyone opening the project with an agent.
+- skillshare runs in merge mode: it adds a link per skill and leaves other skills in those folders alone.
+- Self-updating plugins stay out of it, for the same reason the skills were copied in the first place: the instructions the agent follows change only through a pull request.

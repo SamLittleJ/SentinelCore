@@ -1,6 +1,8 @@
 # Agent skills
 
-Claude Code skills used while developing SentinelCore. Type `/grill-me` to start an interview about a plan; `grilling` and `tdd` are also picked up by the agent when a task fits.
+Agent skills used while developing SentinelCore, for Claude Code and Codex. Type `/grill-me` to start an interview about a plan; `grilling` and `tdd` are also picked up by the agent when a task fits.
+
+This folder is the one copy. [skillshare](https://github.com/runkids/skillshare) links each skill into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex); the links are committed, so a fresh clone works without skillshare. After adding, renaming or removing a skill here, run `skillshare sync -p` and commit the links it changes.
 
 | Skill | Purpose |
 |---|---|
