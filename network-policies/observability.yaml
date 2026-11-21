@@ -1,0 +1,139 @@
+# The flows tracing and metrics need in the observability namespace
+# (observability/), and no other. Traces go API -> Collector -> Tempo;
+# Prometheus scrapes the API; Grafana reads both. Grafana is reached only
+# through `make grafana` (a port-forward, which no policy sees), and the
+# checks of `make cluster-check` reach the services through the Kubernetes
+# API's proxy, which comes from the node.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: observability
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# The Collector: reached by the API only, sends to Tempo only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: otel-collector
+  namespace: observability
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opentelemetry-collector
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sentinelcore
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sentinelcore-backend
+      ports:
+        - {protocol: TCP, port: 4318}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tempo
+      ports:
+        - {protocol: TCP, port: 4317}
+---
+# Tempo: written by the Collector, read by Grafana; talks to no one.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tempo
+  namespace: observability
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: tempo
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opentelemetry-collector
+      ports:
+        - {protocol: TCP, port: 4317}
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
+        - {protocol: TCP, port: 3200}
+---
+# Prometheus: read by Grafana; scrapes the API's pods, and asks the
+# Kubernetes API where they are.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus
+  namespace: observability
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+      ports:
+        - {protocol: TCP, port: 9090}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sentinelcore
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sentinelcore-backend
+      ports:
+        - {protocol: TCP, port: 8000}
+    # The API server, on the control-plane node: its address is kind's to
+    # choose, so only the port is fixed.
+    - ports:
+        - {protocol: TCP, port: 6443}
+---
+# Grafana: reads Prometheus and Tempo only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana
+  namespace: observability
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - {protocol: TCP, port: 9090}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tempo
+      ports:
+        - {protocol: TCP, port: 3200}

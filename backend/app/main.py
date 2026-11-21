@@ -20,7 +20,9 @@ from app.api.routes import (
     users,
 )
 from app.api.security_headers import SecurityHeadersMiddleware, internal_error_handler
+from app.core import tracing
 from app.core.config import Settings, settings
+from app.core.database import engine
 from app.core.logging import configure_logging
 from app.services.session_cleanup import run_session_cleanup_periodically
 
@@ -86,6 +88,10 @@ def create_app(settings: Settings) -> FastAPI:
     # Falco's alerts: without a token, the path is an unknown one.
     if settings.falco_ingest_token is not None:
         app.include_router(runtime.runtime_router(settings.falco_ingest_token))
+    if settings.otel_exporter_otlp_endpoint:
+        app.state.tracer_provider = tracing.instrument(
+            app, engine, tracing.otlp_exporter(settings.otel_exporter_otlp_endpoint)
+        )
     return app
 
 

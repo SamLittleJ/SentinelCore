@@ -1,0 +1,86 @@
+# The OpenTelemetry Collector for SentinelCore's kind cluster
+# (scripts/cluster.sh): it receives the API's traces over OTLP/HTTP, drops
+# what could carry personal data a second time, and sends them to Tempo.
+mode: deployment
+# The name the API's OTEL_EXPORTER_OTLP_ENDPOINT gives (charts/sentinelcore).
+fullnameOverride: otel-collector
+image:
+  # The core distribution: OTLP in and out, and the three processors below.
+  repository: otel/opentelemetry-collector
+  tag: 0.163.2
+  digest: sha256:63e5e8eccf4268be02388ba9f2dc36b80b5e47721291293411c0e83152d75bda
+command:
+  name: otelcol
+
+serviceAccount:
+  automountServiceAccountToken: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {cpu: 200m, memory: 128Mi}
+
+# Only OTLP over HTTP: the other receivers' ports stay closed.
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: true
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+
+# The whole configuration, not merged with the chart's.
+alternateConfig:
+  extensions:
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: ${env:MY_POD_IP}:4318
+  processors:
+    memory_limiter:
+      check_interval: 5s
+      limit_percentage: 80
+      spike_limit_percentage: 25
+    # The API records neither, but a span from elsewhere might: the query
+    # string can carry an email or a token, the headers a session.
+    attributes/private:
+      actions:
+        - {key: url.query, action: delete}
+        - {key: url.full, action: delete}
+        - {pattern: ^http\.request\.header\., action: delete}
+        - {pattern: ^http\.response\.header\., action: delete}
+    batch: {}
+  exporters:
+    otlp/tempo:
+      endpoint: tempo.observability.svc.cluster.local:4317
+      tls:
+        insecure: true
+  service:
+    telemetry:
+      metrics:
+        level: none
+    extensions: [health_check]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, attributes/private, batch]
+        exporters: [otlp/tempo]

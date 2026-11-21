@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down cluster-check deploy-lint scan scan-images verify-images
+.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ up: $(UP_IMAGES) ## SentinelCore on a local kind cluster, at http://localhost:80
 
 verify-images: ## Check the signature and attestations of this commit's GHCR images, and record their digests
 	@./scripts/verify-images.sh $(REVISION)
+
+grafana: ## Grafana of the kind cluster at http://127.0.0.1:3001 (user admin, password in .kind/grafana.txt); Ctrl-C stops it
+	@./scripts/cluster.sh grafana
 
 down: ## Delete the kind cluster and its data (asks first)
 	@./scripts/cluster.sh down

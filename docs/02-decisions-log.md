@@ -797,6 +797,18 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Alert only.** No Falco Talon or any automatic response, as for the detection rules.
 - **A probe pod for the check.** The plan was a shell in the API's pod; deduplication would hide a second run within ten minutes, so the check uses a pod with a new name each time.
 
+## Tracing and metrics (E4)
+
+- **The official charts, in a namespace of their own.** The Collector, Tempo, Prometheus (server only) and Grafana, pinned like Kyverno and Falco, under the same `restricted` Pod Security Standard as the application; storage in `emptyDir`, a day of traces and two days of metrics, since the cluster is local.
+- **OTLP over HTTP only, through a Collector.** The API never talks to Tempo; the Collector deletes the query string, the URL and headers a second time, and a memory limiter protects it. Its other receivers are off.
+- **Nothing personal in a span.** The path but never the query string, the sender's address, the user agent or headers, removed in the API before export; SQL with placeholders only. Dropping the address and the user agent goes beyond the plan's "path only": both identify a person.
+- **A trace starts in the API.** An outside `traceparent` could join requests to a trace of the sender's choice; the API reads none and nginx removes it.
+- **Four packages, not two.** The SDK and the OTLP/HTTP exporter besides the two instrumentations. SQLAlchemy's is used through its `EngineTracer`, on the API's engine only, because its entry point refuses SQLAlchemy 2.1 (§450).
+- **Prometheus with a Role, not a ClusterRole.** It lists pods in `sentinelcore` only and scrapes each API pod, so two replicas are two series, with the metrics token.
+- **Grafana only through a port-forward.** No NodePort; a generated password in `.kind/grafana.txt`, anonymous access off. Port 3001, because Docker Compose's Grafana holds 3000.
+- **Checked through the Kubernetes API's proxy.** `make cluster-check` needs no extra pod or port: the request's id finds its trace in Tempo.
+- **Not in Docker Compose.** Tracing stays off there; the cluster is where the stack runs.
+
 ## Independent evaluation (phase R1)
 
 - **Why.** The simulator writes both the attacks and the rules' test, so its 30 of 30 shows the rules do what they were designed for, not that they work on attacks no one designed for them. The independent evaluation answers that, on data the rules were not written for.

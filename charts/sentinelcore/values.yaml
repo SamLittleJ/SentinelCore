@@ -35,6 +35,8 @@ backend:
     # The pod network (kind's default): nginx's address, the only one whose
     # X-Forwarded-For the API believes.
     FORWARDED_ALLOW_IPS: 10.244.0.0/16
+    # The Collector of observability/collector.yaml: traces over OTLP/HTTP.
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc.cluster.local:4318
   resources:
     requests:
       cpu: 100m

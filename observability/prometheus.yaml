@@ -1,0 +1,101 @@
+# Prometheus for SentinelCore's kind cluster (scripts/cluster.sh): the server
+# alone, which scrapes each API pod's /metrics with the metrics token and
+# keeps two days in the pod's own emptyDir.
+
+# The chart's ClusterRole would read the whole cluster; observability/rbac.yaml
+# lets it list the API's pods in the sentinelcore namespace only.
+rbac:
+  create: false
+serviceAccounts:
+  server:
+    name: prometheus
+
+configmapReload:
+  prometheus:
+    enabled: false
+
+server:
+  image:
+    tag: v3.15.1
+    digest: sha256:fa3302279710be2f21a8301ec17a8b4f2301fd829bd113839b3b6b02b6f191a2
+  # Asks the Kubernetes API where the pods are.
+  automountServiceAccountToken: true
+  enableServiceLinks: false
+  extraFlags: []
+  retention: 2d
+  persistentVolume:
+    enabled: false
+  emptyDir:
+    sizeLimit: 2Gi
+  global:
+    scrape_interval: 15s
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  securityContext:
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  # METRICS_TOKEN, copied here by cluster.sh from the API's Secret.
+  extraSecretMounts:
+    - name: metrics-token
+      mountPath: /etc/sentinelcore
+      secretName: prometheus-metrics-token
+      readOnly: true
+
+alertmanager:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+
+# Only the API: the chart's jobs for the cluster are off.
+scrapeConfigs:
+  prometheus:
+    enabled: false
+  kubernetes-api-servers:
+    enabled: false
+  kubernetes-nodes:
+    enabled: false
+  kubernetes-nodes-cadvisor:
+    enabled: false
+  kubernetes-service-endpoints:
+    enabled: false
+  kubernetes-service-endpoints-slow:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+  kubernetes-services:
+    enabled: false
+  kubernetes-pods:
+    enabled: false
+  kubernetes-pods-slow:
+    enabled: false
+  # The name infra/grafana's dashboard queries.
+  sentinelcore-backend:
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [sentinelcore]
+        selectors:
+          - role: pod
+            label: app.kubernetes.io/name=sentinelcore-backend
+    authorization:
+      credentials_file: /etc/sentinelcore/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_container_port_number]
+        regex: "8000"
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod

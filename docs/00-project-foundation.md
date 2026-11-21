@@ -293,7 +293,7 @@ The project grows toward a DevSecOps showcase, in phases:
 - **B. Containers and local Kubernetes:** hardened images, Helm charts on kind, the migrations as a Kubernetes Job (the session cleanup stays in the API).
 - **C. Supply chain CI (C1 done (#45), C2 done (#51), C3 done (#60, #63)):** SAST, dependency, IaC and image scanning, an SBOM, signed images and build provenance.
 - **D. Infrastructure as code and GitOps:** Terraform, cloud access through OIDC, Argo CD with canary rollouts, preview environments.
-- **E. Cluster security and operations (E1 to E3 done):** admission policies, network policies, runtime detection, OpenTelemetry, SLO alerts, tested backups.
+- **E. Cluster security and operations (E1 to E4 done):** admission policies, network policies, runtime detection, OpenTelemetry, SLO alerts, tested backups.
 - **F. Presentation:** an architecture diagram, ADRs, runbooks and a postmortem of a simulated incident. The threat model was written earlier ([04](04-threat-model.md)) and grows with each phase.
 
 ---

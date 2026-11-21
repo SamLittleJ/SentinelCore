@@ -373,6 +373,7 @@ def get_security_summary(db: Session, scope: Scope) -> SecuritySummary:
         top_failed_login_sources=[
             FailedLoginSource(ip_address=ip_address, failed_logins=count)
             for ip_address, count in source_rows
+            if ip_address is not None  # Left out by the query already.
         ],
         users_total=users_total,
         users_inactive=users_inactive,

@@ -36,7 +36,7 @@ echo "== kubeconform"
   helm template sentinelcore charts/sentinelcore --set image.tag="$TAG" \
     --set image.backend=ghcr.io/samlittlej/sentinelcore-backend \
     --set image.digests.backend="sha256:$(printf '0%.0s' {1..64})"
-  for file in network-policies/*.yaml; do
+  for file in network-policies/*.yaml observability/rbac.yaml; do
     echo ---
     cat "$file"
   done

@@ -47,8 +47,9 @@ spec:
       ports:
         - {protocol: TCP, port: 8000}
 ---
-# The API: reached only by nginx and by falcosidekick (falco.yaml), talks
-# only to the database.
+# The API: reached only by nginx, by falcosidekick (falco.yaml) and by
+# Prometheus (observability.yaml); talks only to the database and to the
+# Collector, which takes its traces.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -70,6 +71,12 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: falcosidekick
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
       ports:
         - {protocol: TCP, port: 8000}
   egress:
@@ -79,6 +86,15 @@ spec:
               app.kubernetes.io/name: postgresql
       ports:
         - {protocol: TCP, port: 5432}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opentelemetry-collector
+      ports:
+        - {protocol: TCP, port: 4318}
 ---
 # The database: reached by the API and the two Jobs, talks to no one.
 apiVersion: networking.k8s.io/v1
