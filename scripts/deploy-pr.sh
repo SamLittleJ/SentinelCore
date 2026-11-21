@@ -24,7 +24,7 @@ if ! git merge-base --is-ancestor "$REVISION" origin/main; then
 fi
 
 # The images, checked; their digests come from what was checked.
-REVISION="$REVISION" "$ROOT/scripts/verify-images.sh"
+"$ROOT/scripts/verify-images.sh" "$REVISION"
 digest() { sed -n "s/^$1=.*@//p" "$ROOT/.kind/verified-images"; }
 backend="$(digest backend)"
 console="$(digest console)"

@@ -5618,3 +5618,8 @@ Detection rules run inside the request that brings their event, so the delay wor
 - `make gitops-down`, then `make gitops-up` from scratch in 351 seconds, all thirteen applications synced and healthy; `make cluster-check CLUSTER=gitops` 48/48 (the 46 of `make up`'s cluster, plus an image of ours not signed by CI refused, and a change made by hand reverted). `make up` with the refactored script, then `make cluster-check` 46/46.
 - Self-heal reverted the API's replicas within 2 seconds; a ConfigMap tracked by an application but absent from Git was pruned within 3 seconds.
 - Mutations, each failing a check: the signature policy left out of the GitOps cluster; self-heal off for SentinelCore's application; Kyverno's wave after the applications (`make deploy-lint`).
+
+### 466. The first deployment
+
+- `make deploy-pr` failed on its first real run: it passed the revision to `scripts/verify-images.sh` in the environment, while the script reads it as its first argument. It now passes it as the argument. With that change, the images of `96d8b45eeabf` passed the signature, provenance and SBOM checks, and the script opened the deployment pull request (#108).
+- Cluster CI on `main` failed once while installing Argo CD: ECR Public answered `429 Too Many Requests` for the Redis image, a limit on anonymous pulls shared by GitHub's runners. It passed when run again, then failed the same way on the deployment pull request. Redis now comes from `mirror.gcr.io`, Google's mirror of Docker Hub, under the same digest, so the image is byte for byte the same.
