@@ -23,3 +23,22 @@ resources:
   limits:
     cpu: "1"
     memory: 1Gi
+
+# A nightly dump (templates/backup.yaml, docs/06-backups.md): pg_dump from
+# this same image, as the owner, into a volume of its own. `make backup`
+# takes one now and `make backup-check` restores the newest and checks it.
+backup:
+  enabled: true
+  # Cron, in UTC.
+  schedule: "0 2 * * *"
+  timeZone: Etc/UTC
+  # The newest dumps kept; older ones go only after a dump succeeds.
+  keep: 7
+  size: 2Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

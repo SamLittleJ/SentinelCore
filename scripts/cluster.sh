@@ -229,8 +229,11 @@ image_id() { docker image inspect --format '{{.Id}}' "$1:$REVISION"; }
 
 install_charts() {
   say "Installing PostgreSQL"
-  helm upgrade --install postgresql "$ROOT/charts/postgresql" \
-    --namespace "$NAMESPACE" --wait --timeout 3m
+  # Not `--wait`: Helm would wait for the backups' volume too, which kind's
+  # local-path binds only once the first backup uses it. The database is
+  # what must be ready.
+  helm upgrade --install postgresql "$ROOT/charts/postgresql" --namespace "$NAMESPACE"
+  kubectl rollout status statefulset/sentinelcore-postgresql --namespace "$NAMESPACE" --timeout 3m
   say "Installing SentinelCore (migrations first)"
   local images=(--set-string image.tag="$REVISION") name reference
   for name in backend console; do

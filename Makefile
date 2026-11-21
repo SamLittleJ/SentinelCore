@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images
+.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images backup backup-check
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -66,6 +66,12 @@ scan-images: images ## Build the images, then an SBOM of each and its known vuln
 
 cluster-check: ## Check the running cluster's security properties, one line each
 	@./scripts/cluster-check.sh
+
+backup: ## A database dump now, from the cluster's nightly backup (docs/06-backups.md)
+	@./scripts/backup.sh backup
+
+backup-check: ## Restore the newest dump into a database of its own and compare it with the live one
+	@./scripts/backup.sh check
 
 evaluate-rba: ## The detection rules on the RBA login data set (docs/evaluation/independent-rba.md); about an hour
 	@./scripts/evaluate-rba.sh

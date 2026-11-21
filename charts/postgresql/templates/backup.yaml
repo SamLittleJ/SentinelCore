@@ -1,0 +1,123 @@
+{{- if .Values.backup.enabled }}
+# The volume the dumps stay on. It lives and dies with the cluster: on kind,
+# `make down` deletes it with the database (docs/06-backups.md).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sentinelcore-backups
+  labels:
+    {{- include "postgresql.backupLabels" . | nindent 4 }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.storage.className }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.size }}
+---
+# pg_dump in the custom format, as the owner of the tables (row-level
+# security hides nothing from it), roles left out: `make up` creates them.
+# Each dump gets its SHA-256 beside it; the oldest beyond `keep` are deleted
+# only once the new one is written.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sentinelcore-backup
+  labels:
+    {{- include "postgresql.backupLabels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  timeZone: {{ .Values.backup.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  # A laptop asleep at 02:00 still gets that day's dump once the cluster is up.
+  startingDeadlineSeconds: 86400
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "postgresql.backupLabels" . | nindent 8 }}
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            {{- include "postgresql.backupLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: sentinelcore-postgresql
+          automountServiceAccountToken: false
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            runAsNonRoot: true
+            fsGroup: 999
+            fsGroupChangePolicy: OnRootMismatch
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              env:
+                - name: KEEP
+                  value: {{ .Values.backup.keep | quote }}
+                - name: PGHOST
+                  value: sentinelcore-postgresql
+                - name: PGDATABASE
+                  value: {{ .Values.database | quote }}
+                - name: PGUSER
+                  value: {{ .Values.user | quote }}
+              command:
+                - bash
+                - -euo
+                - pipefail
+                - -c
+                - |
+                  umask 077
+                  # The password from the Secret's file into a pgpass file,
+                  # so it is in no process's arguments or environment.
+                  printf '*:*:*:*:%s\n' "$(cat /run/secrets/postgresql/password)" >/tmp/pgpass
+                  export PGPASSFILE=/tmp/pgpass
+                  cd /backups
+                  name="sentinelcore-$(date -u +%Y%m%dT%H%M%SZ).dump"
+                  trap 'rm -f "$name.partial"' EXIT
+                  pg_dump --format=custom --file="$name.partial"
+                  mv "$name.partial" "$name"
+                  sha256sum "$name" >"$name.sha256"
+                  echo "Wrote $name ($(stat -c %s "$name") bytes)"
+                  ls -1 sentinelcore-*.dump | sort -r | tail -n "+$((KEEP + 1))" | while read -r old; do
+                    rm -f "$old" "$old.sha256"
+                    echo "Deleted $old"
+                  done
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                - name: password
+                  mountPath: /run/secrets/postgresql
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: sentinelcore-backups
+            - name: password
+              secret:
+                secretName: {{ .Values.passwordSecret }}
+                defaultMode: 0440
+                items:
+                  - key: password
+                    path: password
+            - name: tmp
+              emptyDir: {}
+{{- end }}

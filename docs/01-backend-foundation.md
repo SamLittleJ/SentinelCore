@@ -5569,3 +5569,26 @@ Detection rules run inside the request that brings their event, so the delay wor
 - `make up` over the E4 cluster, then `make cluster-check` 41/41. With Prometheus installed without the rules file, two of the new checks fail (rules evaluated, SLOs measured). The "SentinelCore SLOs" dashboard is provisioned in Grafana.
 - `make verify` 15/15: `pytest` 789 passed, vitest 259.
 - Two runs of `make cluster-check` started right after another sometimes fail the tracing checks of E4; after a pause they pass. The cause is not established.
+
+## Phase E6: Backups
+
+### 458. The nightly dump
+
+`charts/postgresql/templates/backup.yaml` adds a volume, `sentinelcore-backups`, and a CronJob, `sentinelcore-backup`, at 02:00 UTC: `pg_dump --format=custom` from PostgreSQL's own image, pinned by the same digest, as the owner of the tables, so row-level security hides nothing, without the roles, which `make up` creates. The password reaches `pg_dump` through a pgpass file in `/tmp`, never an argument. The dump is written as `.partial`, renamed once complete, and given its SHA-256; the oldest beyond seven are deleted only after that. Never two at once, and a day's starting deadline lets a laptop asleep at 02:00 still get that day's dump. The pod runs as PostgreSQL's user, with a read-only root and no token; the network policies let it, and the check below, reach only the database.
+
+### 459. The check
+
+`make backup` runs a dump now from the CronJob and waits for it. `make backup-check` (`scripts/backup.sh`) runs a Job built from what runs now: an init container of PostgreSQL's image checks the newest dump's SHA-256 and its age (at most 26 hours), restores it into `sentinelcore_restore_check` and times it; then the backend image runs `python -m app.cli compare-restore` (`app/services/restore_check.py`) as the owner, which verifies the copy's audit chains, finds each chain's last restored record in the live database with the same seal, and requires the audit log and the security events to hold rows, no more than live. It prints counts per table, never contents. The Job and the restored database are removed whatever happened. Cluster CI runs both after `make cluster-check`.
+
+### 460. What was found on kind
+
+- kind's `local-path` binds a volume only once a pod uses it, so `helm --wait` on the PostgreSQL chart waited for the backups' volume until it timed out. `make up` now installs that chart without `--wait` and waits for the database's StatefulSet.
+- A changed byte in a dump restored without an error and compared as a match: only the SHA-256 caught it.
+- `pg_restore` ignores `PGDATABASE` and needs `--dbname`; the restore steps of `docs/06-backups.md` had it wrong until the exercise.
+- `helm upgrade` with no values reuses the last release's, so a value set by hand stays until `--reset-values`.
+
+### 461. Local validation
+
+- `pytest`: 8 new tests on the comparison (a copy passes, an older copy passes, a chain from another database, more rows than live, an empty restore, a broken chain, the command's output and exit code). Mutations, each failing a test: the seal comparison always true, no "more than live" check, no "restored 0" check.
+- On kind, each failing `make backup-check` as it should, with the Job and the restored database gone after each: a byte changed in the dump, a dump 30 hours old, a forged dump (an audit record changed, the SHA-256 rewritten). With the checksum check removed, the changed byte passes; with the age check removed, the old dump passes. Pruning keeps 7, and 8 with `keep` set to 8.
+- The documented restore over the live database: 1 second, the API back after 5, `make cluster-check` 46/46.

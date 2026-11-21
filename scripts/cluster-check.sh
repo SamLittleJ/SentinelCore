@@ -190,6 +190,31 @@ check "a pod with a Kubernetes token is refused" refused 'automountServiceAccoun
   '.spec.automountServiceAccountToken = true'
 check "an image by tag only is refused" refused 'pinned by digest' '.spec.containers[0].image = "postgres:17"'
 
+# The nightly backup (charts/postgresql/templates/backup.yaml, phase E6): its
+# pod, as the CronJob would create it, is admitted, and a copy of it that
+# only waits reaches the database but neither the API nor the internet.
+backup_pod() {
+  kubectl get cronjob sentinelcore-backup -n "$NAMESPACE" -o json |
+    jq --arg name "$1" --arg namespace "$NAMESPACE" '{
+    apiVersion: "v1", kind: "Pod",
+    metadata: {name: $name, namespace: $namespace, labels: .spec.jobTemplate.spec.template.metadata.labels},
+    spec: (.spec.jobTemplate.spec.template.spec | .containers[0].command = ["sleep", "120"])
+  }'
+}
+backup_admitted() { backup_pod backup-probe | admit >/dev/null; }
+check "the nightly backup's pod is admitted" backup_admitted
+
+backup_probe="backup-probe-$(date +%s)"
+if backup_pod "$backup_probe" | kubectl apply -n "$NAMESPACE" -f - >/dev/null 2>&1 &&
+  kubectl wait -n "$NAMESPACE" --for=condition=Ready "pod/$backup_probe" --timeout=60s >/dev/null 2>&1; then
+  check "the backup reaches the database" reaches "pod/$backup_probe" backup sentinelcore-postgresql 5432
+  check "the backup cannot reach the API" blocked "pod/$backup_probe" backup "$backend_ip" 8000
+  check "the backup cannot reach the internet" blocked "pod/$backup_probe" backup 1.1.1.1 443
+else
+  check "the backup's probe pod starts" false
+fi
+kubectl delete pod -n "$NAMESPACE" "$backup_probe" --ignore-not-found --wait=false >/dev/null 2>&1
+
 # Runtime detection: a shell with a terminal in a pod of the namespace
 # reaches the database as Falco's alert, through falcosidekick (falco/,
 # phase E3). The probe pod gets a new name each run: the same alert within

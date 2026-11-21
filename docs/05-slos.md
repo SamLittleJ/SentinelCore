@@ -83,3 +83,4 @@ A burn-rate alert also needs at least 20 requests in its long window: with almos
 - **Low traffic.** Below 20 requests in the long window, burn-rate alerts stay silent.
 - **A slow 5xx sign-in counts against latency too:** the histogram has no status label.
 - **Falco's alerts are few,** so the freshness SLO is a plain threshold alert, not a burn rate.
+- **Backups have no alert.** Prometheus cannot see whether the nightly backup ran; `make backup-check` fails once the newest dump is over 26 hours old ([`docs/06-backups.md`](06-backups.md)).
