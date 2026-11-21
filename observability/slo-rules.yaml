@@ -1,0 +1,178 @@
+# SentinelCore's SLOs (docs/05-slos.md), for the cluster's Prometheus: the
+# recording rules each SLO is read from and the alerts on how fast its error
+# budget burns. Loaded by scripts/cluster.sh, tested by promtool
+# (observability/slo-rules.test.yaml, `make deploy-lint`).
+#
+# Every objective is over 30 days. Prometheus keeps two days here, so the
+# alerts use windows of one day at most (multi-window burn rates, Google SRE
+# Workbook, chapter 5) and the 30-day budget itself is not computed.
+#
+# Burn rate 1 spends the budget in exactly 30 days. Page: 14.4 over 1h and
+# 5m (2% of the budget in an hour), or 6 over 6h and 30m (5% in six hours).
+# Ticket: 3 over 1d and 2h (10% in a day). The short window ends the alert
+# soon after the problem stops, so there is no `for:`. A burn-rate alert also
+# needs 20 requests in its long window: on a cluster with almost no traffic,
+# one 5xx in three requests is not a page.
+groups:
+  - name: sentinelcore-slo-recording
+    interval: 30s
+    rules:
+      # Availability: the share of requests answered with a 5xx, without
+      # /health, /health/ready and /metrics. 4xx and 429 are not errors. With
+      # no 5xx yet there is no such series, so the errors count as 0.
+      - record: sentinelcore:slo_availability_requests:rate5m
+        expr: sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics"}[5m]))
+      - record: sentinelcore:slo_availability_requests:rate30m
+        expr: sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics"}[30m]))
+      - record: sentinelcore:slo_availability_requests:rate1h
+        expr: sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics"}[1h]))
+      - record: sentinelcore:slo_availability_requests:rate2h
+        expr: sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics"}[2h]))
+      - record: sentinelcore:slo_availability_requests:rate6h
+        expr: sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics"}[6h]))
+      - record: sentinelcore:slo_availability_requests:rate1d
+        expr: sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics"}[1d]))
+      - record: sentinelcore:slo_availability_error_ratio:rate5m
+        expr: (sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics",status_code=~"5.."}[5m])) or vector(0)) / sentinelcore:slo_availability_requests:rate5m
+      - record: sentinelcore:slo_availability_error_ratio:rate30m
+        expr: (sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics",status_code=~"5.."}[30m])) or vector(0)) / sentinelcore:slo_availability_requests:rate30m
+      - record: sentinelcore:slo_availability_error_ratio:rate1h
+        expr: (sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics",status_code=~"5.."}[1h])) or vector(0)) / sentinelcore:slo_availability_requests:rate1h
+      - record: sentinelcore:slo_availability_error_ratio:rate2h
+        expr: (sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics",status_code=~"5.."}[2h])) or vector(0)) / sentinelcore:slo_availability_requests:rate2h
+      - record: sentinelcore:slo_availability_error_ratio:rate6h
+        expr: (sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics",status_code=~"5.."}[6h])) or vector(0)) / sentinelcore:slo_availability_requests:rate6h
+      - record: sentinelcore:slo_availability_error_ratio:rate1d
+        expr: (sum(rate(sentinelcore_http_requests_total{route!~"/health.*|/metrics",status_code=~"5.."}[1d])) or vector(0)) / sentinelcore:slo_availability_requests:rate1d
+
+      # Sign-in latency: the share of POST /auth/login slower than 0.5 s.
+      # The histogram has no status label, so a slow 5xx counts here too.
+      - record: sentinelcore:slo_sign_in_requests:rate5m
+        expr: sum(rate(sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}[5m]))
+      - record: sentinelcore:slo_sign_in_requests:rate30m
+        expr: sum(rate(sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}[30m]))
+      - record: sentinelcore:slo_sign_in_requests:rate1h
+        expr: sum(rate(sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}[1h]))
+      - record: sentinelcore:slo_sign_in_requests:rate2h
+        expr: sum(rate(sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}[2h]))
+      - record: sentinelcore:slo_sign_in_requests:rate6h
+        expr: sum(rate(sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}[6h]))
+      - record: sentinelcore:slo_sign_in_requests:rate1d
+        expr: sum(rate(sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}[1d]))
+      - record: sentinelcore:slo_sign_in_slow_ratio:rate5m
+        expr: 1 - sum(rate(sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}[5m])) / sentinelcore:slo_sign_in_requests:rate5m
+      - record: sentinelcore:slo_sign_in_slow_ratio:rate30m
+        expr: 1 - sum(rate(sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}[30m])) / sentinelcore:slo_sign_in_requests:rate30m
+      - record: sentinelcore:slo_sign_in_slow_ratio:rate1h
+        expr: 1 - sum(rate(sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}[1h])) / sentinelcore:slo_sign_in_requests:rate1h
+      - record: sentinelcore:slo_sign_in_slow_ratio:rate2h
+        expr: 1 - sum(rate(sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}[2h])) / sentinelcore:slo_sign_in_requests:rate2h
+      - record: sentinelcore:slo_sign_in_slow_ratio:rate6h
+        expr: 1 - sum(rate(sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}[6h])) / sentinelcore:slo_sign_in_requests:rate6h
+      - record: sentinelcore:slo_sign_in_slow_ratio:rate1d
+        expr: 1 - sum(rate(sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}[1d])) / sentinelcore:slo_sign_in_requests:rate1d
+
+      # Detection freshness: the share of Falco's alerts that reached the API
+      # more than 60 s after Falco saw the action. Few alerts, so these feed
+      # the dashboard; the alert is a plain threshold. The Python client
+      # writes the bucket as le="60.0", which Prometheus keeps as it is; the
+      # pattern also takes "60", should that ever be normalized.
+      - record: sentinelcore:slo_runtime_alert_late_ratio:rate1h
+        expr: 1 - sum(rate(sentinelcore_runtime_alert_delay_seconds_bucket{le=~"60|60.0"}[1h])) / sum(rate(sentinelcore_runtime_alert_delay_seconds_count[1h]))
+      - record: sentinelcore:slo_runtime_alert_late_ratio:rate6h
+        expr: 1 - sum(rate(sentinelcore_runtime_alert_delay_seconds_bucket{le=~"60|60.0"}[6h])) / sum(rate(sentinelcore_runtime_alert_delay_seconds_count[6h]))
+      - record: sentinelcore:slo_runtime_alert_late_ratio:rate1d
+        expr: 1 - sum(rate(sentinelcore_runtime_alert_delay_seconds_bucket{le=~"60|60.0"}[1d])) / sum(rate(sentinelcore_runtime_alert_delay_seconds_count[1d]))
+
+  - name: sentinelcore-slo-alerts
+    interval: 30s
+    rules:
+      # 99.5%: budget 0.005, so 14.4 × 0.005 = 7.2% errors, 6 × = 3%, 3 × = 1.5%.
+      - alert: SentinelCoreAvailabilityBurnRate
+        expr: |
+          (
+            sentinelcore:slo_availability_error_ratio:rate1h > (14.4 * 0.005)
+            and sentinelcore:slo_availability_error_ratio:rate5m > (14.4 * 0.005)
+            and sentinelcore:slo_availability_requests:rate1h * 3600 >= 20
+          )
+          or
+          (
+            sentinelcore:slo_availability_error_ratio:rate6h > (6 * 0.005)
+            and sentinelcore:slo_availability_error_ratio:rate30m > (6 * 0.005)
+            and sentinelcore:slo_availability_requests:rate6h * 21600 >= 20
+          )
+        labels:
+          severity: page
+          slo: availability
+        annotations:
+          summary: The API answers with 5xx fast enough to spend the 30-day budget within days.
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+      - alert: SentinelCoreAvailabilityBurnRate
+        expr: |
+          sentinelcore:slo_availability_error_ratio:rate1d > (3 * 0.005)
+          and sentinelcore:slo_availability_error_ratio:rate2h > (3 * 0.005)
+          and sentinelcore:slo_availability_requests:rate1d * 86400 >= 20
+        labels:
+          severity: ticket
+          slo: availability
+        annotations:
+          summary: The API's 5xx are spending the 30-day budget about three times too fast.
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+
+      # 95% within 0.5 s: budget 0.05, so 14.4 × 0.05 = 72% slow, 6 × = 30%,
+      # 3 × = 15%.
+      - alert: SentinelCoreSignInLatencyBurnRate
+        expr: |
+          (
+            sentinelcore:slo_sign_in_slow_ratio:rate1h > (14.4 * 0.05)
+            and sentinelcore:slo_sign_in_slow_ratio:rate5m > (14.4 * 0.05)
+            and sentinelcore:slo_sign_in_requests:rate1h * 3600 >= 20
+          )
+          or
+          (
+            sentinelcore:slo_sign_in_slow_ratio:rate6h > (6 * 0.05)
+            and sentinelcore:slo_sign_in_slow_ratio:rate30m > (6 * 0.05)
+            and sentinelcore:slo_sign_in_requests:rate6h * 21600 >= 20
+          )
+        labels:
+          severity: page
+          slo: sign-in-latency
+        annotations:
+          summary: Sign-ins are slower than 0.5 s often enough to spend the 30-day budget within days.
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+      - alert: SentinelCoreSignInLatencyBurnRate
+        expr: |
+          sentinelcore:slo_sign_in_slow_ratio:rate1d > (3 * 0.05)
+          and sentinelcore:slo_sign_in_slow_ratio:rate2h > (3 * 0.05)
+          and sentinelcore:slo_sign_in_requests:rate1d * 86400 >= 20
+        labels:
+          severity: ticket
+          slo: sign-in-latency
+        annotations:
+          summary: Slow sign-ins are spending the 30-day budget about three times too fast.
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+
+      # Any of Falco's alerts more than 60 s late in the last 30 minutes.
+      - alert: SentinelCoreRuntimeAlertsLate
+        expr: |
+          sum(increase(sentinelcore_runtime_alert_delay_seconds_count[30m]))
+            - sum(increase(sentinelcore_runtime_alert_delay_seconds_bucket{le=~"60|60.0"}[30m]))
+            >= 0.5
+        labels:
+          severity: ticket
+          slo: detection-freshness
+        annotations:
+          summary: At least one of Falco's alerts reached the API more than 60 s after the action.
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreruntimealertslate
+
+      # Every API pod down or gone: no requests are recorded, so the
+      # availability ratio shows nothing.
+      - alert: SentinelCoreApiDown
+        expr: (sum(up{job="sentinelcore-backend"}) or vector(0)) == 0
+        for: 2m
+        labels:
+          severity: page
+          slo: availability
+        annotations:
+          summary: Prometheus has reached no API pod for two minutes.
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreapidown

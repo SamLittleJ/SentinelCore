@@ -7,6 +7,7 @@
 #   every rendered manifest, with kubeconform, against Kubernetes 1.35's schemas
 #   both Dockerfiles, with hadolint, warnings included
 #   every script, with shellcheck
+#   the SLO rules, with promtool: their syntax, then their unit tests
 #   every action of the workflows, pinned to a full commit SHA
 set -euo pipefail
 
@@ -48,6 +49,10 @@ hadolint --failure-threshold warning backend/Dockerfile frontend/Dockerfile
 
 echo "== shellcheck"
 shellcheck scripts/*.sh
+
+echo "== promtool"
+promtool check rules observability/slo-rules.yaml
+promtool test rules observability/slo-rules.test.yaml
 
 echo "== pinned actions"
 # A tag can be moved to other code; a commit SHA cannot. The version stays in

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from prometheus_client import Counter, Gauge, Histogram
 
 from app.models.security_event import SecurityEventType, SecuritySeverity
@@ -54,6 +56,14 @@ RUNTIME_ALERTS = Counter(
     ["outcome"],
 )
 
+# How long each of Falco's alerts took from Falco's own time to the API:
+# the detection freshness SLO (docs/05-slos.md) reads the 60 s bucket.
+RUNTIME_ALERT_DELAY = Histogram(
+    "sentinelcore_runtime_alert_delay_seconds",
+    "Time from Falco seeing an action to its alert reaching the API.",
+    buckets=(1, 5, 15, 30, 60, 120, 300, 600),
+)
+
 LOGIN_REFUSED = Counter(
     "sentinelcore_login_refused_total",
     "Sign-in attempts refused because their address was over its limit.",
@@ -91,3 +101,10 @@ def record_security_event(
     severity: SecuritySeverity,
 ) -> None:
     SECURITY_EVENTS.labels(event_type=event_type.value, severity=severity.value).inc()
+
+
+def record_runtime_alert_delay(seen_at: datetime) -> None:
+    """The delay of an alert Falco timed at `seen_at`. A time a little ahead
+    of ours (clocks apart, within the allowed skew) counts as no delay."""
+    delay = (datetime.now(UTC) - seen_at).total_seconds()
+    RUNTIME_ALERT_DELAY.observe(max(delay, 0.0))

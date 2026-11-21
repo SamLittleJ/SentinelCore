@@ -139,16 +139,21 @@ install_observability() {
       kubectl create secret generic grafana-admin --namespace observability --from-env-file=/dev/stdin >/dev/null
     (umask 077 && printf '%s\n' "$password" >"$STATE/grafana.txt")
   fi
+  # Compose's dashboard and the cluster's own (the SLOs, whose rules only
+  # the cluster's Prometheus has).
   kubectl create configmap grafana-dashboards --namespace observability \
-    --from-file="$ROOT/infra/grafana/dashboards/" --dry-run=client -o yaml |
+    --from-file="$ROOT/infra/grafana/dashboards/" --from-file="$ROOT/observability/dashboards/" \
+    --dry-run=client -o yaml |
     kubectl apply -f - >/dev/null
   kubectl apply -f "$ROOT/observability/rbac.yaml" >/dev/null
   observability_chart tempo tempo tempo
   observability_chart otel otel-collector collector
-  # Without the config reloader, nothing else restarts Prometheus when its
-  # scrape configuration changes: the pod carries the values' hash.
-  observability_chart prometheus prometheus prometheus --set-string \
-    "server.podAnnotations.sentinelcore/values=$(sha256sum "$ROOT/observability/prometheus.yaml" | cut -c1-16)"
+  # The SLO rules come from one file, the one promtool tests. Without the
+  # config reloader, nothing else restarts Prometheus when its scrape
+  # configuration or its rules change: the pod carries both files' hash.
+  observability_chart prometheus prometheus prometheus \
+    --set-file "ruleFiles.slo-rules\.yml=$ROOT/observability/slo-rules.yaml" \
+    --set-string "server.podAnnotations.sentinelcore/values=$(cat "$ROOT/observability/prometheus.yaml" "$ROOT/observability/slo-rules.yaml" | sha256sum | cut -c1-16)"
   observability_chart grafana grafana grafana
 }
 

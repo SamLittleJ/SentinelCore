@@ -153,7 +153,7 @@ In the kind cluster, Falco watches the node's system calls and falcosidekick sen
 | `sensitive_file_read` (incident) | T1003.008 | Read sensitive file untrusted |
 | `container_network_tool` (warn) | T1059.004 | Redirect STDOUT/STDIN to Network Connection in Container, Netcat Remote Code Execution in Container |
 
-The server writes the message (namespace, pod, container, and the file for a sensitive read), never Falco's command line. The same alert within ten minutes of its time is stored once. Every valid alert gets `204 No Content`; `sentinelcore_runtime_alerts_total{outcome}` counts them as `stored`, `ignored` or `duplicate`.
+The server writes the message (namespace, pod, container, and the file for a sensitive read), never Falco's command line. The same alert within ten minutes of its time is stored once. Every valid alert gets `204 No Content`; `sentinelcore_runtime_alerts_total{outcome}` counts them as `stored`, `ignored` or `duplicate`. `sentinelcore_runtime_alert_delay_seconds` records, for every alert received, the time from Falco's own `time` to its arrival (a time ahead of the server's counts as 0): the detection freshness SLO (`docs/05-slos.md`).
 
 ## Attack simulator
 

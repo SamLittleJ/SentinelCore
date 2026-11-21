@@ -1,0 +1,282 @@
+# promtool test rules for observability/slo-rules.yaml (`make deploy-lint`).
+# Each test feeds made-up series, one sample a minute, and checks which
+# alerts are firing at a given time. A series written 'a+bxN' starts at a and
+# grows by b for N more minutes.
+rule_files:
+  - slo-rules.yaml
+evaluation_interval: 30s
+
+tests:
+  # Availability
+
+  - name: 10% of requests failing for an hour pages (and opens a ticket)
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+54x60'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0+6x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts:
+          - &availability-page
+            exp_labels: {severity: page, slo: availability}
+            exp_annotations:
+              summary: The API answers with 5xx fast enough to spend the 30-day budget within days.
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+          - &availability-ticket
+            exp_labels: {severity: ticket, slo: availability}
+            exp_annotations:
+              summary: The API's 5xx are spending the 30-day budget about three times too fast.
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+
+  - name: a short burst pages through the 1h and 5m windows alone
+    # Six clean hours, then 15 minutes at 50% errors: 12.5% over the hour,
+    # 2.1% over six hours (below the 6h page's 3%).
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+100x360 36000+50x15'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0x360 0+50x15'
+    alert_rule_test:
+      - eval_time: 375m
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: [*availability-page, *availability-ticket]
+
+  - name: 4% failing for six hours pages through the 6h and 30m windows alone
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+96x360'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0+4x360'
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: [*availability-page, *availability-ticket]
+
+  - name: 2% failing is above the ticket's 1.5% but below the pages' 3% and 7.2%
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+98x150'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0+2x150'
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts:
+          - *availability-ticket
+
+  - name: 1% failing is within budget
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+99x150'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0+1x150'
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: []
+
+  - name: one 5xx in three requests is not a page with so little traffic
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0x20 1x20 2x20'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0x56 1x4'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: []
+
+  - name: failing health checks and metrics scrapes are not the API's availability
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+60x60'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/health/ready",status_code="503"}'
+        values: '0+60x60'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/health",status_code="500"}'
+        values: '0+60x60'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/metrics",status_code="500"}'
+        values: '0+60x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: []
+
+  - name: refused and limited requests are answers, not errors
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="POST",route="/auth/login",status_code="200"}'
+        values: '0+6x60'
+      - series: 'sentinelcore_http_requests_total{method="POST",route="/auth/login",status_code="401"}'
+        values: '0+30x60'
+      - series: 'sentinelcore_http_requests_total{method="POST",route="/auth/login",status_code="429"}'
+        values: '0+60x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: []
+
+  - name: the pages end once both short windows (5m, 30m) are clear of errors
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="200"}'
+        values: '0+54x60 3240+60x35'
+      - series: 'sentinelcore_http_requests_total{method="GET",route="/security/events",status_code="500"}'
+        values: '0+6x60 360x35'
+    alert_rule_test:
+      - eval_time: 95m
+        alertname: SentinelCoreAvailabilityBurnRate
+        exp_alerts: [*availability-ticket]
+
+  # Sign-in latency
+
+  - name: 90% of sign-ins slower than 0.5 s pages (and opens a ticket)
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}'
+        values: '0+10x60'
+      - series: 'sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}'
+        values: '0+1x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreSignInLatencyBurnRate
+        exp_alerts:
+          - &sign-in-page
+            exp_labels: {severity: page, slo: sign-in-latency}
+            exp_annotations:
+              summary: Sign-ins are slower than 0.5 s often enough to spend the 30-day budget within days.
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+          - &sign-in-ticket
+            exp_labels: {severity: ticket, slo: sign-in-latency}
+            exp_annotations:
+              summary: Slow sign-ins are spending the 30-day budget about three times too fast.
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+
+  - name: 20% slow is above the ticket's 15% but below the pages' 30% and 72%
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}'
+        values: '0+10x150'
+      - series: 'sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}'
+        values: '0+8x150'
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: SentinelCoreSignInLatencyBurnRate
+        exp_alerts:
+          - *sign-in-ticket
+
+  - name: sign-ins within 0.5 s and other slow routes do not alert
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}'
+        values: '0+10x60'
+      - series: 'sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}'
+        values: '0+10x60'
+      - series: 'sentinelcore_http_request_duration_seconds_count{method="GET",route="/security/events"}'
+        values: '0+10x60'
+      - series: 'sentinelcore_http_request_duration_seconds_bucket{method="GET",route="/security/events",le="0.5"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreSignInLatencyBurnRate
+        exp_alerts: []
+
+  - name: a few slow sign-ins are not a page with so little traffic
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_http_request_duration_seconds_count{method="POST",route="/auth/login"}'
+        values: '0x56 5x4'
+      - series: 'sentinelcore_http_request_duration_seconds_bucket{method="POST",route="/auth/login",le="0.5"}'
+        values: '0x60'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SentinelCoreSignInLatencyBurnRate
+        exp_alerts: []
+
+  # Detection freshness
+
+  - name: one of Falco's alerts more than 60 s late opens a ticket
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_runtime_alert_delay_seconds_count'
+        values: '0x10 1x20'
+      - series: 'sentinelcore_runtime_alert_delay_seconds_bucket{le="60.0"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: SentinelCoreRuntimeAlertsLate
+        exp_alerts:
+          - &runtime-late
+            exp_labels: {severity: ticket, slo: detection-freshness}
+            exp_annotations:
+              summary: At least one of Falco's alerts reached the API more than 60 s after the action.
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreruntimealertslate
+
+  - name: alerts on time do not, and a late one is forgotten after 30 minutes
+    interval: 1m
+    input_series:
+      - series: 'sentinelcore_runtime_alert_delay_seconds_count'
+        values: '0x10 1x5 2x60'
+      - series: 'sentinelcore_runtime_alert_delay_seconds_bucket{le="60.0"}'
+        values: '0x10 1x65'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: SentinelCoreRuntimeAlertsLate
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: SentinelCoreRuntimeAlertsLate
+        exp_alerts: [*runtime-late]
+      - eval_time: 55m
+        alertname: SentinelCoreRuntimeAlertsLate
+        exp_alerts: []
+
+  # The API down
+
+  - name: no API pod reachable for two minutes pages
+    interval: 1m
+    input_series:
+      - series: 'up{job="sentinelcore-backend",pod="sentinelcore-backend-a"}'
+        values: '1 1 0 0 0 0'
+      - series: 'up{job="sentinelcore-backend",pod="sentinelcore-backend-b"}'
+        values: '1 1 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: SentinelCoreApiDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: SentinelCoreApiDown
+        exp_alerts: &api-down
+          - exp_labels: {severity: page, slo: availability}
+            exp_annotations:
+              summary: Prometheus has reached no API pod for two minutes.
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreapidown
+
+  - name: one pod down of two is not the API down
+    interval: 1m
+    input_series:
+      - series: 'up{job="sentinelcore-backend",pod="sentinelcore-backend-a"}'
+        values: '1x10'
+      - series: 'up{job="sentinelcore-backend",pod="sentinelcore-backend-b"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: SentinelCoreApiDown
+        exp_alerts: []
+
+  - name: no API target at all is the API down too
+    interval: 1m
+    input_series:
+      - series: 'up{job="tempo"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: SentinelCoreApiDown
+        exp_alerts: *api-down
