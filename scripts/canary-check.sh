@@ -47,7 +47,7 @@ writes() {
 drill_cleanup() {
   kubectl delete rollout.argoproj.io "$DRILL" -n "$NAMESPACE" --ignore-not-found --wait=true >/dev/null 2>&1
   kubectl delete analysisrun.argoproj.io -n "$NAMESPACE" -l "app.kubernetes.io/name=$DRILL" --ignore-not-found >/dev/null 2>&1
-  kubectl delete service "$DRILL-canary" secret "$DRILL" -n "$NAMESPACE" --ignore-not-found >/dev/null 2>&1
+  kubectl delete "service/$DRILL-canary" "secret/$DRILL" -n "$NAMESPACE" --ignore-not-found >/dev/null 2>&1
   sql "DROP ROLE IF EXISTS $DRILL_ROLE" >/dev/null 2>&1
 }
 

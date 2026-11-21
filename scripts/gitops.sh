@@ -28,13 +28,30 @@ say() { printf '==> %s\n' "$*"; }
 tf() { terraform -chdir="$ROOT/gitops" "$@"; }
 tf_vars=(-var "kubeconfig_path=$KUBECONFIG" -var "argocd_chart=$ROOT/.tools/argo-cd.tgz")
 
-# Every application synced and healthy, or the ones that are not after the
-# time allowed.
+# The commit GITOPS_REVISION names: a full commit as it is, a branch or tag
+# as GitHub has it now.
+resolve_revision() {
+  if [[ "$GITOPS_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "$GITOPS_REVISION"
+    return
+  fi
+  local repo
+  repo="$(sed -n 's/^repoURL: //p' "$ROOT/deploy/values.yaml")"
+  git ls-remote "$repo" "refs/heads/$GITOPS_REVISION" "refs/tags/$GITOPS_REVISION" | awk 'NR == 1 { print $1 }'
+}
+
+# Every application synced and healthy at that commit, or the ones that are
+# not after the time allowed. Synced alone is not enough: right after the
+# root application moves to another revision, the others still report the
+# one they had.
 wait_applications() {
-  local deadline=$((SECONDS + 1200)) pending
+  local deadline=$((SECONDS + 1200)) pending commit
+  commit="$(resolve_revision)"
+  [[ -n "$commit" ]] || { echo "No commit for $GITOPS_REVISION on GitHub." >&2; return 1; }
   while ((SECONDS < deadline)); do
-    pending="$(kubectl get applications -n argocd -o json | jq -r '
-      .items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy")
+    pending="$(kubectl get applications -n argocd -o json | jq -r --arg commit "$commit" '
+      .items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy"
+        or (([.status.sync.revision] + (.status.sync.revisions // [])) | index($commit) | not))
       | "\(.metadata.name): \(.status.sync.status // "-")/\(.status.health.status // "-")"')"
     if [[ -z "$pending" ]] && (($(kubectl get applications -n argocd -o name | wc -l) > 1)); then
       return 0

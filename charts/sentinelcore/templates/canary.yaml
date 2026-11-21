@@ -18,9 +18,23 @@ spec:
       port: 8000
       targetPort: http
 ---
+# The traffic's script (backend/app/canary_traffic.py, through a link in
+# files/): it runs with the Python of the signed backend image, whatever
+# version that image is, so the analysis never depends on the version it
+# judges having the script.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinelcore-canary-traffic
+  labels:
+    {{- include "sentinelcore.labels" . | nindent 4 }}
+data:
+  canary_traffic.py: |
+    {{- .Files.Get "files/canary_traffic.py" | nindent 4 }}
+---
 # The analysis of each canary step (docs/07-gitops.md). Two parts, run
 # together: a Job sends synthetic traffic to the new pods only, through
-# requests that read the database and write nothing (app/canary_traffic.py);
+# requests that read the database and write nothing (canary_traffic.py);
 # Prometheus reads the new pods' 5xx rate and request count. The step fails
 # above the error rate, and also with too few requests: no traffic is not a
 # pass. The canary drill of `make cluster-check CLUSTER=gitops` uses this
@@ -80,8 +94,7 @@ spec:
                     image: "{{ "{{" }}args.image{{ "}}" }}"
                     command:
                       - python
-                      - -m
-                      - app.canary_traffic
+                      - /canary/canary_traffic.py
                       - --url
                       - "http://{{ "{{" }}args.service{{ "}}" }}:8000"
                       - --seconds
@@ -94,6 +107,14 @@ spec:
                       limits: {cpu: 200m, memory: 128Mi}
                     securityContext:
                       {{- include "sentinelcore.containerSecurity" . | nindent 22 }}
+                    volumeMounts:
+                      - name: script
+                        mountPath: /canary
+                        readOnly: true
+                volumes:
+                  - name: script
+                    configMap:
+                      name: sentinelcore-canary-traffic
     # The new pods' share of 5xx, without /health and /metrics as in the SLOs
     # (observability/slo-rules.yaml); read once the traffic has run a while.
     - name: error-ratio

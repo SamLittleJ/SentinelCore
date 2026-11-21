@@ -1,8 +1,9 @@
 """Synthetic traffic for a canary's analysis (docs/07-gitops.md).
 
-Usage, from the backend image:
+Usage, as the analysis's Job runs it (charts/sentinelcore mounts this file,
+through a link, and runs it with the backend image's Python):
 
-    python -m app.canary_traffic --url http://sentinelcore-backend-canary:8000 \
+    python canary_traffic.py --url http://sentinelcore-backend-canary:8000 \
         --seconds 120 --rate 5
 
 It sends requests that read the database and write nothing: an ingestion
@@ -14,7 +15,8 @@ sign-ins were not used: each would write a security event, spend the
 address's sign-in budget and could raise an alert.
 
 It needs no setting of the application (no database URL, no secret), so the
-Job that runs it holds none; it uses the standard library only. It prints
+Job that runs it holds none; it uses the standard library only, and imports
+nothing of the application, so any version of the image can run it. It prints
 how many answers fell in each class and exits with 1 only when no request
 got an answer at all, as the canary was then not reachable.
 """
@@ -88,7 +90,7 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="python -m app.canary_traffic")
+    parser = argparse.ArgumentParser(prog="canary_traffic.py")
     parser.add_argument("--url", required=True, help="The canary Service's URL.")
     parser.add_argument("--seconds", type=float, default=120)
     parser.add_argument("--rate", type=float, default=5, help="Requests a second.")
