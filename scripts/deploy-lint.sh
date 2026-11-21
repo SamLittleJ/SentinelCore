@@ -47,6 +47,11 @@ echo "== kubeconform"
   done
 } | kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" \
   -schema-location "$SCHEMAS/{{.NormalizedKubernetesVersion}}-standalone{{.StrictSuffix}}/{{.ResourceKind}}{{.KindSuffix}}.json"
+# As the GitOps cluster runs it (deploy/): the API a Rollout, with its canary.
+# Argo Rollouts' own kinds have no schema here; Argo CD checks them.
+helm template sentinelcore charts/sentinelcore -f deploy/images.yaml -f deploy/sentinelcore.yaml |
+  kubeconform -strict -summary -kubernetes-version "$KUBERNETES_VERSION" -skip Rollout,AnalysisTemplate \
+    -schema-location "$SCHEMAS/{{.NormalizedKubernetesVersion}}-standalone{{.StrictSuffix}}/{{.ResourceKind}}{{.KindSuffix}}.json"
 
 echo "== hadolint"
 hadolint --failure-threshold warning backend/Dockerfile frontend/Dockerfile
@@ -70,7 +75,30 @@ first = max(apps[n] for n in ("kyverno", "kyverno-policies"))
 late = sorted(n for n, w in apps.items() if n not in ("kyverno", "kyverno-policies", "network-policies") and w <= first)
 if apps["kyverno"] >= apps["kyverno-policies"] or late:
     sys.exit(f"Kyverno must sync first, then its policies, then the rest; too early: {late}")
-print(f"{len(apps)} applications, Kyverno and its policies first")'
+if apps["argo-rollouts"] >= apps["sentinelcore"]:
+    sys.exit("Argo Rollouts must sync before the application, whose API is a Rollout")
+print(f"{len(apps)} applications, Kyverno and its policies first, Argo Rollouts before the API")'
+# The canary's analysis (charts/sentinelcore/templates/canary.yaml): every
+# Prometheus query reads the new pods only, and a reading of their request
+# count requires a minimum, so an analysis without traffic cannot pass.
+helm template sentinelcore charts/sentinelcore -f deploy/images.yaml -f deploy/sentinelcore.yaml |
+  "$ROOT/.tools/scanners/bin/python" -c '
+import sys, yaml
+docs = [d for d in yaml.safe_load_all(sys.stdin) if d]
+template = next(d for d in docs if d["kind"] == "AnalysisTemplate")
+queries = {m["name"]: m for m in template["spec"]["metrics"] if "prometheus" in m.get("provider", {})}
+for name, metric in queries.items():
+    if "-{{args.canary-hash}}-" not in metric["provider"]["prometheus"]["query"]:
+        sys.exit(f"the {name} query does not read the new pods only")
+if queries.get("requests", {}).get("successCondition") != "result[0] >= {{args.min-requests}}":
+    sys.exit("the analysis does not require a minimum of requests")
+if int(next(a["value"] for a in template["spec"]["args"] if a["name"] == "min-requests")) < 1:
+    sys.exit("the minimum of requests must be at least one")
+rollout = next(d for d in docs if d["kind"] == "Rollout")
+steps = rollout["spec"]["strategy"]["canary"]["steps"]
+if not all("analysis" in after for before, after in zip(steps, steps[1:]) if "setWeight" in before):
+    sys.exit("every canary step must be followed by an analysis")
+print(f"canary: {len(queries)} queries on the new pods, a minimum of requests, {len(steps) // 2} analysed steps")'
 terraform -chdir=gitops fmt -check -diff
 tf_data="$(mktemp -d)"
 TF_DATA_DIR="$tf_data" terraform -chdir=gitops init -backend=false -input=false >/dev/null

@@ -79,7 +79,8 @@ up() {
   wait_applications
 
   local image
-  image="$(kubectl get deployment sentinelcore-backend -n sentinelcore \
+  # The API is a Rollout here (its canary, deploy/sentinelcore.yaml).
+  image="$(kubectl get rollout.argoproj.io sentinelcore-backend -n sentinelcore \
     -o jsonpath='{.spec.template.spec.containers[?(@.name=="backend")].image}')"
   OWNER_IMAGE="$image" CLUSTER="$CLUSTER" STATE="$STATE" URL="$URL" "$ROOT/scripts/cluster.sh" owner
   say "SentinelCore (GitOps) is at $URL"

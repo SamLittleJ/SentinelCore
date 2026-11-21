@@ -3,7 +3,8 @@ One Argo CD Application per component. Each external chart comes from its
 OCI registry by digest, with its values from this repository at the same
 revision ($values); our own charts and manifests come from the repository.
 The sync wave orders them: Kyverno and its policies first, so every later pod
-is admitted by them; the application last.
+is admitted by them; Argo Rollouts' controller and CRDs before the
+application, whose API is a Rollout; the application last.
 */ -}}
 {{- $root := . -}}
 {{- define "gitops.syncPolicy" -}}
@@ -29,6 +30,7 @@ syncPolicy:
 {{- $external := list
   (dict "name" "kyverno" "wave" "0" "namespace" "kyverno" "release" "kyverno" "values" "kyverno/values.yaml" "create" true)
   (dict "name" "falco" "wave" "2" "namespace" "falco" "release" "falco" "values" "falco/values.yaml")
+  (dict "name" "argo-rollouts" "wave" "2" "namespace" "argo-rollouts" "release" "argo-rollouts" "values" "argo-rollouts/values.yaml" "create" true)
   (dict "name" "tempo" "wave" "3" "namespace" "observability" "release" "tempo" "values" "observability/tempo.yaml")
   (dict "name" "otel" "wave" "3" "namespace" "observability" "release" "otel" "values" "observability/collector.yaml")
   (dict "name" "prometheus" "wave" "3" "namespace" "observability" "release" "prometheus" "values" "observability/prometheus.yaml")
@@ -72,7 +74,7 @@ spec:
   (dict "name" "observability-config" "wave" "2" "namespace" "observability" "path" "charts/observability-config" "release" "observability-config")
   (dict "name" "observability-rbac" "wave" "2" "namespace" "observability" "path" "observability" "include" "rbac.yaml")
   (dict "name" "postgresql" "wave" "3" "namespace" "sentinelcore" "path" "charts/postgresql" "release" "postgresql")
-  (dict "name" "sentinelcore" "wave" "4" "namespace" "sentinelcore" "path" "charts/sentinelcore" "release" "sentinelcore" "values" "deploy/images.yaml")
+  (dict "name" "sentinelcore" "wave" "4" "namespace" "sentinelcore" "path" "charts/sentinelcore" "release" "sentinelcore" "values" "deploy/images.yaml,deploy/sentinelcore.yaml")
 }}
 {{- range $own }}
 ---
@@ -96,7 +98,9 @@ spec:
       helm:
         releaseName: {{ .release }}
         valueFiles:
-          - $values/{{ .values }}
+          {{- range splitList "," .values }}
+          - $values/{{ . }}
+          {{- end }}
     - repoURL: {{ $root.Values.repoURL }}
       targetRevision: {{ $root.Values.revision }}
       ref: values

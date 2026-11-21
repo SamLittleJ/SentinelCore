@@ -351,20 +351,24 @@ grafana_locked() {
 check "Grafana refuses a request without its password" grafana_locked
 
 # GitOps: Git is the only source. A change made by hand is reverted by
-# Argo CD's self-heal within a minute (docs/07-gitops.md).
+# Argo CD's self-heal within a minute (docs/07-gitops.md). The API is a
+# Rollout there, with its canary (scripts/canary-check.sh).
 if [[ "${CLUSTER:-}" == gitops ]]; then
+  api_replicas() { kubectl get rollout.argoproj.io sentinelcore-backend -n "$NAMESPACE" -o jsonpath='{.spec.replicas}'; }
   self_healed() {
     local wanted
-    wanted="$(kubectl get deployment sentinelcore-backend -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
-    kubectl scale deployment sentinelcore-backend -n "$NAMESPACE" --replicas=$((wanted + 1)) >/dev/null || return 1
+    wanted="$(api_replicas)"
+    kubectl scale rollout.argoproj.io sentinelcore-backend -n "$NAMESPACE" --replicas=$((wanted + 1)) >/dev/null || return 1
     local tries
     for tries in $(seq 30); do
-      [[ "$(kubectl get deployment sentinelcore-backend -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')" == "$wanted" ]] && return 0
+      [[ "$(api_replicas)" == "$wanted" ]] && return 0
       sleep 2
     done
     return 1
   }
   check "a change made by hand is reverted from Git" self_healed
+  # shellcheck source=scripts/canary-check.sh
+  source "$ROOT/scripts/canary-check.sh"
 fi
 
 if ((failed > 0)); then

@@ -1,0 +1,8 @@
+# The API on the GitOps cluster: a canary, run by Argo Rollouts
+# (docs/07-gitops.md). Five pods, so the first step, one new pod, is 20%
+# of the traffic; the analysis's arguments are the chart's
+# (charts/sentinelcore/values.yaml).
+backend:
+  replicas: 5
+  canary:
+    enabled: true

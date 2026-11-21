@@ -27,6 +27,25 @@ secrets:
 
 backend:
   replicas: 2
+  # The canary of the GitOps cluster (deploy/sentinelcore.yaml turns it on;
+  # docs/07-gitops.md): a Rollout instead of the Deployment, Argo Rollouts
+  # running it. Each step sets the new version's share of the pods, then an
+  # analysis sends it synthetic traffic and reads its 5xx rate in Prometheus.
+  canary:
+    enabled: false
+    steps: [20, 60]
+    analysis:
+      # How long the traffic lasts, how fast, and how often the error rate
+      # is read; the drill of `make cluster-check` passes shorter ones.
+      trafficSeconds: 120
+      rate: 5
+      interval: 30s
+      count: 4
+      # Fails above this share of 5xx, or with fewer requests than this:
+      # an analysis without traffic must not pass.
+      maxErrorRatio: "0.01"
+      minRequests: 100
+      prometheus: http://prometheus-server.observability.svc.cluster.local
   # The settings the API runs with in the cluster (app/core/config.py).
   config:
     API_DOCS_ENABLED: "false"
