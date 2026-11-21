@@ -1,0 +1,13 @@
+# The images the GitOps cluster runs: the signed ones CI published from
+# main, by digest. `make deploy-pr` checks a commit's signature and
+# attestations (scripts/verify-images.sh), writes them here and opens the
+# pull request; merging it deploys them. Kyverno checks the signature again
+# before each pod starts (kyverno/signatures.yaml).
+image:
+  backend: ghcr.io/samlittlej/sentinelcore-backend
+  console: ghcr.io/samlittlej/sentinelcore-console
+  # The commit they were built from; it also labels the pods.
+  tag: "0dcddfe16307"
+  digests:
+    backend: sha256:018eeb19f662ced809c2fd36cada25a159b43065e78efe52bdbaa606311dd0ac
+    console: sha256:dd403bc81f312ddc9409757cccf26e71fae4bcb3569aa136601efcda36d63f56

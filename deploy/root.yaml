@@ -1,0 +1,25 @@
+# The root application (app of apps): it renders deploy/ into one Argo CD
+# Application per component. scripts/gitops.sh applies it once the Secrets
+# exist, with `revision` set to the commit CI checks, or main.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sentinelcore-root
+  namespace: argocd
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  source:
+    repoURL: https://github.com/SamLittleJ/SentinelCore.git
+    targetRevision: main
+    path: deploy
+    helm:
+      parameters:
+        - name: revision
+          value: main
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

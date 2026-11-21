@@ -8,6 +8,8 @@
 #   both Dockerfiles, with hadolint, warnings included
 #   every script, with shellcheck
 #   the SLO rules, with promtool: their syntax, then their unit tests
+#   the GitOps applications (deploy/): Kyverno and its policies sync first
+#   the Terraform of the GitOps cluster (gitops/): formatted and valid
 #   every action of the workflows, pinned to a full commit SHA
 set -euo pipefail
 
@@ -26,6 +28,7 @@ TAG=deploy-lint
 echo "== helm lint"
 helm lint --strict charts/postgresql
 helm lint --strict charts/sentinelcore --set image.tag="$TAG"
+helm lint --strict charts/observability-config 2>/dev/null
 
 echo "== kubeconform"
 # Every resource needs a schema: there are no custom resources, so one
@@ -37,7 +40,8 @@ echo "== kubeconform"
   helm template sentinelcore charts/sentinelcore --set image.tag="$TAG" \
     --set image.backend=ghcr.io/samlittlej/sentinelcore-backend \
     --set image.digests.backend="sha256:$(printf '0%.0s' {1..64})"
-  for file in network-policies/*.yaml observability/rbac.yaml; do
+  helm template observability-config charts/observability-config 2>/dev/null
+  for file in network-policies/*.yaml observability/rbac.yaml gitops/network-policy.yaml; do
     echo ---
     cat "$file"
   done
@@ -53,6 +57,25 @@ shellcheck scripts/*.sh
 echo "== promtool"
 promtool check rules observability/slo-rules.yaml
 promtool test rules observability/slo-rules.test.yaml
+
+echo "== gitops"
+# Every pod is admitted by Kyverno's rules only if Kyverno and the policies
+# are in place first: their waves come before every other application's.
+helm lint --strict deploy
+helm template root deploy | "$ROOT/.tools/scanners/bin/python" -c '
+import sys, yaml
+apps = {a["metadata"]["name"]: int(a["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"])
+        for a in yaml.safe_load_all(sys.stdin) if a}
+first = max(apps[n] for n in ("kyverno", "kyverno-policies"))
+late = sorted(n for n, w in apps.items() if n not in ("kyverno", "kyverno-policies", "network-policies") and w <= first)
+if apps["kyverno"] >= apps["kyverno-policies"] or late:
+    sys.exit(f"Kyverno must sync first, then its policies, then the rest; too early: {late}")
+print(f"{len(apps)} applications, Kyverno and its policies first")'
+terraform -chdir=gitops fmt -check -diff
+tf_data="$(mktemp -d)"
+TF_DATA_DIR="$tf_data" terraform -chdir=gitops init -backend=false -input=false >/dev/null
+TF_DATA_DIR="$tf_data" terraform -chdir=gitops validate -no-color
+rm -rf "$tf_data"
 
 echo "== pinned actions"
 # A tag can be moved to other code; a commit SHA cannot. The version stays in

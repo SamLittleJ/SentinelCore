@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images backup backup-check
+.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images backup backup-check gitops-up gitops-down argocd deploy-pr
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -66,6 +66,18 @@ scan-images: images ## Build the images, then an SBOM of each and its known vuln
 
 cluster-check: ## Check the running cluster's security properties, one line each
 	@./scripts/cluster-check.sh
+
+gitops-up: ## The GitOps cluster: Terraform and Argo CD, then everything from Git, at http://localhost:8081 (docs/07-gitops.md)
+	@./scripts/gitops.sh up
+
+gitops-down: ## Delete the GitOps cluster and its state (asks first)
+	@./scripts/gitops.sh down
+
+deploy-pr: ## Open a pull request deploying REVISION (a commit of main) to the GitOps cluster, its images checked first
+	@REVISION=$(REVISION) ./scripts/deploy-pr.sh
+
+argocd: ## Argo CD of the GitOps cluster at http://127.0.0.1:3002 (user admin, password in .kind/gitops/argocd.txt); Ctrl-C stops it
+	@./scripts/gitops.sh argocd
 
 backup: ## A database dump now, from the cluster's nightly backup (docs/06-backups.md)
 	@./scripts/backup.sh backup

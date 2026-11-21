@@ -58,6 +58,14 @@ PROMETHEUS_CHART_VERSION=29.40.0
 PROMETHEUS_CHART_SHA256=8af68f8b0b43fb11d32ca679574be129b0c947dcb5c9e270ef8e677a2e7f26ac
 GRAFANA_CHART_VERSION=14.2.0
 GRAFANA_CHART_SHA256=fd442e214d854ff514d64fb75f7f32f179b9e9a6a53bc3323aca7c5748ff188f
+# GitOps on kind (`make gitops-up`, gitops/): Terraform creates the cluster
+# and installs Argo CD from its chart, both pinned; Terraform's providers are
+# pinned in gitops/.terraform.lock.hcl. Argo CD 10.18.0 (Argo CD v3.6.1), not
+# 10.18.1 or 10.18.2: those were inside the seven-day cooldown.
+TERRAFORM_VERSION=v1.17.2
+TERRAFORM_SHA256=e6f16b2f0b137ee5729caa8c4e79a3bae4ee261acd198a1fcfa8584a6296605b
+ARGOCD_CHART_VERSION=10.18.0
+ARGOCD_CHART_SHA256=9785aff67197402aab26d7ab3928ac8e611c292dacdee47f0e8ded16c2cd5a47
 # promtool, which checks and tests the SLO rules (observability/slo-rules.yaml)
 # in `make deploy-lint`: from the release of the cluster's Prometheus server
 # (observability/prometheus.yaml), so both read the rules the same way.
@@ -88,7 +96,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|promtool|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|promtool|terraform|argo-cd|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -177,6 +185,16 @@ if wanted cosign && ! installed cosign "$COSIGN_VERSION"; then
   echo "$COSIGN_VERSION" >"$TOOLS/cosign.version"
 fi
 
+if wanted terraform && ! installed terraform "$TERRAFORM_VERSION"; then
+  archive="$TOOLS/terraform.zip"
+  fetch "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION#v}/terraform_${TERRAFORM_VERSION#v}_linux_amd64.zip" \
+    "$TERRAFORM_SHA256" "$archive"
+  unzip -o -q "$archive" terraform -d "$TOOLS"
+  rm -f "$archive"
+  chmod 755 "$TOOLS/terraform"
+  echo "$TERRAFORM_VERSION" >"$TOOLS/terraform.version"
+fi
+
 if wanted promtool && ! installed promtool "$PROMTOOL_VERSION"; then
   archive="$TOOLS/promtool.tar.gz"
   fetch "https://github.com/prometheus/prometheus/releases/download/$PROMTOOL_VERSION/prometheus-${PROMTOOL_VERSION#v}.linux-amd64.tar.gz" \
@@ -214,6 +232,8 @@ chart tempo "$TEMPO_CHART_VERSION" "$TEMPO_CHART_SHA256" \
   "https://github.com/grafana-community/helm-charts/releases/download/tempo-$TEMPO_CHART_VERSION/tempo-$TEMPO_CHART_VERSION.tgz"
 chart prometheus "$PROMETHEUS_CHART_VERSION" "$PROMETHEUS_CHART_SHA256" \
   "https://github.com/prometheus-community/helm-charts/releases/download/prometheus-$PROMETHEUS_CHART_VERSION/prometheus-$PROMETHEUS_CHART_VERSION.tgz"
+chart argo-cd "$ARGOCD_CHART_VERSION" "$ARGOCD_CHART_SHA256" \
+  "https://github.com/argoproj/argo-helm/releases/download/argo-cd-$ARGOCD_CHART_VERSION/argo-cd-$ARGOCD_CHART_VERSION.tgz"
 chart grafana "$GRAFANA_CHART_VERSION" "$GRAFANA_CHART_SHA256" \
   "https://github.com/grafana-community/helm-charts/releases/download/grafana-$GRAFANA_CHART_VERSION/grafana-$GRAFANA_CHART_VERSION.tgz"
 

@@ -30,11 +30,12 @@ echo "== pip-audit"
 echo "== checkov"
 helm template postgresql charts/postgresql >"$WORK/postgresql.yaml"
 helm template sentinelcore charts/sentinelcore --set image.tag=scan >"$WORK/sentinelcore.yaml"
+helm template observability-config charts/observability-config -n observability >"$WORK/observability-config.yaml" 2>/dev/null
 files=()
-for file in "$WORK/postgresql.yaml" "$WORK/sentinelcore.yaml" network-policies/*.yaml observability/rbac.yaml backend/Dockerfile frontend/Dockerfile .github/workflows/*.yml; do
+for file in "$WORK/postgresql.yaml" "$WORK/sentinelcore.yaml" "$WORK/observability-config.yaml" network-policies/*.yaml observability/rbac.yaml gitops/network-policy.yaml gitops/main.tf backend/Dockerfile frontend/Dockerfile .github/workflows/*.yml; do
   files+=(-f "$file")
 done
-"$SCANNERS/checkov" --quiet --compact -o json --framework kubernetes dockerfile github_actions \
+"$SCANNERS/checkov" --quiet --compact -o json --framework kubernetes dockerfile github_actions terraform \
   "${files[@]}" >"$WORK/checkov.json" || true
 "$SCANNERS/python" scripts/scan_gate.py checkov "$WORK/checkov.json" || failed=1
 

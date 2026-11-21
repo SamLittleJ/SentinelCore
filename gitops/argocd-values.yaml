@@ -1,0 +1,90 @@
+# Argo CD for the GitOps cluster (main.tf, docs/07-gitops.md): the server,
+# the repo server, the application controller and Redis, pinned by digest.
+# No Dex, notifications or ApplicationSet controller yet (previews, D1c).
+# Reached only through `make argocd` (a port-forward), so the server speaks
+# plain HTTP inside the cluster.
+
+global:
+  image:
+    repository: quay.io/argoproj/argocd
+    # v3.6.1, the chart's appVersion.
+    tag: v3.6.1@sha256:296e3d74f449b2ce45265613fcb68c18ed7366488360c8ea32f5f2a93d2e5c54
+
+configs:
+  params:
+    server.insecure: true
+  cm:
+    # The anonymous user and the UI's local users stay off; only admin, whose
+    # password `make gitops-up` reads once into .kind/gitops/argocd.txt.
+    users.anonymous.enabled: "false"
+    exec.enabled: "false"
+    # Git is read every three minutes (the default), with a minute's jitter.
+    timeout.reconciliation: 180s
+    # The root application waits for each wave of child applications to be
+    # healthy before the next: Argo CD no longer assesses an Application's
+    # health by default, so it is restored here (Argo CD's documented check).
+    resource.customizations.health.argoproj.io_Application: |
+      hs = {}
+      hs.status = "Progressing"
+      hs.message = ""
+      if obj.status ~= nil then
+        if obj.status.health ~= nil then
+          hs.status = obj.status.health.status
+          if obj.status.health.message ~= nil then
+            hs.message = obj.status.health.message
+          end
+        end
+      end
+      return hs
+    # A volume that kind binds only once its first pod uses it (the backups'
+    # volume, charts/postgresql) is healthy while Pending, when it says so;
+    # every other volume must be bound.
+    resource.customizations.health.PersistentVolumeClaim: |
+      hs = {}
+      if obj.status ~= nil and obj.status.phase == "Bound" then
+        hs.status = "Healthy"
+        hs.message = "Bound"
+        return hs
+      end
+      if obj.metadata.annotations ~= nil and obj.metadata.annotations["sentinelcore/bound-on-first-use"] == "true" then
+        hs.status = "Healthy"
+        hs.message = "Bound when its first pod starts"
+        return hs
+      end
+      hs.status = "Progressing"
+      hs.message = "Waiting to be bound"
+      return hs
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+applicationSet:
+  replicas: 0
+
+redis:
+  image:
+    repository: ecr-public.aws.com/docker/library/redis
+    tag: 8.6.4-alpine@sha256:2cc044fc5a07c9b701f8f1255a309ae9ad7856e694ac03513bf3648c01e40763
+  exporter:
+    enabled: false
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+
+controller:
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 768Mi}
+
+repoServer:
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+server:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}

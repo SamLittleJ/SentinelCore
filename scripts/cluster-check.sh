@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # `make cluster-check`: the security properties of the cluster `make up`
 # runs, checked from outside and inside, one line each. Needs the cluster
-# running. Prints no secret; exits with 1 if any check fails.
+# running. Prints no secret; exits with 1 if any check fails. With
+# CLUSTER=gitops it checks the GitOps cluster (`make gitops-up`) instead.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NAMESPACE=sentinelcore
+STATE="$ROOT/.kind"
 URL=http://localhost:8080
+if [[ "${CLUSTER:-}" == gitops ]]; then
+  STATE="$ROOT/.kind/gitops"
+  URL=http://localhost:8081
+fi
 OWNER_EMAIL="${OWNER_EMAIL:-owner@example.com}"
 PATH="$("$ROOT/scripts/tools.sh"):$PATH"
-export KUBECONFIG="$ROOT/.kind/kubeconfig"
+export KUBECONFIG="$STATE/kubeconfig"
 failed=0
 
 # check <name> <command...>: PASS or FAIL, with the command's output hidden.
@@ -82,9 +88,9 @@ check "metrics, API docs and Falco's endpoint are not served outside" hidden
 # address all local traffic comes from.
 sender_address() {
   local before recorded
-  [[ -f "$ROOT/.kind/owner.txt" ]] || return 1
+  [[ -f "$STATE/owner.txt" ]] || return 1
   before="$(sql "SELECT coalesce(max(id), 0) FROM security_events")"
-  printf '{"email":"%s","password":"%s"}' "$OWNER_EMAIL" "$(cat "$ROOT/.kind/owner.txt")" |
+  printf '{"email":"%s","password":"%s"}' "$OWNER_EMAIL" "$(cat "$STATE/owner.txt")" |
     curl -sf -o /dev/null -H 'X-Forwarded-For: 203.0.113.77' -H 'Content-Type: application/json' \
       --data-binary @- "$URL/api/auth/login" || return 1
   recorded="$(sql "SELECT ip_address FROM security_events WHERE id > $before AND event_type = 'LOGIN_SUCCESS' ORDER BY id DESC LIMIT 1")"
@@ -189,6 +195,15 @@ check "a pod without resource limits is refused" refused 'requests and limits' '
 check "a pod with a Kubernetes token is refused" refused 'automountServiceAccountToken' \
   '.spec.automountServiceAccountToken = true'
 check "an image by tag only is refused" refused 'pinned by digest' '.spec.containers[0].image = "postgres:17"'
+
+# With the signature policy (the GitOps cluster, `make up FROM=registry`):
+# one of our image names under a digest images-ci.yml on main never signed
+# (none was published under it) is refused by that policy.
+# The GitOps cluster must have it.
+if [[ "${CLUSTER:-}" == gitops ]] || kubectl get imagevalidatingpolicy sentinelcore-signatures >/dev/null 2>&1; then
+  check "an image of ours not signed by CI is refused" refused 'sentinelcore-signatures' \
+    ".spec.containers[0].image = \"ghcr.io/samlittlej/sentinelcore-backend@sha256:$(printf '0%.0s' {1..64})\""
+fi
 
 # The nightly backup (charts/postgresql/templates/backup.yaml, phase E6): its
 # pod, as the CronJob would create it, is admitted, and a copy of it that
@@ -334,6 +349,23 @@ grafana_locked() {
   grep -qF 'logged in' <<<"$answer"
 }
 check "Grafana refuses a request without its password" grafana_locked
+
+# GitOps: Git is the only source. A change made by hand is reverted by
+# Argo CD's self-heal within a minute (docs/07-gitops.md).
+if [[ "${CLUSTER:-}" == gitops ]]; then
+  self_healed() {
+    local wanted
+    wanted="$(kubectl get deployment sentinelcore-backend -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')"
+    kubectl scale deployment sentinelcore-backend -n "$NAMESPACE" --replicas=$((wanted + 1)) >/dev/null || return 1
+    local tries
+    for tries in $(seq 30); do
+      [[ "$(kubectl get deployment sentinelcore-backend -n "$NAMESPACE" -o jsonpath='{.spec.replicas}')" == "$wanted" ]] && return 0
+      sleep 2
+    done
+    return 1
+  }
+  check "a change made by hand is reverted from Git" self_healed
+fi
 
 if ((failed > 0)); then
   printf '%d check(s) failed\n' "$failed"

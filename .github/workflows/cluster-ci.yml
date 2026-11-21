@@ -2,8 +2,10 @@ name: Cluster CI
 
 # SentinelCore on a real kind cluster: `make up`, then `make cluster-check`,
 # its security properties checked from outside and inside, then a backup
-# taken and restored (`make backup`, `make backup-check`). Several minutes,
-# so only when the deployment or what it runs changes.
+# taken and restored (`make backup`, `make backup-check`); and, in a job of
+# its own, the GitOps cluster (`make gitops-up`) with Argo CD reading this
+# commit, then the same checks. Several minutes, so only when the deployment
+# or what it runs changes.
 on:
     workflow_dispatch:
     push:
@@ -27,6 +29,8 @@ on:
             - "backend/migrations/**"
             - "backend/app/cli.py"
             - "backend/app/services/restore_check.py"
+            - "deploy/**"
+            - "gitops/**"
             - ".github/workflows/cluster-ci.yml"
     pull_request:
         branches:
@@ -50,6 +54,8 @@ on:
             - "backend/migrations/**"
             - "backend/app/cli.py"
             - "backend/app/services/restore_check.py"
+            - "deploy/**"
+            - "gitops/**"
             - ".github/workflows/cluster-ci.yml"
 
 # The jobs only read the code; the token gets no write access.
@@ -99,3 +105,41 @@ jobs:
                   .tools/kubectl logs --namespace sentinelcore --all-containers --prefix \
                     --selector app.kubernetes.io/part-of=sentinelcore --tail 100 || true
                   .tools/kubectl get events --namespace sentinelcore --sort-by .lastTimestamp || true
+
+    # The GitOps wiring of this commit: Terraform, Argo CD and deploy/, with
+    # the signed images deploy/images.yaml names (main's: a pull request
+    # publishes none). The application's own code is what the job above runs.
+    gitops:
+        name: Run make gitops-up and make cluster-check on kind
+        runs-on: ubuntu-latest
+        timeout-minutes: 40
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Set up Node.js
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: "22"
+
+            - name: Run make gitops-up at this commit
+              env:
+                  GITOPS_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+              run: make gitops-up
+
+            - name: Run make cluster-check on the GitOps cluster
+              env:
+                  CLUSTER: gitops
+              run: make cluster-check
+
+            - name: Show the applications when a step failed
+              if: failure()
+              env:
+                  KUBECONFIG: .kind/gitops/kubeconfig
+              run: |
+                  .tools/kubectl get applications --namespace argocd -o wide || true
+                  .tools/kubectl get applications --namespace argocd -o json |
+                    jq -r '.items[] | "\(.metadata.name): \(.status.conditions // [] | map(.message) | join("; "))"' || true
+                  .tools/kubectl get pods --all-namespaces || true
+                  .tools/kubectl get events --all-namespaces --sort-by .lastTimestamp | tail -50 || true
