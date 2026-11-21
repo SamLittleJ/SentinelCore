@@ -7,7 +7,7 @@ image:
   backend: ghcr.io/samlittlej/sentinelcore-backend
   console: ghcr.io/samlittlej/sentinelcore-console
   # The commit they were built from; it also labels the pods.
-  tag: "0dcddfe16307"
+  tag: "96d8b45eeabf"
   digests:
-    backend: sha256:018eeb19f662ced809c2fd36cada25a159b43065e78efe52bdbaa606311dd0ac
-    console: sha256:dd403bc81f312ddc9409757cccf26e71fae4bcb3569aa136601efcda36d63f56
+    backend: sha256:87c4423ad1e2a674576179bde0b97b27acf598ac93e3caffbd259a24aab4b9c6
+    console: sha256:af06860c7a26520ae8aecf396e2dab7fce7611266262a016c1d970408afd7d4b
