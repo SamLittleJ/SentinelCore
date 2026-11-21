@@ -1,7 +1,8 @@
-# Prometheus for SentinelCore's kind cluster (scripts/cluster.sh): the server
-# alone, which scrapes each API pod's /metrics with the metrics token, keeps
-# two days in the pod's own emptyDir and evaluates the SLO rules
-# (observability/slo-rules.yaml, given by cluster.sh as ruleFiles.slo-rules.yml).
+# Prometheus for SentinelCore's kind clusters (scripts/cluster.sh, and Argo
+# CD's in GitOps): the server alone, which scrapes each API pod's /metrics
+# with the metrics token, keeps two days in the pod's own emptyDir and
+# evaluates the SLO rules (observability/slo-rules.yaml), which the chart
+# charts/observability-config puts in a ConfigMap of their own.
 
 # The chart's ClusterRole would read the whole cluster; observability/rbac.yaml
 # lets it list the API's pods in the sentinelcore namespace only.
@@ -11,9 +12,29 @@ serviceAccounts:
   server:
     name: prometheus
 
+# Reloads Prometheus when its configuration or the SLO rules change, so a
+# new rule needs no restart (and Argo CD no hash to compute).
 configmapReload:
   prometheus:
-    enabled: false
+    enabled: true
+    image:
+      repository: quay.io/prometheus-operator/prometheus-config-reloader
+      tag: v0.94.2
+      digest: sha256:a1897c67478bc23434534e91ad3855280771196b1daf17144db9dbcb655bef71
+    extraVolumeDirs: [/etc/sentinelcore-rules]
+    extraConfigmapMounts:
+      - name: slo-rules-watched
+        mountPath: /etc/sentinelcore-rules
+        configMap: sentinelcore-slo-rules
+        readOnly: true
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 64Mi}
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
 
 server:
   image:
@@ -46,6 +67,11 @@ server:
     readOnlyRootFilesystem: true
     capabilities:
       drop: ["ALL"]
+  extraConfigmapMounts:
+    - name: slo-rules
+      mountPath: /etc/sentinelcore-rules
+      configMap: sentinelcore-slo-rules
+      readOnly: true
   # METRICS_TOKEN, copied here by cluster.sh from the API's Secret.
   extraSecretMounts:
     - name: metrics-token
@@ -58,7 +84,7 @@ server:
 serverFiles:
   prometheus.yml:
     rule_files:
-      - /etc/config/slo-rules.yml
+      - /etc/sentinelcore-rules/slo-rules.yaml
 
 alertmanager:
   enabled: false

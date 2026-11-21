@@ -17,6 +17,8 @@ An API-first platform for identity and access management, audit logging and secu
 ├── falco/                # Falco's values: runtime detection in the cluster (make up)
 ├── kyverno/              # admission policies and the Kyverno values (make up)
 ├── network-policies/     # the only network flows allowed in the cluster (make up)
+├── deploy/               # the GitOps cluster's applications for Argo CD, and the images it runs
+├── gitops/               # Terraform for the GitOps cluster and Argo CD
 ├── observability/        # the Collector, Tempo, Prometheus and Grafana values, the SLO rules and dashboard: traces, metrics and alerts in the cluster (make up)
 ├── scripts/              # make verify, make screenshots, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
@@ -169,6 +171,10 @@ make up              # the images, a kind cluster and both Helm charts; then htt
 make up FROM=registry  # the same, with this commit's signed GHCR images instead of a local build
 make cluster-check   # the running cluster's security properties, one line each
 make grafana         # the cluster's Grafana at http://127.0.0.1:3001 (user admin, password in .kind/grafana.txt)
+make gitops-up       # the GitOps cluster at http://localhost:8081: Terraform and Argo CD, then everything from main (docs/07-gitops.md)
+make argocd          # its Argo CD at http://127.0.0.1:3002 (user admin, password in .kind/gitops/argocd.txt)
+make deploy-pr REVISION=<commit>   # a pull request deploying main's signed images of that commit
+make gitops-down     # delete the GitOps cluster (asks first)
 make backup          # a database dump now, from the nightly backup (docs/06-backups.md)
 make backup-check    # restore the newest dump into a database of its own and compare it with the live one
 make down            # deletes the cluster and its data, after typing its name
@@ -188,6 +194,8 @@ The API traces each request and its SQL queries with OpenTelemetry (`observabili
 Three service level objectives are measured in the cluster's Prometheus ([`docs/05-slos.md`](docs/05-slos.md)): 99.5% of API requests without a server error, 95% of sign-ins within 0.5 s and 99% of Falco's alerts at the API within 60 s, each over 30 days. Multi-window burn-rate alerts (`observability/slo-rules.yaml`) are unit-tested with promtool in `make deploy-lint`, and the "SentinelCore SLOs" dashboard in `make grafana` shows them; alerts are not sent anywhere yet.
 
 The database is dumped every night at 02:00 UTC, seven kept, on a volume in the cluster ([`docs/06-backups.md`](docs/06-backups.md)). `make backup-check` proves the newest dump by restoring it into a database of its own: its checksum and age, its audit chains verified with the key, and each chain's last record found in the live database with the same seal. Cluster CI runs it on every change to the deployment. On kind, `make down` deletes the backups with the cluster.
+
+A second cluster runs SentinelCore by GitOps ([`docs/07-gitops.md`](docs/07-gitops.md)): Terraform creates it and installs Argo CD, which installs everything else from `main`, external charts pinned by the digest of their OCI artifacts and our images by the signed digests in `deploy/images.yaml`. Changes made by hand are reverted, and a deployment is a merged pull request, which `make deploy-pr` opens after checking the images' signature. CI builds this cluster at the commit under test and runs `make cluster-check` on it.
 
 ## Continuous integration
 
@@ -223,6 +231,7 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [04 - Threat Model](docs/04-threat-model.md): a STRIDE analysis of the system, with the boundary between organizations at its centre, each mitigation linked to the test that proves it
 - [05 - SLOs](docs/05-slos.md): the service level objectives, how each is measured, and what to check when one of their alerts fires
 - [06 - Backups](docs/06-backups.md): the nightly dump, how a restore is proven, and the steps to restore for real
+- [07 - GitOps](docs/07-gitops.md): the GitOps cluster, what Argo CD manages, and how a version is deployed
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 - [Independent evaluation](docs/evaluation/independent-rba.md): the detection rules on a public, labelled data set of 31 million sign-ins (`make evaluate-rba`), with this application's lockout as a baseline
 - [Baselines and thresholds](docs/evaluation/independent-rba-baselines.md): the Freeman et al. risk score against the same rules on the same sample, and the rules under other thresholds (`make evaluate-rba-offline`)

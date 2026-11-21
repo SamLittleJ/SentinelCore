@@ -1,0 +1,8 @@
+apiVersion: v2
+name: sentinelcore-gitops
+description: >-
+  The GitOps cluster's applications (docs/07-gitops.md): the root application
+  renders this chart into one Argo CD Application per component, all read at
+  the same Git revision.
+type: application
+version: 0.1.0

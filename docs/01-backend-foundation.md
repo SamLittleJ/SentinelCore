@@ -5592,3 +5592,29 @@ Detection rules run inside the request that brings their event, so the delay wor
 - `pytest`: 8 new tests on the comparison (a copy passes, an older copy passes, a chain from another database, more rows than live, an empty restore, a broken chain, the command's output and exit code). Mutations, each failing a test: the seal comparison always true, no "more than live" check, no "restored 0" check.
 - On kind, each failing `make backup-check` as it should, with the Job and the restored database gone after each: a byte changed in the dump, a dump 30 hours old, a forged dump (an audit record changed, the SHA-256 rewritten). With the checksum check removed, the changed byte passes; with the age check removed, the old dump passes. Pruning keeps 7, and 8 with `keep` set to 8.
 - The documented restore over the live database: 1 second, the API back after 5, `make cluster-check` 46/46.
+
+## Phase D1a: GitOps on kind
+
+### 462. Terraform and Argo CD
+
+`make gitops-up` (`scripts/gitops.sh`) runs Terraform (`gitops/main.tf`, v1.17.2 pinned in `scripts/tools.sh`, providers `tehcyx/kind` 0.13.0 and `hashicorp/helm` 3.3.0 locked in `gitops/.terraform.lock.hcl`), which creates the kind cluster `sentinelcore-gitops` (console on port 8081) and installs Argo CD from the `argo-cd` chart 10.18.0 (Argo CD v3.6.1), checked by SHA-256, its images by digest, without Dex, notifications or the ApplicationSet controller. Its state stays in `.kind/gitops/`. The script then creates the namespaces and the Secrets with `scripts/cluster.sh prepare`, never through Terraform, applies the root application at `GITOPS_REVISION` (default `main`), waits for every application to be synced and healthy, and creates the first owner (`cluster.sh owner`). `cluster.sh` takes `CLUSTER`, `STATE` and `URL` from the environment for this.
+
+### 463. The applications
+
+`deploy/` is a chart that the root application renders into twelve Argo CD applications in sync waves: Kyverno; its policies and the network policies; Falco, `charts/observability-config` and the observability Role; the Collector, Tempo, Prometheus, Grafana and PostgreSQL; then SentinelCore, with the signed images of `deploy/images.yaml`. External charts come from their OCI registries by digest (`deploy/values.yaml`), with the values files `make up` uses at the same revision. Sync is automated with prune and self-heal. `charts/observability-config` holds the SLO rules and the dashboards as ConfigMaps, through links to their files, for both paths; Prometheus mounts the rules and its config reloader, now on, picks up a change. `make deploy-pr` (`scripts/deploy-pr.sh`) checks a commit's images, writes their digests to `deploy/images.yaml` on a branch `deploy/<commit>` from `origin/main` in a worktree of its own, and opens the pull request.
+
+### 464. What was found on kind
+
+- Two kind clusters on one machine exceed Linux's default of 128 inotify instances: kube-proxy failed with "too many open files" and the second cluster had no Services. The limits are raised by `sysctl` (`docs/07-gitops.md`).
+- Argo CD 3.6 accepts an OCI digest as the revision of a chart; Kyverno's and Grafana's OCI packages differ from the files `tools.sh` pins but render identical manifests.
+- Argo CD no longer assesses a child Application's health, so the waves did not wait: its documented health check is restored in `gitops/argocd-values.yaml`.
+- The backups' volume (E6) is Pending until its first backup, which Argo CD reads as Progressing forever: a health check for volumes treats Pending as healthy only for one annotated `sentinelcore/bound-on-first-use`.
+- An application whose chart has delete hooks (Kyverno) waited forever to be deleted when its namespace was never created; `make gitops-down` deletes the cluster, not the applications.
+- A failed Helm release left by a first attempt blocks `terraform apply` with "cannot re-use a name"; it has to be uninstalled once.
+- Helm follows links inside a chart, and so does Argo CD's repo server, as long as they stay within the repository.
+
+### 465. Local validation
+
+- `make gitops-down`, then `make gitops-up` from scratch in 351 seconds, all thirteen applications synced and healthy; `make cluster-check CLUSTER=gitops` 48/48 (the 46 of `make up`'s cluster, plus an image of ours not signed by CI refused, and a change made by hand reverted). `make up` with the refactored script, then `make cluster-check` 46/46.
+- Self-heal reverted the API's replicas within 2 seconds; a ConfigMap tracked by an application but absent from Git was pruned within 3 seconds.
+- Mutations, each failing a check: the signature policy left out of the GitOps cluster; self-heal off for SentinelCore's application; Kyverno's wave after the applications (`make deploy-lint`).

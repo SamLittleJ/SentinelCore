@@ -7,6 +7,10 @@ metadata:
   name: sentinelcore-backups
   labels:
     {{- include "postgresql.backupLabels" . | nindent 4 }}
+  annotations:
+    # kind binds it only when the first backup runs, so Pending is expected
+    # until then; Argo CD's health check reads this (gitops/argocd-values.yaml).
+    sentinelcore/bound-on-first-use: "true"
 spec:
   accessModes: ["ReadWriteOnce"]
   {{- with .Values.storage.className }}

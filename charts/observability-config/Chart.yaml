@@ -1,0 +1,8 @@
+apiVersion: v2
+name: observability-config
+description: >-
+  SentinelCore's own configuration for the cluster's Prometheus and Grafana:
+  the SLO rules and the dashboards, as ConfigMaps, from the repository's files
+  (linked under files/). Installed by `make up` and by Argo CD alike.
+type: application
+version: 0.1.0

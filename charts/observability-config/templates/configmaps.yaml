@@ -1,0 +1,27 @@
+# The SLO rules (observability/slo-rules.yaml), which Prometheus reads from
+# this ConfigMap and its config reloader watches (observability/prometheus.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinelcore-slo-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: sentinelcore
+data:
+  slo-rules.yaml: |-
+{{ .Files.Get "files/slo-rules.yaml" | indent 4 }}
+---
+# Grafana's dashboards: Compose's overview (infra/grafana/dashboards/) and
+# the cluster's own SLOs (observability/dashboards/).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: sentinelcore
+data:
+{{- range $path, $_ := .Files.Glob "files/dashboards/*.json" }}
+  {{ base $path }}: |-
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
