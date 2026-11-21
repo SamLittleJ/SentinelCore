@@ -58,6 +58,11 @@ PROMETHEUS_CHART_VERSION=29.40.0
 PROMETHEUS_CHART_SHA256=8af68f8b0b43fb11d32ca679574be129b0c947dcb5c9e270ef8e677a2e7f26ac
 GRAFANA_CHART_VERSION=14.2.0
 GRAFANA_CHART_SHA256=fd442e214d854ff514d64fb75f7f32f179b9e9a6a53bc3323aca7c5748ff188f
+# promtool, which checks and tests the SLO rules (observability/slo-rules.yaml)
+# in `make deploy-lint`: from the release of the cluster's Prometheus server
+# (observability/prometheus.yaml), so both read the rules the same way.
+PROMTOOL_VERSION=v3.15.1
+PROMTOOL_SHA256=6a726885328ad9efebbf36e876ce2fb6225468a71fd1e7ce3ba666d5f4d97a84
 
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
@@ -83,7 +88,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|promtool|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -170,6 +175,16 @@ if wanted cosign && ! installed cosign "$COSIGN_VERSION"; then
     "$COSIGN_SHA256" "$TOOLS/cosign"
   chmod 755 "$TOOLS/cosign"
   echo "$COSIGN_VERSION" >"$TOOLS/cosign.version"
+fi
+
+if wanted promtool && ! installed promtool "$PROMTOOL_VERSION"; then
+  archive="$TOOLS/promtool.tar.gz"
+  fetch "https://github.com/prometheus/prometheus/releases/download/$PROMTOOL_VERSION/prometheus-${PROMTOOL_VERSION#v}.linux-amd64.tar.gz" \
+    "$PROMTOOL_SHA256" "$archive"
+  tar -xzf "$archive" -C "$TOOLS" --strip-components=1 "prometheus-${PROMTOOL_VERSION#v}.linux-amd64/promtool"
+  rm -f "$archive"
+  chmod 755 "$TOOLS/promtool"
+  echo "$PROMTOOL_VERSION" >"$TOOLS/promtool.version"
 fi
 
 # A chart, not a binary: helm installs .tools/kyverno.tgz.

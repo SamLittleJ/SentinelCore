@@ -9,7 +9,11 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.metrics import RUNTIME_ALERTS, record_security_event
+from app.core.metrics import (
+    RUNTIME_ALERTS,
+    record_runtime_alert_delay,
+    record_security_event,
+)
 from app.models.security_event import (
     FALCO_SOURCE,
     SecurityEvent,
@@ -46,6 +50,8 @@ def describe(event_type: SecurityEventType, fields: FalcoFields) -> str:
 def store_runtime_alert(db: Session, alert: FalcoAlert) -> Outcome:
     """Store `alert` as a platform security event, unless its rule is not
     kept or the same alert was stored within the window around its time."""
+    # Every alert received, whatever is done with it: the delay is the path's.
+    record_runtime_alert_delay(alert.time)
     event_type = RULES.get(alert.rule)
     if event_type is None:
         RUNTIME_ALERTS.labels(outcome="ignored").inc()

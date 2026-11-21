@@ -17,7 +17,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── falco/                # Falco's values: runtime detection in the cluster (make up)
 ├── kyverno/              # admission policies and the Kyverno values (make up)
 ├── network-policies/     # the only network flows allowed in the cluster (make up)
-├── observability/        # the Collector, Tempo, Prometheus and Grafana values: traces and metrics in the cluster (make up)
+├── observability/        # the Collector, Tempo, Prometheus and Grafana values, the SLO rules and dashboard: traces, metrics and alerts in the cluster (make up)
 ├── scripts/              # make verify, make screenshots, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
 ├── .github/workflows/    # backend, frontend, deployment, cluster, supply chain, images and CodeQL
@@ -183,11 +183,13 @@ Falco watches the node's system calls (`falco/`, pinned chart and images, no dow
 
 The API traces each request and its SQL queries with OpenTelemetry (`observability/`, pinned charts and images): the Collector takes the traces to Tempo, Prometheus scrapes each API pod with the metrics token, and Grafana shows both, reached only through `make grafana`. Spans keep the path and the route, never the query string, the sender's address or headers, and a trace sent from outside is not joined. `make cluster-check` finds a request's trace by its `X-Request-ID` within 30 seconds, with its SQL.
 
+Three service level objectives are measured in the cluster's Prometheus ([`docs/05-slos.md`](docs/05-slos.md)): 99.5% of API requests without a server error, 95% of sign-ins within 0.5 s and 99% of Falco's alerts at the API within 60 s, each over 30 days. Multi-window burn-rate alerts (`observability/slo-rules.yaml`) are unit-tested with promtool in `make deploy-lint`, and the "SentinelCore SLOs" dashboard in `make grafana` shows them; alerts are not sent anywhere yet.
+
 ## Continuous integration
 
 Backend CI runs lint, format, Bandit, the lockfile check, migrations, tests against PostgreSQL and Gitleaks over the full history. Frontend CI runs the dependency audit, lint, type check, tests and build. Actions are pinned by commit SHA; Gitleaks is a pinned binary and images are pinned by digest.
 
-CI checks the deployment twice: `make deploy-lint` on every pull request (Helm lint, the rendered manifests against Kubernetes 1.35's schemas with kubeconform, hadolint and shellcheck, all at pinned versions), and `make up` followed by `make cluster-check` on a real kind cluster when a pull request changes the charts, the images or the scripts.
+CI checks the deployment twice: `make deploy-lint` on every pull request (Helm lint, the rendered manifests against Kubernetes 1.35's schemas with kubeconform, hadolint, shellcheck and the SLO rules' promtool tests, all at pinned versions), and `make up` followed by `make cluster-check` on a real kind cluster when a pull request changes the charts, the images or the scripts.
 
 Supply chain CI (`.github/workflows/supply-chain-ci.yml`) runs `make scan` on pull requests to `main`, pushes to `main` and weekly. pip-audit reads the backend lock without installing it; Checkov checks rendered charts, Dockerfiles and workflows. The scanners have their own hashed, wheel-only lock in `security/`; exceptions name a check and resource, with a reason and expiry. CodeQL (`.github/workflows/codeql.yml`) runs `security-extended` queries for Python, JavaScript/TypeScript and workflows on the same triggers. Both also run on demand.
 
@@ -215,6 +217,7 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [02 - Decisions Log](docs/02-decisions-log.md): the technical decisions made along the way
 - [03 - Frontend Foundation](docs/03-frontend-foundation.md): the technical journal of the frontend
 - [04 - Threat Model](docs/04-threat-model.md): a STRIDE analysis of the system, with the boundary between organizations at its centre, each mitigation linked to the test that proves it
+- [05 - SLOs](docs/05-slos.md): the service level objectives, how each is measured, and what to check when one of their alerts fires
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 - [Independent evaluation](docs/evaluation/independent-rba.md): the detection rules on a public, labelled data set of 31 million sign-ins (`make evaluate-rba`), with this application's lockout as a baseline
 - [Baselines and thresholds](docs/evaluation/independent-rba-baselines.md): the Freeman et al. risk score against the same rules on the same sample, and the rules under other thresholds (`make evaluate-rba-offline`)

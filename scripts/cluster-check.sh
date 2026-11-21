@@ -258,6 +258,48 @@ scraped() {
 }
 check "Prometheus scrapes every API pod, with the metrics token" scraped
 
+# The SLO rules (observability/slo-rules.yaml): both groups loaded and every
+# rule evaluated without an error, within a minute of a restart (they run
+# every 30 s); then none of their alerts firing on a healthy cluster.
+slo_rules() {
+  local tries
+  for tries in $(seq 12); do
+    service prometheus-server:80 api/v1/rules | jq -e '
+      [.data.groups[] | select(.name | startswith("sentinelcore-slo-"))] as $groups
+      | ($groups | length) == 2
+        and ([$groups[].rules[]] | length) > 0
+        and all($groups[].rules[]; .health == "ok")' >/dev/null && return 0
+    ((tries < 12)) && sleep 5
+  done
+  return 1
+}
+check "Prometheus evaluates the SLO rules" slo_rules
+
+# A rule can evaluate without an error and still match nothing (a label
+# written differently): this run's own requests and Falco alert give the
+# availability and freshness ratios a number.
+measured() {
+  service prometheus-server:80 "api/v1/query?query=$1" |
+    jq -e '.data.result | length == 1 and (.[0].value[1] | test("^[0-9.e+-]+$"))' >/dev/null
+}
+slo_measured() {
+  local tries
+  for tries in $(seq 12); do
+    measured sentinelcore:slo_availability_error_ratio:rate5m &&
+      measured sentinelcore:slo_runtime_alert_late_ratio:rate1d && return 0
+    ((tries < 12)) && sleep 5
+  done
+  return 1
+}
+check "the availability and freshness SLOs are measured" slo_measured
+
+slo_quiet() {
+  service prometheus-server:80 api/v1/alerts | jq -e '
+    [.data.alerts[] | select(.state == "firing" and (.labels.alertname | startswith("SentinelCore")))]
+    | length == 0' >/dev/null
+}
+check "no SLO alert is firing" slo_quiet
+
 # Grafana answers its health check, but nothing else without a password:
 # kubectl reports the 401 its proxy passes on as a request to sign in.
 grafana_locked() {

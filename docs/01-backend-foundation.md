@@ -5541,3 +5541,31 @@ A span keeps the method, the route, the path, the status and `sentinelcore.reque
 - `pytest`: 786 passed; `tests/test_tracing.py` (9) traces into memory with every header captured. Mutations, each failing a test: no attribute filter, `http.url` kept, the user agent kept, captured headers kept, an outside `traceparent` joined, the probes traced, no SQL spans, no request id on the span, no trace ids in the logs, tracing on without an endpoint (10/10).
 - `make down`, `make up` from scratch in 216 seconds with the images already built, `make cluster-check` 38/38; no pod of `observability` restarted. On the cluster, with the API's policy missing the Collector (after the pods restarted) the trace checks fail, and with Prometheus' token removed the scrape check fails. Grafana signs in with `.kind/grafana.txt`, lists the SentinelCore dashboard, and both data sources answer.
 - Pyright on SQLAlchemy 2.1.5 found four rows typed `str | None` or `datetime | None` where the queries already leave out empty values (`detection_service.py`, `security_event_service.py`, `simulator/rba.py`); the comprehensions now skip them.
+
+## Phase E5: SLOs and alerts
+
+### 453. The objectives and their rules
+
+Three objectives over 30 days, defined in `docs/05-slos.md`: availability 99.5% (requests without a 5xx, without `/health`, `/health/ready` and `/metrics`), sign-in latency 95% of `POST /auth/login` within 0.5 s, and detection freshness 99% of Falco's alerts at the API within 60 s. `observability/slo-rules.yaml` records each SLI over 5m, 30m, 1h, 2h, 6h and 1d and holds four alerts: the two burn-rate alerts (page at 14.4 over 1h and 5m or 6 over 6h and 30m, ticket at 3 over 1d and 2h, each needing 20 requests in its long window), `SentinelCoreRuntimeAlertsLate` (any alert more than 60 s late in 30 minutes) and `SentinelCoreApiDown` (no API pod reached for two minutes). `make up` gives the file to the Prometheus chart with `--set-file` (`ruleFiles`), and the pod's hash annotation now covers the rules too. Each alert's `runbook_url` points to its section of `docs/05-slos.md`. No Alertmanager: alerts show in Prometheus and on the new dashboard, "SentinelCore SLOs" (`observability/dashboards/`), which only the cluster's Grafana loads.
+
+### 454. The freshness histogram
+
+Detection rules run inside the request that brings their event, so the delay worth measuring is Falco's path. `store_runtime_alert` now records, for every alert received (stored, ignored or duplicate), the time from Falco's `time` to arrival in `sentinelcore_runtime_alert_delay_seconds` (buckets 1 to 600 s); a time ahead of the API's clock, which validation allows within five minutes, counts as 0.
+
+### 455. What was found on kind
+
+- 40 sign-ins took 0.40 s at the median and 0.47 s at the 95th percentile from the client: within the objective, with little room, because the password hash is slow on purpose.
+- The Python client writes the histogram's bucket as `le="60.0"`, and Prometheus 3.15 keeps it so: a rule on `le="60"` evaluated without an error and matched nothing. The rules take both forms, the tests use the real one, and `make cluster-check` now requires the freshness and availability ratios to have a value.
+- With no 5xx yet there is no 5xx series, so the availability ratio was empty instead of 0; its numerator falls back to 0.
+
+### 456. The checks
+
+`make deploy-lint` runs `promtool check rules` and `promtool test rules` (promtool from the release of the cluster's Prometheus server, pinned in `scripts/tools.sh`). The 18 unit tests feed made-up series and check each alert fires when it should and not otherwise: below the threshold, under 20 requests, on `/health` and `/metrics`, on 4xx and 429, for one pod of two down, and after the short windows clear. `make cluster-check` adds three checks: both rule groups loaded and every rule evaluated without an error, the availability and freshness ratios measured, and no SLO alert firing.
+
+### 457. Local validation
+
+- `pytest`: 3 new tests on the histogram (every outcome observed, the delay from Falco's time, a time ahead counted as 0).
+- `promtool test rules`: 18 tests pass. Mutations, each failing a test: page factor 14.4 → 144, 6 → 60, no volume guard on availability or on sign-in, `/health` counted, 4xx counted as errors, `SentinelCoreApiDown` after 10 minutes instead of 2, freshness read at 120 s instead of 60 s.
+- `make up` over the E4 cluster, then `make cluster-check` 41/41. With Prometheus installed without the rules file, two of the new checks fail (rules evaluated, SLOs measured). The "SentinelCore SLOs" dashboard is provisioned in Grafana.
+- `make verify` 15/15: `pytest` 789 passed, vitest 259.
+- Two runs of `make cluster-check` started right after another sometimes fail the tracing checks of E4; after a pause they pass. The cause is not established.

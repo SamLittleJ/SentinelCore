@@ -65,6 +65,21 @@ def outcome(name: str) -> float:
     return REGISTRY.get_sample_value(OUTCOMES, {"outcome": name}) or 0
 
 
+DELAY = "sentinelcore_runtime_alert_delay_seconds"
+
+
+def delays(within: str | None = None) -> float:
+    """How many alerts arrived, or how many within `within` seconds of
+    Falco's own time (a bucket of the histogram)."""
+    if within is None:
+        return REGISTRY.get_sample_value(f"{DELAY}_count") or 0
+    return REGISTRY.get_sample_value(f"{DELAY}_bucket", {"le": within}) or 0
+
+
+def delay_sum() -> float:
+    return REGISTRY.get_sample_value(f"{DELAY}_sum") or 0
+
+
 # The token
 
 
@@ -207,6 +222,48 @@ def test_a_stored_alert_is_counted(falco: TestClient) -> None:
     before = outcome("stored")
     falco.post("/ingest/runtime", json=alert("shell"))
     assert outcome("stored") == before + 1
+
+
+# The delay from Falco to the API (detection freshness, docs/05-slos.md)
+
+
+def test_every_alert_received_has_its_delay_recorded(falco: TestClient) -> None:
+    first = datetime.now(UTC) - timedelta(seconds=30)
+    before = delays()
+
+    falco.post("/ingest/runtime", json=alert("shell", first))
+    falco.post("/ingest/runtime", json=alert("shell", first))
+    falco.post("/ingest/runtime", json=alert("unknown_rule"))
+
+    # Stored, duplicate and ignored: the delay is the path's, not the outcome's.
+    assert delays() == before + 3
+
+
+def test_the_delay_is_from_falcos_time_to_arrival(falco: TestClient) -> None:
+    within_a_minute = delays("60.0")
+    within_two = delays("120.0")
+    total = delay_sum()
+
+    falco.post(
+        "/ingest/runtime",
+        json=alert("shell", datetime.now(UTC) - timedelta(seconds=90)),
+    )
+
+    assert delays("60.0") == within_a_minute
+    assert delays("120.0") == within_two + 1
+    assert 90 <= delay_sum() - total < 100
+
+
+def test_a_time_ahead_of_ours_counts_as_no_delay(falco: TestClient) -> None:
+    within_a_second = delays("1.0")
+    total = delay_sum()
+
+    falco.post(
+        "/ingest/runtime", json=alert("shell", datetime.now(UTC) + timedelta(minutes=2))
+    )
+
+    assert delays("1.0") == within_a_second + 1
+    assert delay_sum() == total
 
 
 # The alerts not kept

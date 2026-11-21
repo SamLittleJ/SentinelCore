@@ -809,6 +809,18 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **Checked through the Kubernetes API's proxy.** `make cluster-check` needs no extra pod or port: the request's id finds its trace in Tempo.
 - **Not in Docker Compose.** Tracing stays off there; the cluster is where the stack runs.
 
+## SLOs and alerts (E5)
+
+- **Three objectives over 30 days.** Availability 99.5% (no 5xx, without `/health` and `/metrics`; 4xx and 429 are answers), sign-in 95% within 0.5 s, and 99% of Falco's alerts at the API within 60 s. Defined in `docs/05-slos.md`.
+- **Freshness is Falco's path.** Detection rules run inside the request that brings their event, so event-to-alert takes milliseconds. Falco → falcosidekick → API is the only path with a real delay (T-76), so a new histogram measures it from Falco's own time, for every alert received.
+- **Latency as a share, not a percentile.** "p95 under 500 ms" becomes "95% of sign-ins within 0.5 s", read from the histogram's bucket, so it has an error budget and burn-rate alerts like availability. The histogram has no status label, so a slow 5xx sign-in counts too.
+- **Multi-window burn rates, windows of a day at most.** Page at 14.4 (1h and 5m) or 6 (6h and 30m), ticket at 3 (1d and 2h), no `for:`. Prometheus keeps two days on kind, so the Workbook's 3d/6h pair is left out and the 30-day budget is not computed until durable storage (D2).
+- **At least 20 requests.** A burn-rate alert needs them in its long window, so one 5xx among a few requests on a quiet cluster does not page. A separate alert pages when Prometheus reaches no API pod for two minutes, since then nothing is recorded at all.
+- **Falco's alert is a threshold.** Its alerts are few, so a burn rate would be noise: any alert more than 60 s late in 30 minutes opens a ticket.
+- **Written by hand, tested with promtool.** One rules file, loaded by `make up` with `--set-file` and unit-tested in `make deploy-lint`; promtool from the server's own release. A generator (Sloth, Pyrra) would add a tool and rules that still need reading.
+- **No Alertmanager yet.** Alerts show in Prometheus and on a dashboard of their own; sending them needs a real receiver, in D2. Each carries a `runbook_url` to its section of `docs/05-slos.md`, which phase F turns into runbooks.
+- **Cluster only.** Like tracing, Docker Compose has no rules and no SLO dashboard.
+
 ## Independent evaluation (phase R1)
 
 - **Why.** The simulator writes both the attacks and the rules' test, so its 30 of 30 shows the rules do what they were designed for, not that they work on attacks no one designed for them. The independent evaluation answers that, on data the rules were not written for.

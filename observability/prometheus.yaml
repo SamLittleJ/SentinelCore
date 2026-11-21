@@ -1,6 +1,7 @@
 # Prometheus for SentinelCore's kind cluster (scripts/cluster.sh): the server
-# alone, which scrapes each API pod's /metrics with the metrics token and
-# keeps two days in the pod's own emptyDir.
+# alone, which scrapes each API pod's /metrics with the metrics token, keeps
+# two days in the pod's own emptyDir and evaluates the SLO rules
+# (observability/slo-rules.yaml, given by cluster.sh as ruleFiles.slo-rules.yml).
 
 # The chart's ClusterRole would read the whole cluster; observability/rbac.yaml
 # lets it list the API's pods in the sentinelcore namespace only.
@@ -29,6 +30,7 @@ server:
     sizeLimit: 2Gi
   global:
     scrape_interval: 15s
+    evaluation_interval: 30s
   resources:
     requests: {cpu: 100m, memory: 512Mi}
     limits: {cpu: 500m, memory: 512Mi}
@@ -50,6 +52,13 @@ server:
       mountPath: /etc/sentinelcore
       secretName: prometheus-metrics-token
       readOnly: true
+
+# Only the SLO rules: alerts stay in Prometheus and Grafana, with no
+# Alertmanager to send them (docs/05-slos.md).
+serverFiles:
+  prometheus.yml:
+    rule_files:
+      - /etc/config/slo-rules.yml
 
 alertmanager:
   enabled: false
