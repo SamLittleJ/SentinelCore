@@ -216,6 +216,58 @@ runtime_alert() {
 }
 check "a shell in a container is reported by Falco within 30 seconds" runtime_alert
 
+# Tracing and metrics (observability/, phase E4), asked through the
+# Kubernetes API's proxy to each service. The probe is an ingestion request
+# with an unknown key, whose lookup is a query, and an email in its query
+# string, which no span may keep.
+service() { kubectl get --raw "/api/v1/namespaces/observability/services/$1/proxy/$2"; }
+trace=""
+traced() {
+  local id search now key=sck_tracecheck_unknown
+  id="$(curl -s -o /dev/null -D - -X POST -H "Authorization: Bearer $key" \
+    -H 'Content-Type: application/json' -d '{}' "$URL/api/ingest/events?email=probe@example.com" |
+    awk 'tolower($1) == "x-request-id:" { print $2 }' | tr -d '\r')"
+  [[ -n "$id" ]] || return 1
+  search="$(jq -rn --arg id "$id" '"{ .sentinelcore.request_id = \"\($id)\" }" | @uri')"
+  for _ in $(seq 1 30); do
+    now="$(date +%s)"
+    trace="$(service tempo:3200 "api/search?q=$search&start=$((now - 300))&end=$((now + 60))" |
+      jq -r '.traces[0].traceID // empty')"
+    if [[ -n "$trace" ]]; then
+      trace="$(service tempo:3200 "api/v2/traces/$trace")"
+      # The key's lookup, as a span of the same trace.
+      jq -e '[.trace.resourceSpans[].scopeSpans[].spans[].attributes[]? | select(.key == "db.statement")] | length > 0' \
+        <<<"$trace" >/dev/null
+      return
+    fi
+    sleep 1
+  done
+  return 1
+}
+check "a request is traced in Tempo within 30 seconds, with its SQL" traced
+private() { [[ -n "$trace" ]] && ! grep -qiE 'probe@example\.com|probe%40example|email=' <<<"$trace"; }
+check "the trace keeps no query string" private
+
+scraped() {
+  local pods up
+  pods="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=sentinelcore-backend \
+    --field-selector=status.phase=Running -o name | wc -l)"
+  up="$(service prometheus-server:80 api/v1/targets |
+    jq '[.data.activeTargets[] | select(.labels.job == "sentinelcore-backend" and .health == "up")] | length')"
+  ((pods > 0 && up == pods))
+}
+check "Prometheus scrapes every API pod, with the metrics token" scraped
+
+# Grafana answers its health check, but nothing else without a password:
+# kubectl reports the 401 its proxy passes on as a request to sign in.
+grafana_locked() {
+  local answer
+  service grafana:80 api/health >/dev/null || return 1
+  answer="$(service grafana:80 api/search 2>&1)" && return 1
+  grep -qF 'logged in' <<<"$answer"
+}
+check "Grafana refuses a request without its password" grafana_locked
+
 if ((failed > 0)); then
   printf '%d check(s) failed\n' "$failed"
   exit 1

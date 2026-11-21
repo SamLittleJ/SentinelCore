@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # What falcosidekick sends as a Bearer token to POST /ingest/runtime, in
     # the cluster (scripts/cluster.sh). Unset, the endpoint does not exist.
     falco_ingest_token: SecretStr | None = None
+    # Where the API sends its traces over OTLP/HTTP (app/core/tracing.py):
+    # the Collector, in the cluster. Unset, nothing is traced.
+    otel_exporter_otlp_endpoint: str | None = None
 
     @field_validator("falco_ingest_token")
     @classmethod

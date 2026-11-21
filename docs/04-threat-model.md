@@ -2,7 +2,7 @@
 
 This document lists what can go wrong with SentinelCore, who could make it happen, what already stops it, and what is left. The boundary between organizations is the main trust boundary and gets the closest analysis.
 
-- **Version:** 2026-10-13, on `main` after the five multi-organization pull requests (#29 to #33); updated 2026-10-14 for the security headers (#35) and the API documentation setting (T-58), and 2026-10-15 for the ingestion rate limit (T-38), the API key volume alert (T-34, T-59) and the limit on failed sign-ins per address (T-10, T-12, T-60), 2026-10-19 for the platform rule on sprays across organizations (T-40), 2026-10-20 for the sealed audit history (T-45), the container images of phase B (T-01, T-38) and the local kind cluster (TA2, TA3, TA4), with the checks that close phase B (§5.3, E11, T-61 to T-65), and 2026-10-21 for the supply-chain checks (C1), and 2026-10-21 for the image scans (C2), and 2026-10-25 for image signing and provenance (C3, T-70, T-71), and 2026-10-27 for the admission policies (E1, T-65, T-70, T-72, T-73), and 2026-11-03 for the network policies (E2, T-62) and Falco (E3, §5.3, TB7, T-73 to T-76).
+- **Version:** 2026-10-13, on `main` after the five multi-organization pull requests (#29 to #33); updated 2026-10-14 for the security headers (#35) and the API documentation setting (T-58), and 2026-10-15 for the ingestion rate limit (T-38), the API key volume alert (T-34, T-59) and the limit on failed sign-ins per address (T-10, T-12, T-60), 2026-10-19 for the platform rule on sprays across organizations (T-40), 2026-10-20 for the sealed audit history (T-45), the container images of phase B (T-01, T-38) and the local kind cluster (TA2, TA3, TA4), with the checks that close phase B (§5.3, E11, T-61 to T-65), and 2026-10-21 for the supply-chain checks (C1), and 2026-10-21 for the image scans (C2), and 2026-10-25 for image signing and provenance (C3, T-70, T-71), and 2026-10-27 for the admission policies (E1, T-65, T-70, T-72, T-73), and 2026-11-03 for the network policies (E2, T-62) and Falco (E3, §5.3, TB7, T-73 to T-76), and 2026-11-06 for tracing and metrics (E4, §5.3, TB8, T-53, T-77 to T-79).
 - **Scope:** the system as it runs today: the browser application, the API with ingestion, PostgreSQL with row-level security, the session cleanup task, the command line, the simulator and `make demo`, local monitoring (Prometheus, Grafana) and the GitHub workflows. The local kind cluster, the supply-chain checks of C1 and the image scans and GHCR publication of C2 are included; signing and cloud infrastructure follow in later stages.
 - **Updates:** a change that adds an element, a data flow or a trust boundary updates this document in the same pull request.
 
@@ -186,6 +186,12 @@ flowchart LR
     falco["Falco DaemonSet<br/>node's system calls"]
     sidekick["falcosidekick"]
   end
+  subgraph TB8["TB8 - namespace observability (restricted)"]
+    collector["OpenTelemetry Collector"]
+    tempo[("Tempo<br/>traces, 24 h")]
+    prom[("Prometheus<br/>metrics, 2 days")]
+    grafana["Grafana"]
+  end
 
   host -- "127.0.0.1:8080 only" --> console
   console -- "/api, X-Forwarded-For replaced" --> backend
@@ -197,12 +203,19 @@ flowchart LR
   host -. "openssl rand, through stdin" .-> secrets
   falco -- "alerts" --> sidekick
   sidekick -- "POST /ingest/runtime, Bearer token" --> backend
+  backend -- "OTLP/HTTP spans, no query or headers" --> collector
+  collector --> tempo
+  prom -- "GET /metrics, metrics token" --> backend
+  grafana --> tempo
+  grafana --> prom
+  host -- "make grafana: port-forward,<br/>127.0.0.1:3001, password" --> grafana
 ```
 
 | Boundary | Between | What crosses it |
 |---|---|---|
 | TB6 | This machine and the cluster | Only the console's NodePort, bound to `127.0.0.1:8080`; the secrets, once, from `make up`. Inside, the API pods never hold the owner's credentials, and no pod holds a Kubernetes token. |
 | TB7 | Falco's namespace and SentinelCore's | Only falcosidekick's alerts, to the API's internal `/ingest/runtime` with a token `make up` generated; nginx answers that path with 404. Falco itself is privileged and sees the whole node. |
+| TB8 | The observability namespace and SentinelCore's | The API's spans to the Collector, without query strings, addresses or headers; Prometheus' scrapes of each API pod, with the metrics token, and its listing of pods in `sentinelcore` (a Role, read-only). Grafana is reached only by a port-forward from this machine, with a generated password. |
 
 ---
 
@@ -303,7 +316,7 @@ Backend tests are in `backend/tests/`, frontend tests next to the code they test
 |---|---|---|---|---|---|---|---|---|
 | T-51 | I | `/metrics` reveals request volumes and security event counts. | P1 | Protected by `METRICS_TOKEN` when it is set, left out of the API schema. Open when it is not set, which is the default. | `test_metrics_endpoint_requires_configured_token`, `test_metrics_endpoint_is_open_without_configured_token` | T1592 | M / L → Low | Partly mitigated |
 | T-52 | T | Forged request ids or crafted paths pollute logs and metrics (log injection, label explosion). | P1 | An unsafe incoming request id is replaced; metrics use route templates and bounded labels. | `test_unsafe_incoming_request_id_is_replaced`, `test_unknown_paths_and_methods_share_bounded_labels` | - | L / L → Low | Mitigated |
-| T-53 | S | Grafana's default administrator password. | P5 | Grafana listens on `127.0.0.1` only and has sign-up disabled (TA3). | *untested* (configuration) | T1078.001 | L / M → Low | Accepted |
+| T-53 | S | Grafana's default administrator password. | P5 | Docker Compose's Grafana listens on `127.0.0.1` only and has sign-up disabled (TA3). The cluster's Grafana has a password `make up` generates once into `.kind/grafana.txt` (mode 600), anonymous access off, and no Service outside the cluster: only `make grafana`'s port-forward to `127.0.0.1` reaches it. | `make cluster-check` (Grafana refuses a request without its password); Compose *untested* (configuration) | T1078.001 | L / M → Low | Accepted (Compose), Mitigated (cluster) |
 
 ### E9. Simulator and demo
 
@@ -340,6 +353,9 @@ Backend tests are in `backend/tests/`, frontend tests next to the code they test
 | T-74 | E | Falco, which runs privileged and sees the whole node, is compromised and used to take the node. | P6 | Falco and falcosidekick run the images their chart names, pinned by digest (`falco/values.yaml`) from a chart pinned by SHA-256 (`scripts/tools.sh`); falcoctl, which would download rules and plugins at start, is off. Only the `falco` namespace allows privileged pods, and its NetworkPolicies let Falco reach only falcosidekick. | `make deploy-lint`, `make cluster-check` | T1611 | L / H → Medium | Accepted |
 | T-75 | S, T | A stolen Falco token sends false alerts of the platform, or hides real ones among them. | P1 (after code execution) | The endpoint exists only when `FALCO_INGEST_TOKEN` is set, nginx answers it with 404, and only the falcosidekick pod may reach the API on its port. The token is compared in constant time, with one answer for any failure. Only four Falco rules are kept, as three alert types, and the server writes the message; the same alert within ten minutes is stored once. Kept, ignored or repeated, an alert gets the same `204`. | `tests/test_runtime_alerts.py`, `make cluster-check` ("metrics, API docs and Falco's endpoint are not served outside"; a shell is reported; without falcosidekick in the API's policy or with another token, it is not) | T1565 | L / M → Low | Mitigated |
 | T-76 | D | An attacker stops Falco or falcosidekick, or Falco drops events under load, and nothing more is reported. | P1, P6 | Not detected: no alert raises on silence (as T-59). After falcosidekick restarts, Falco's alerts can arrive about two minutes late on kind, delayed rather than lost. | `make cluster-check` reports a shell within 30 seconds on a running cluster | T1562.001 | L / M → Low | Accepted |
+| T-77 | I | Traces carry personal data or secrets (an email or a token in a query string, the sender's address, a session cookie, SQL values) to Tempo and to whoever reads Grafana. | P5, P3 (through Grafana) | The API removes the query string, the full URL, the sender's address and port, the user agent and every captured header from each span before export (`app/core/tracing.py`), in both the old and the new attribute names; the Collector deletes the query, the URL and headers again. SQL spans carry placeholders, not values. Traces are kept a day, in an `emptyDir`. | `tests/test_tracing.py` (with every header captured), `make cluster-check` (no email in a request's trace) | T1552 | L / M → Low | Mitigated |
+| T-78 | S, T | Someone outside joins requests to a trace of their choice with a `traceparent`, or sends spans to the Collector to forge or flood Tempo. | P1, P6 | The API reads no trace context and nginx removes `traceparent` and `tracestate`. Only the API's pods may reach the Collector (NetworkPolicy), which has OTLP/HTTP only and a memory limiter. | `tests/test_tracing.py` (an outside trace is not joined), `make cluster-check` (policies) | T1565 | L / L → Low | Mitigated |
+| T-79 | D | The Collector, Tempo or Prometheus is down or slow, and requests slow down or fail with it; or tracing stops and nobody notices. | P6 | Spans leave in batches from a thread of their own (queue 2048, 5-second timeout): when the Collector is down, spans are dropped and requests are untouched. Not detected: no alert raises when traces or scrapes stop (as T-59). | `tests/test_tracing.py` (a Collector that is down fails no request), `make cluster-check` | T1562.006 | L / L → Low | Accepted |
 
 ---
 

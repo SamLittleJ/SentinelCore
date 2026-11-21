@@ -218,6 +218,8 @@ LOG_LEVEL=INFO
 LOG_FORMAT=text   # json for log collectors
 ```
 
+With `OTEL_EXPORTER_OTLP_ENDPOINT` set (the kind cluster's Helm chart sets it), each request and its SQL queries are traced with OpenTelemetry and sent over OTLP/HTTP to the Collector (`app/core/tracing.py`). Spans carry the method, route, path, status and `sentinelcore.request_id`, never the query string, the sender's address, the user agent or headers; SQL with placeholders only. `/health` and `/metrics` are not traced, and a `traceparent` from outside is ignored. JSON log lines of a traced request carry its `trace_id` and `span_id`. Unset, nothing is traced.
+
 ## Authentication
 
 - **Browser (frontend):** `POST /auth/session` sets the httpOnly `sentinelcore_session` cookie and the `sentinelcore_csrf` cookie. Every POST/PUT/PATCH/DELETE request authenticated by cookie must send the CSRF cookie's value in the `X-CSRF-Token` header.

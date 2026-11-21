@@ -1,0 +1,81 @@
+# Grafana for SentinelCore's kind cluster (scripts/cluster.sh): the dashboard
+# of infra/grafana over Prometheus, and the API's traces in Tempo. Reached
+# only through `make grafana`, with the password cluster.sh wrote to
+# .kind/grafana.txt.
+image:
+  tag: 13.3.0-distroless
+  sha: 540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df
+
+testFramework:
+  enabled: false
+# The emptyDir is already Grafana's: no root init container to chown it.
+initChownData:
+  enabled: false
+
+automountServiceAccountToken: false
+serviceAccount:
+  automountServiceAccountToken: false
+rbac:
+  create: false
+enableServiceLinks: false
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+  seccompProfile:
+    type: RuntimeDefault
+
+# The first start migrates Grafana's database, which a 256Mi limit did not
+# survive (OOMKilled twice before it came up).
+resources:
+  requests: {cpu: 50m, memory: 256Mi}
+  limits: {cpu: 500m, memory: 512Mi}
+
+# admin-user and admin-password, written by cluster.sh.
+admin:
+  existingSecret: grafana-admin
+
+grafana.ini:
+  analytics:
+    check_for_updates: false
+    reporting_enabled: false
+  auth.anonymous:
+    enabled: false
+  users:
+    allow_sign_up: false
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      # The uid infra/grafana's dashboard refers to.
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.observability.svc.cluster.local
+        isDefault: true
+        editable: false
+      - name: Tempo
+        uid: tempo
+        type: tempo
+        access: proxy
+        url: http://tempo.observability.svc.cluster.local:3200
+        editable: false
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: SentinelCore
+        folder: SentinelCore
+        type: file
+        disableDeletion: true
+        allowUiUpdates: false
+        options:
+          path: /var/lib/grafana/dashboards/sentinelcore
+# The dashboard's JSON, which cluster.sh puts in this ConfigMap.
+dashboardsConfigMaps:
+  sentinelcore: grafana-dashboards

@@ -4,6 +4,8 @@ import sys
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
+from opentelemetry import trace
+
 # Set per request by the request middleware, so every log line written while
 # handling a request carries its id.
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
@@ -22,6 +24,18 @@ def _extra_fields(record: logging.LogRecord) -> dict[str, object]:
     }
 
 
+def _trace_fields() -> dict[str, str]:
+    """The current span's trace and span ids, as Tempo shows them; none
+    outside a traced request."""
+    context = trace.get_current_span().get_span_context()
+    if not context.is_valid:
+        return {}
+    return {
+        "trace_id": format(context.trace_id, "032x"),
+        "span_id": format(context.span_id, "016x"),
+    }
+
+
 class JsonFormatter(logging.Formatter):
     """One JSON object per line, for log collectors."""
 
@@ -37,6 +51,7 @@ class JsonFormatter(logging.Formatter):
         if request_id is not None:
             entry["request_id"] = request_id
 
+        entry.update(_trace_fields())
         entry.update(_extra_fields(record))
 
         if record.exc_info:

@@ -308,8 +308,9 @@ def detect_unfamiliar_sign_in(db: Session, event: SecurityEvent) -> Alert | None
     ):
         return None
 
-    networks = {network_of(ip) for ip, _, _ in habits}
-    devices = {device_of(user_agent) for _, user_agent, _ in habits}
+    # The query left out empty ones; the checks say so to the type checker.
+    networks = {network_of(ip) for ip, _, _ in habits if ip is not None}
+    devices = {device_of(agent) for _, agent, _ in habits if agent is not None}
     if network in networks or device_of(event.user_agent) in devices:
         return None
 

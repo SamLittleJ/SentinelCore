@@ -338,7 +338,10 @@ def alerts_of(db: Session, organization_id: int) -> list[Alert]:
             SecurityEvent.organization_id == organization_id,
         )
     ).all()
-    return [Alert(kind, email, ip, at) for kind, email, ip, at in rows]
+    # A detection without a time could not be placed against the sign-ins.
+    return [
+        Alert(kind, email, ip, at) for kind, email, ip, at in rows if at is not None
+    ]
 
 
 # Measuring

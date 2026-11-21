@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # `make up` / `make down`: SentinelCore on a local kind cluster.
 #
-#   up    the cluster if missing, Kyverno and the admission policies, the
-#         images loaded into it, the secrets if missing, PostgreSQL, then
+#   up    the cluster if missing, Kyverno and the admission policies, Falco,
+#         the images loaded into it, the secrets if missing, the Collector,
+#         Tempo, Prometheus and Grafana, PostgreSQL, then
 #         the application (its migrations run first), then the first owner
 #         if missing. Safe to run again.
 #   down  deletes the cluster and its data, after a typed confirmation.
+#   grafana  forwards 127.0.0.1:3001 to Grafana, until stopped (3000 is
+#            Docker Compose's).
 #
 # Uses the pinned tools of scripts/tools.sh and its own kubeconfig in .kind/,
 # so ~/.kube/config is left alone. `make up` builds the images first and
@@ -50,6 +53,12 @@ create_cluster() {
   kubectl get namespace falco >/dev/null 2>&1 || kubectl create namespace falco
   kubectl label namespace falco --overwrite \
     pod-security.kubernetes.io/enforce=privileged >/dev/null
+  # Tracing and metrics (observability/), under the same standard as the
+  # application.
+  kubectl get namespace observability >/dev/null 2>&1 || kubectl create namespace observability
+  kubectl label namespace observability --overwrite \
+    pod-security.kubernetes.io/enforce=restricted \
+    pod-security.kubernetes.io/enforce-version=v1.35 >/dev/null
   # Kubernetes' own "restricted" Pod Security Standard: no root, no
   # privilege escalation, no added capabilities.
   kubectl label namespace "$NAMESPACE" --overwrite \
@@ -111,6 +120,42 @@ install_falco() {
   say "Installing Falco"
   helm upgrade --install falco "$ROOT/.tools/falco.tgz" \
     --namespace falco --wait --timeout 5m --values "$ROOT/falco/values.yaml"
+}
+
+# The Collector, Tempo, Prometheus and Grafana (observability/). Prometheus
+# reads the API's METRICS_TOKEN from a copy in its namespace; Grafana's
+# password is generated once and kept in .kind/grafana.txt only.
+install_observability() {
+  say "Installing the Collector, Tempo, Prometheus and Grafana"
+  kubectl get secret sentinelcore-api --namespace "$NAMESPACE" -o jsonpath='{.data.METRICS_TOKEN}' |
+    base64 -d |
+    kubectl create secret generic prometheus-metrics-token --namespace observability \
+      --from-file=token=/dev/stdin --dry-run=client -o yaml |
+    kubectl apply -f - >/dev/null
+  if ! kubectl get secret grafana-admin --namespace observability >/dev/null 2>&1; then
+    local password
+    password="$(random)"
+    printf 'admin-user=admin\nadmin-password=%s\n' "$password" |
+      kubectl create secret generic grafana-admin --namespace observability --from-env-file=/dev/stdin >/dev/null
+    (umask 077 && printf '%s\n' "$password" >"$STATE/grafana.txt")
+  fi
+  kubectl create configmap grafana-dashboards --namespace observability \
+    --from-file="$ROOT/infra/grafana/dashboards/" --dry-run=client -o yaml |
+    kubectl apply -f - >/dev/null
+  kubectl apply -f "$ROOT/observability/rbac.yaml" >/dev/null
+  observability_chart tempo tempo tempo
+  observability_chart otel otel-collector collector
+  # Without the config reloader, nothing else restarts Prometheus when its
+  # scrape configuration changes: the pod carries the values' hash.
+  observability_chart prometheus prometheus prometheus --set-string \
+    "server.podAnnotations.sentinelcore/values=$(sha256sum "$ROOT/observability/prometheus.yaml" | cut -c1-16)"
+  observability_chart grafana grafana grafana
+}
+
+# observability_chart <release> <chart in .tools/> <values in observability/> [helm options]
+observability_chart() {
+  helm upgrade --install "$1" "$ROOT/.tools/$2.tgz" --namespace observability \
+    --wait --timeout 5m --values "$ROOT/observability/$3.yaml" "${@:4}"
 }
 
 # image <name>: what the pods run, as the chart and the owner Job name it.
@@ -285,6 +330,7 @@ up() {
   install_falco
   load_images
   create_secrets
+  install_observability
   install_charts
   create_owner
   say "SentinelCore is at $URL"
@@ -307,11 +353,22 @@ down() {
   rm -rf "$STATE"
 }
 
+# Grafana on this machine only, not on the network.
+grafana() {
+  if ! cluster_exists; then
+    echo "No cluster: run \`make up\` first." >&2
+    exit 1
+  fi
+  say "Grafana is at http://127.0.0.1:3001 (user admin, password in .kind/grafana.txt)"
+  kubectl port-forward --namespace observability --address 127.0.0.1 service/grafana 3001:80
+}
+
 case "${1:-}" in
   up) up ;;
   down) down ;;
+  grafana) grafana ;;
   *)
-    echo "usage: $0 up|down" >&2
+    echo "usage: $0 up|down|grafana" >&2
     exit 2
     ;;
 esac

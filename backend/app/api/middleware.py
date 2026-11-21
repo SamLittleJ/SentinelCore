@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from uuid import uuid4
 
 from fastapi import Request, Response
+from opentelemetry import trace
 
 from app.api.deps import get_client_ip
 from app.core.logging import request_id_var
@@ -36,6 +37,8 @@ async def observe_requests(
         request_id = uuid4().hex
 
     context_token = request_id_var.set(request_id)
+    # Finds the request's trace from the id in its logs and its response.
+    trace.get_current_span().set_attribute("sentinelcore.request_id", request_id)
     started = time.perf_counter()
     # Stays 500 if the endpoint raises before producing a response.
     status_code = 500

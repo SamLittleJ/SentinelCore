@@ -1,0 +1,46 @@
+# Tempo for SentinelCore's kind cluster (scripts/cluster.sh): it keeps the
+# traces the Collector sends for a day, in the pod's own emptyDir, and
+# Grafana reads them on port 3200.
+tempo:
+  tag: 3.1.1@sha256:64e2fbd56d9c2b3412a4b430a58ea59e91a670b1e75f920a0c702213ad145044
+  reportingEnabled: false
+  retention: 24h
+  # Search leaves out the last 30 seconds by default, in case a trace is
+  # still arriving; 5 here, so `make cluster-check` finds a request's trace
+  # within 30, and so do you in Grafana.
+  queryFrontend:
+    query_end_cutoff: 5s
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  # Only the Collector sends, over OTLP/gRPC.
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+  # The traces and the write-ahead log: the root file system is read-only.
+  extraVolumeMounts:
+    - name: storage
+      mountPath: /var/tempo
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+extraVolumes:
+  - name: storage
+    emptyDir:
+      sizeLimit: 2Gi
+
+serviceAccount:
+  automountServiceAccountToken: false

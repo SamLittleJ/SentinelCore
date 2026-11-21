@@ -47,6 +47,17 @@ KYVERNO_CHART_SHA256=7b7fe51a431b5b133b0ce7eb9dcb222b6a37fb967c163223cf480054ad1
 # (Falco 0.45.1), not 9.2.2: that one was four days old, inside the cooldown.
 FALCO_CHART_VERSION=9.2.1
 FALCO_CHART_SHA256=726c1fe08c3fd3e2789d4072b34f9eee94ecccad734fee471cc7546124570c6c
+# Tracing and metrics (observability/), as the official charts. The newest
+# releases older than seven days on 2026-11-06. Tempo and Grafana moved to
+# the grafana-community repository; 3.2.1 is Tempo 3.1.1.
+OTEL_COLLECTOR_CHART_VERSION=0.178.1
+OTEL_COLLECTOR_CHART_SHA256=6df4120a2ae29f1bf89536eb4b527424f4522b66946857bce41ecc8fe8e9ef40
+TEMPO_CHART_VERSION=3.2.1
+TEMPO_CHART_SHA256=3389c896bd3c8f2a54f054ac00eb1881c34eff2b8e53053e3ad42c9f394925c3
+PROMETHEUS_CHART_VERSION=29.40.0
+PROMETHEUS_CHART_SHA256=8af68f8b0b43fb11d32ca679574be129b0c947dcb5c9e270ef8e677a2e7f26ac
+GRAFANA_CHART_VERSION=14.2.0
+GRAFANA_CHART_SHA256=fd442e214d854ff514d64fb75f7f32f179b9e9a6a53bc3323aca7c5748ff188f
 
 # fetch <url> <sha256> <file>: downloads next to the file, then moves it in
 # place only once the checksum matches.
@@ -72,7 +83,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -174,6 +185,22 @@ if wanted falco && [[ ! -f "$TOOLS/falco.tgz" || "$(cat "$TOOLS/falco.tgz.versio
     "$FALCO_CHART_SHA256" "$TOOLS/falco.tgz"
   echo "$FALCO_CHART_VERSION" >"$TOOLS/falco.tgz.version"
 fi
+
+# chart <name> <version> <sha256> <url>: the observability charts, the same way.
+chart() {
+  if wanted "$1" && [[ ! -f "$TOOLS/$1.tgz" || "$(cat "$TOOLS/$1.tgz.version" 2>/dev/null)" != "$2" ]]; then
+    fetch "$4" "$3" "$TOOLS/$1.tgz"
+    echo "$2" >"$TOOLS/$1.tgz.version"
+  fi
+}
+chart otel-collector "$OTEL_COLLECTOR_CHART_VERSION" "$OTEL_COLLECTOR_CHART_SHA256" \
+  "https://github.com/open-telemetry/opentelemetry-helm-charts/releases/download/opentelemetry-collector-$OTEL_COLLECTOR_CHART_VERSION/opentelemetry-collector-$OTEL_COLLECTOR_CHART_VERSION.tgz"
+chart tempo "$TEMPO_CHART_VERSION" "$TEMPO_CHART_SHA256" \
+  "https://github.com/grafana-community/helm-charts/releases/download/tempo-$TEMPO_CHART_VERSION/tempo-$TEMPO_CHART_VERSION.tgz"
+chart prometheus "$PROMETHEUS_CHART_VERSION" "$PROMETHEUS_CHART_SHA256" \
+  "https://github.com/prometheus-community/helm-charts/releases/download/prometheus-$PROMETHEUS_CHART_VERSION/prometheus-$PROMETHEUS_CHART_VERSION.tgz"
+chart grafana "$GRAFANA_CHART_VERSION" "$GRAFANA_CHART_SHA256" \
+  "https://github.com/grafana-community/helm-charts/releases/download/grafana-$GRAFANA_CHART_VERSION/grafana-$GRAFANA_CHART_VERSION.tgz"
 
 # The Python scanners of `make scan` (Checkov, pip-audit), in an environment
 # of their own: every file is checked against the hashes of

@@ -5508,3 +5508,36 @@ On 2026-11-18 the scans failed on every open pull request, all of them Dependabo
 
 - `make scan`: 0 open. `make scan-images`: 0 open.
 - `make verify`: 14/15, `pytest` 777 passed. Pyright reports 4 errors that are already on `main` (SQLAlchemy 2.1.5 in the lock); they are fixed in the pull request of phase E4.
+
+## Phase E4: OpenTelemetry tracing
+
+### 448. The stack in the cluster
+
+`make up` installs, after Falco and the secrets, four official charts into a namespace `observability` labelled `restricted` for Pod Security, as `sentinelcore` is: the OpenTelemetry Collector 0.163.2 (chart 0.178.1), Tempo 3.1.1 (chart 3.2.1, from `grafana-community`, where Grafana's charts moved), Prometheus 3.15.1, the server alone (chart 29.40.0), and Grafana 13.3.0 (chart 14.2.0). The charts are pinned by SHA-256 in `scripts/tools.sh`, the images by digest in `observability/*.yaml`; all four passed `restricted` with values only, no patches. Each runs as a user other than root, with a read-only root file system, no capabilities, CPU and memory limits, and no Kubernetes token except Prometheus'. Tempo and Prometheus keep their data in an `emptyDir`, a day and two days. NetworkPolicies (`network-policies/observability.yaml`) allow API → Collector (4318) → Tempo (4317), Prometheus → the API's pods (8000) and the Kubernetes API (6443), and Grafana → Prometheus and Tempo; the API's own policy admits Prometheus and lets it reach the Collector.
+
+Prometheus finds the API's pods through the Kubernetes API with a Role on pods in `sentinelcore` only (`observability/rbac.yaml`), not the chart's ClusterRole, and scrapes each with `METRICS_TOKEN`, which `make up` copies into its namespace. Grafana has the dashboard of `infra/grafana` and both data sources, sign-up and anonymous access off, and an administrator password `make up` generates once into `.kind/grafana.txt`. It has no Service outside the cluster: `make grafana` forwards `127.0.0.1:3001` to it (3000 is Docker Compose's Grafana).
+
+### 449. The API's traces
+
+`app/core/tracing.py` traces each request (FastAPI's instrumentation) and its SQL queries (SQLAlchemy's) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, which the chart does; unset, as in tests and Docker Compose, nothing is traced. Spans leave in batches from a thread of their own (queue 2048, 5-second timeout), so a Collector that is down costs spans, never a request. `/health` and `/metrics` are not traced. The resource names `service.name=sentinelcore-api`, and the chart adds the image tag, `deployment.environment.name=kind` and the pod's name through `OTEL_RESOURCE_ATTRIBUTES`.
+
+A span keeps the method, the route, the path, the status and `sentinelcore.request_id`, the id of the request's logs and `X-Request-ID`. A processor removes, before export, the query string, the full URL, the sender's address and port, the user agent and any captured header, in both the old and the new attribute names; the Collector deletes the query, the URL and headers again. SQL spans carry the statement with its placeholders, never the values. A trace starts in the API: a `traceparent` sent from outside is ignored (a propagator that reads nothing) and nginx removes it and `tracestate`. JSON log lines written inside a traced request carry its `trace_id` and `span_id`.
+
+### 450. What was found on kind
+
+- SQLAlchemy's instrumentation declares SQLAlchemy below 2.1 and instruments nothing on 2.1.5, the locked version, logging only an error; the local virtual environment still had 2.0.49, so the tests passed while the cluster had no SQL spans. With its check skipped, it imports `sqlalchemy.ext.asyncio`, which needs greenlet, and the API did not start. The API attaches the instrumentation's `EngineTracer` to its own engine instead, and the local environment now matches the lock.
+- An empty `CompositePropagator` returns no context at all, from which the ASGI instrumentation cannot start a span; the propagator returns an empty context instead.
+- Tempo's search leaves out the last 30 seconds by default (`query_end_cutoff`), so a request's trace took 31 seconds to be found; 5 seconds here.
+- Grafana was killed twice at a 256Mi memory limit while it migrated its database on the first start; the limit is 512Mi.
+- Without the chart's config reloader, a change of Prometheus' scrape configuration reached the ConfigMap but not the running server; `make up` puts the values' hash on the pod, so it restarts.
+- A NetworkPolicy does not cut connections already open: blocking the API's egress to the Collector stopped traces only once the API's pods restarted, since the exporter keeps its connection alive.
+
+### 451. The checks
+
+`make cluster-check` sends an ingestion request with an unknown key, whose lookup is a query, and `email=probe@example.com` in its query string, then asks Tempo, through the Kubernetes API's proxy, for the trace with that request's id: found within 30 seconds, with a span carrying `db.statement`, and with no trace of the email. It also checks that Prometheus scrapes every running API pod with the token, and that Grafana answers its health check but nothing else without a password.
+
+### 452. Local validation
+
+- `pytest`: 786 passed; `tests/test_tracing.py` (9) traces into memory with every header captured. Mutations, each failing a test: no attribute filter, `http.url` kept, the user agent kept, captured headers kept, an outside `traceparent` joined, the probes traced, no SQL spans, no request id on the span, no trace ids in the logs, tracing on without an endpoint (10/10).
+- `make down`, `make up` from scratch in 216 seconds with the images already built, `make cluster-check` 38/38; no pod of `observability` restarted. On the cluster, with the API's policy missing the Collector (after the pods restarted) the trace checks fail, and with Prometheus' token removed the scrape check fails. Grafana signs in with `.kind/grafana.txt`, lists the SentinelCore dashboard, and both data sources answer.
+- Pyright on SQLAlchemy 2.1.5 found four rows typed `str | None` or `datetime | None` where the queries already leave out empty values (`detection_service.py`, `security_event_service.py`, `simulator/rba.py`); the comprehensions now skip them.
