@@ -832,6 +832,18 @@ Decided in one design session, in rounds, each with a recommended answer:
 - **No alert yet.** Without kube-state-metrics, Prometheus does not see CronJobs; the age check stands in for one.
 - **Postgres installed without `--wait`.** kind binds the backups' volume only when the first backup uses it, so Helm's wait on volumes would never end; `make up` waits for the database's StatefulSet instead.
 
+## GitOps (D1a)
+
+- **Three pull requests for D1.** GitOps for what runs today (D1a), then a canary of the API with Argo Rollouts (D1b), then previews of pull requests (D1c).
+- **Terraform for the cluster and Argo CD, Git for the rest.** Terraform (pinned, providers locked) creates the kind cluster and installs Argo CD from a chart `tools.sh` checks by SHA-256; Argo CD installs everything else from `main`. No Secret is in Terraform: its state keeps values in plain text, so the Secrets are generated as for `make up`. The root application is applied by `scripts/gitops.sh` once they exist, not by Terraform, which would need Argo CD's CRD before it is installed.
+- **A second cluster, not a mode of the first.** `sentinelcore-gitops` on port 8081 runs next to `make up`'s on 8080, which stays the way to try what is not merged. On Linux this needs more inotify instances than the usual default.
+- **A deployment is a merged pull request.** The images are named by digest in `deploy/images.yaml`; `make deploy-pr` checks a commit's signature and attestations and opens the pull request from the developer's machine. A workflow could not do it with its own token: GitHub does not start other workflows for such a pull request, so the checks `main` requires would never run.
+- **External charts from OCI, by digest.** All six charts publish OCI artifacts; Argo CD 3.6 accepts a digest as their revision. Four are the very files `tools.sh` checks; Kyverno's and Grafana's are packaged differently but render the same manifests, which was compared before switching.
+- **One set of values.** Each application reads the values files `make up` uses, at the same revision, through Argo CD's multiple sources.
+- **A small chart for the rules and dashboards.** `charts/observability-config` turns the SLO rules and the dashboards into ConfigMaps for both paths, from links to the files where they live; Prometheus' config reloader replaces the hash `make up` used to restart it, which Argo CD could not compute.
+- **Waves, automated sync, prune and self-heal.** Kyverno and its policies first, so every later pod is admitted by them; the application last. Git is the only source: a change by hand is reverted, a resource removed from Git is deleted.
+- **Argo CD reached only by a port-forward**, on 127.0.0.1:3002, without Dex, notifications or the ApplicationSet controller, which D1c needs.
+
 ## Independent evaluation (phase R1)
 
 - **Why.** The simulator writes both the attacks and the rules' test, so its 30 of 30 shows the rules do what they were designed for, not that they work on attacks no one designed for them. The independent evaluation answers that, on data the rules were not written for.

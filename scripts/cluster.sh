@@ -9,6 +9,12 @@
 #   down  deletes the cluster and its data, after a typed confirmation.
 #   grafana  forwards 127.0.0.1:3001 to Grafana, until stopped (3000 is
 #            Docker Compose's).
+#   prepare  the namespaces and the Secrets only, on a cluster that exists:
+#            what scripts/gitops.sh needs before Argo CD installs the rest.
+#   owner    the first owner, if missing (scripts/gitops.sh, after Argo CD).
+#
+# CLUSTER, STATE and URL default to `make up`'s cluster; scripts/gitops.sh
+# sets them for the GitOps one. OWNER_IMAGE overrides the owner Job's image.
 #
 # Uses the pinned tools of scripts/tools.sh and its own kubeconfig in .kind/,
 # so ~/.kube/config is left alone. `make up` builds the images first and
@@ -20,11 +26,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLUSTER=sentinelcore
+CLUSTER="${CLUSTER:-sentinelcore}"
 NAMESPACE=sentinelcore
-STATE="$ROOT/.kind"
+STATE="${STATE:-$ROOT/.kind}"
 FROM="${FROM:-}"
-URL=http://localhost:8080
+URL="${URL:-http://localhost:8080}"
 OWNER_EMAIL="${OWNER_EMAIL:-owner@example.com}"
 OWNER_USERNAME="${OWNER_USERNAME:-owner}"
 
@@ -48,6 +54,12 @@ create_cluster() {
     kind create cluster --config "$ROOT/kind/kind-config.yaml" --kubeconfig "$KUBECONFIG" --wait 2m
   fi
   chmod 600 "$KUBECONFIG"
+  create_namespaces
+}
+
+# The namespaces and their Pod Security Standards, then the network
+# policies, before any pod of them starts.
+create_namespaces() {
   kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE"
   # Falco reads the node's system calls, which only a privileged pod may.
   kubectl get namespace falco >/dev/null 2>&1 || kubectl create namespace falco
@@ -125,8 +137,9 @@ install_falco() {
 # The Collector, Tempo, Prometheus and Grafana (observability/). Prometheus
 # reads the API's METRICS_TOKEN from a copy in its namespace; Grafana's
 # password is generated once and kept in .kind/grafana.txt only.
-install_observability() {
-  say "Installing the Collector, Tempo, Prometheus and Grafana"
+# Prometheus' copy of the API's METRICS_TOKEN, and Grafana's password,
+# generated once and kept in $STATE/grafana.txt only.
+create_observability_secrets() {
   kubectl get secret sentinelcore-api --namespace "$NAMESPACE" -o jsonpath='{.data.METRICS_TOKEN}' |
     base64 -d |
     kubectl create secret generic prometheus-metrics-token --namespace observability \
@@ -139,21 +152,27 @@ install_observability() {
       kubectl create secret generic grafana-admin --namespace observability --from-env-file=/dev/stdin >/dev/null
     (umask 077 && printf '%s\n' "$password" >"$STATE/grafana.txt")
   fi
-  # Compose's dashboard and the cluster's own (the SLOs, whose rules only
-  # the cluster's Prometheus has).
-  kubectl create configmap grafana-dashboards --namespace observability \
-    --from-file="$ROOT/infra/grafana/dashboards/" --from-file="$ROOT/observability/dashboards/" \
-    --dry-run=client -o yaml |
-    kubectl apply -f - >/dev/null
+}
+
+install_observability() {
+  say "Installing the Collector, Tempo, Prometheus and Grafana"
+  create_observability_secrets
+  # The SLO rules and the dashboards, as ConfigMaps (charts/observability-config),
+  # the same way Argo CD installs them. Clusters from before it have the
+  # dashboards' ConfigMap made by kubectl, which Helm would not take over.
+  if kubectl get configmap grafana-dashboards --namespace observability >/dev/null 2>&1 &&
+    [[ -z "$(kubectl get configmap grafana-dashboards --namespace observability \
+      -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}')" ]]; then
+    kubectl delete configmap grafana-dashboards --namespace observability >/dev/null
+  fi
+  helm upgrade --install observability-config "$ROOT/charts/observability-config" \
+    --namespace observability --wait --timeout 2m
   kubectl apply -f "$ROOT/observability/rbac.yaml" >/dev/null
   observability_chart tempo tempo tempo
   observability_chart otel otel-collector collector
-  # The SLO rules come from one file, the one promtool tests. Without the
-  # config reloader, nothing else restarts Prometheus when its scrape
-  # configuration or its rules change: the pod carries both files' hash.
-  observability_chart prometheus prometheus prometheus \
-    --set-file "ruleFiles.slo-rules\.yml=$ROOT/observability/slo-rules.yaml" \
-    --set-string "server.podAnnotations.sentinelcore/values=$(cat "$ROOT/observability/prometheus.yaml" "$ROOT/observability/slo-rules.yaml" | sha256sum | cut -c1-16)"
+  # Its config reloader picks up a change of the scrape configuration or of
+  # the SLO rules, so nothing needs to restart it.
+  observability_chart prometheus prometheus prometheus
   observability_chart grafana grafana grafana
 }
 
@@ -289,7 +308,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: owner
-          image: $(image backend)
+          image: ${OWNER_IMAGE:-$(image backend)}
           imagePullPolicy: IfNotPresent
           args: ["python", "-m", "app.cli", "create-owner", "--email", "$OWNER_EMAIL",
                  "--username", "$OWNER_USERNAME", "--if-missing"]
@@ -322,9 +341,9 @@ EOF
   kubectl logs --namespace "$NAMESPACE" job/sentinelcore-owner >"$owner_log"
   if grep -q '^Created the owner' "$owner_log"; then
     (umask 077 && printf '%s\n' "$password" >"$STATE/owner.txt")
-    say "Created the owner $OWNER_EMAIL; the password is in .kind/owner.txt"
+    say "Created the owner $OWNER_EMAIL; the password is in ${STATE#"$ROOT/"}/owner.txt"
   else
-    say "An owner already exists; .kind/owner.txt is unchanged"
+    say "An owner already exists; ${STATE#"$ROOT/"}/owner.txt is unchanged"
   fi
   remove_owner_job
   trap - EXIT
@@ -374,9 +393,16 @@ grafana() {
 case "${1:-}" in
   up) up ;;
   down) down ;;
+  prepare)
+    create_namespaces
+    create_falco_token
+    create_secrets
+    create_observability_secrets
+    ;;
+  owner) create_owner ;;
   grafana) grafana ;;
   *)
-    echo "usage: $0 up|down|grafana" >&2
+    echo "usage: $0 up|down|grafana|prepare|owner" >&2
     exit 2
     ;;
 esac

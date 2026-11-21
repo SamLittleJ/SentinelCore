@@ -1,0 +1,33 @@
+# The Git revision every application reads: `main`, or a commit in CI.
+revision: main
+repoURL: https://github.com/SamLittleJ/SentinelCore.git
+
+# The external charts, from their publishers' OCI registries, pinned by
+# digest: the same versions as scripts/tools.sh, whose files `make up`
+# checks by SHA-256. Falco, the Collector, Tempo and Prometheus are byte for
+# byte the files tools.sh pins; Kyverno and Grafana render identically.
+charts:
+  kyverno:
+    oci: oci://ghcr.io/kyverno/charts/kyverno
+    version: 3.9.1
+    digest: sha256:720542b97bdbc2633535c2297332690d21cfbb944053eb1ec1f0dbe8e3895444
+  falco:
+    oci: oci://ghcr.io/falcosecurity/charts/falco
+    version: 9.2.1
+    digest: sha256:0e1fb8c9a069659f19427ee96695416dc4152bb43c8fd5234108dd05c34ef3b1
+  otel:
+    oci: oci://ghcr.io/open-telemetry/opentelemetry-helm-charts/opentelemetry-collector
+    version: 0.178.1
+    digest: sha256:f27a650dd47c4300ad6e92c5f6ffef85965ac96753f5f9b037ea8d05ba05191e
+  tempo:
+    oci: oci://ghcr.io/grafana-community/helm-charts/tempo
+    version: 3.2.1
+    digest: sha256:7cf66b47c9b6693900b8886d9accf296d57e5a226164d236f043ada17ff54844
+  prometheus:
+    oci: oci://ghcr.io/prometheus-community/charts/prometheus
+    version: 29.40.0
+    digest: sha256:cad287a22460c778f838a882880e068b28a6346c9f18e452a308ba33362608b5
+  grafana:
+    oci: oci://ghcr.io/grafana-community/helm-charts/grafana
+    version: 14.2.0
+    digest: sha256:022c539b087a1b2d7cd95ffd6e34e7840309c6515791219a4236146498c2112b

@@ -1,0 +1,32 @@
+# Argo CD's namespace on the GitOps cluster (scripts/gitops.sh applies it):
+# nothing reaches it but its own components (the UI goes through a
+# port-forward), and it reaches only DNS, the Kubernetes API (6443, the kind
+# node's API server behind the default Service) and HTTPS outside, for
+# GitHub and the charts' OCI registries, whose addresses change.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - ports:
+        - {protocol: TCP, port: 6443}
+        - {protocol: TCP, port: 443}

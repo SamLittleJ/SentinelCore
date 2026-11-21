@@ -1,0 +1,118 @@
+{{- /*
+One Argo CD Application per component. Each external chart comes from its
+OCI registry by digest, with its values from this repository at the same
+revision ($values); our own charts and manifests come from the repository.
+The sync wave orders them: Kyverno and its policies first, so every later pod
+is admitted by them; the application last.
+*/ -}}
+{{- $root := . -}}
+{{- define "gitops.syncPolicy" -}}
+syncPolicy:
+  automated:
+    prune: true
+    selfHeal: true
+  syncOptions:
+    - ServerSideApply=true
+    {{- if .create }}
+    - CreateNamespace=true
+    {{- end }}
+  # Kyverno's webhook takes a moment to answer after it starts, and a
+  # component may wait on another's Secret or CRD: retry rather than fail.
+  retry:
+    limit: 10
+    backoff:
+      duration: 10s
+      factor: 2
+      maxDuration: 3m
+{{- end }}
+
+{{- $external := list
+  (dict "name" "kyverno" "wave" "0" "namespace" "kyverno" "release" "kyverno" "values" "kyverno/values.yaml" "create" true)
+  (dict "name" "falco" "wave" "2" "namespace" "falco" "release" "falco" "values" "falco/values.yaml")
+  (dict "name" "tempo" "wave" "3" "namespace" "observability" "release" "tempo" "values" "observability/tempo.yaml")
+  (dict "name" "otel" "wave" "3" "namespace" "observability" "release" "otel" "values" "observability/collector.yaml")
+  (dict "name" "prometheus" "wave" "3" "namespace" "observability" "release" "prometheus" "values" "observability/prometheus.yaml")
+  (dict "name" "grafana" "wave" "3" "namespace" "observability" "release" "grafana" "values" "observability/grafana.yaml")
+}}
+{{- range $external }}
+{{- $chart := index $root.Values.charts .name }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .wave | quote }}
+    # The chart's version, for people; the digest is what is pulled.
+    sentinelcore/chart-version: {{ $chart.version | quote }}
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .namespace }}
+  sources:
+    - repoURL: {{ $chart.oci }}
+      targetRevision: {{ $chart.digest }}
+      path: .
+      helm:
+        releaseName: {{ .release }}
+        valueFiles:
+          - $values/{{ .values }}
+    - repoURL: {{ $root.Values.repoURL }}
+      targetRevision: {{ $root.Values.revision }}
+      ref: values
+  {{- include "gitops.syncPolicy" . | nindent 2 }}
+{{- end }}
+
+{{- /* Manifests and charts of this repository. */ -}}
+{{- $own := list
+  (dict "name" "kyverno-policies" "wave" "1" "namespace" "kyverno" "path" "kyverno" "include" "{pod-rules.yaml,signatures.yaml}")
+  (dict "name" "network-policies" "wave" "1" "namespace" "sentinelcore" "path" "network-policies")
+  (dict "name" "observability-config" "wave" "2" "namespace" "observability" "path" "charts/observability-config" "release" "observability-config")
+  (dict "name" "observability-rbac" "wave" "2" "namespace" "observability" "path" "observability" "include" "rbac.yaml")
+  (dict "name" "postgresql" "wave" "3" "namespace" "sentinelcore" "path" "charts/postgresql" "release" "postgresql")
+  (dict "name" "sentinelcore" "wave" "4" "namespace" "sentinelcore" "path" "charts/sentinelcore" "release" "sentinelcore" "values" "deploy/images.yaml")
+}}
+{{- range $own }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .wave | quote }}
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .namespace }}
+  {{- if .values }}
+  sources:
+    - repoURL: {{ $root.Values.repoURL }}
+      targetRevision: {{ $root.Values.revision }}
+      path: {{ .path }}
+      helm:
+        releaseName: {{ .release }}
+        valueFiles:
+          - $values/{{ .values }}
+    - repoURL: {{ $root.Values.repoURL }}
+      targetRevision: {{ $root.Values.revision }}
+      ref: values
+  {{- else }}
+  source:
+    repoURL: {{ $root.Values.repoURL }}
+    targetRevision: {{ $root.Values.revision }}
+    path: {{ .path }}
+    {{- if .release }}
+    helm:
+      releaseName: {{ .release }}
+    {{- end }}
+    {{- if .include }}
+    directory:
+      include: {{ .include | quote }}
+    {{- end }}
+  {{- end }}
+  {{- include "gitops.syncPolicy" . | nindent 2 }}
+{{- end }}
