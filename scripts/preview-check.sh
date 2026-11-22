@@ -78,8 +78,12 @@ preview_ready() {
       sleep 10
     done
   done
+  # The owner comes after the sync (a PostSync hook), once Argo CD already
+  # reports the application healthy.
+  kubectl wait --for=condition=complete job/sentinelcore-owner -n "$PREVIEW" \
+    --timeout="$((deadline - SECONDS))s" >/dev/null
 }
-check "the preview drill is synced and healthy" preview_ready
+check "the preview drill is synced and healthy, with its owner" preview_ready
 
 preview_namespace_labelled() {
   [[ "$(kubectl get namespace "$PREVIEW" \
@@ -102,7 +106,11 @@ secret_versions() {
 secrets_kept() {
   local before
   before="$(secret_versions)"
-  kubectl create job preview-secrets-again --from=job/preview-secrets -n "$PREVIEW" >/dev/null &&
+  kubectl get job preview-secrets -n "$PREVIEW" -o json |
+    jq '{apiVersion, kind, metadata: {name: "preview-secrets-again", labels: .metadata.labels},
+         spec: (.spec | del(.selector) | .template.metadata.labels |= with_entries(
+           select(.key | test("controller-uid|job-name") | not))))}' |
+    kubectl create -n "$PREVIEW" -f - >/dev/null &&
     kubectl wait --for=condition=complete job/preview-secrets-again -n "$PREVIEW" --timeout=180s >/dev/null &&
     kubectl logs job/preview-secrets-again -n "$PREVIEW" | grep -q 'are present' &&
     [[ "$(secret_versions)" == "$before" ]]
