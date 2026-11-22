@@ -19,7 +19,7 @@ class FakeApi:
     """The Kubernetes API's Secrets in one namespace."""
 
     def __init__(
-        self, existing: set[str] = frozenset(), create_status: int = 201
+        self, existing: frozenset[str] = frozenset(), create_status: int = 201
     ) -> None:
         self.secrets: dict[str, dict] = {name: {} for name in existing}
         self.create_status = create_status
@@ -84,7 +84,7 @@ def test_every_value_is_new_and_long() -> None:
 
 
 def test_changes_nothing_when_all_exist() -> None:
-    api = FakeApi(existing=NAMES)
+    api = FakeApi(existing=frozenset(NAMES))
 
     assert preview_secrets.ensure("preview-7", api) == "present"
 
@@ -93,7 +93,7 @@ def test_changes_nothing_when_all_exist() -> None:
 
 @pytest.mark.parametrize("existing", [{"sentinelcore-api"}, NAMES - {"preview-owner"}])
 def test_stops_without_writing_when_only_some_exist(existing: set[str]) -> None:
-    api = FakeApi(existing=existing)
+    api = FakeApi(existing=frozenset(existing))
 
     with pytest.raises(SystemExit, match="Only some"):
         preview_secrets.ensure("preview-7", api)

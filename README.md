@@ -12,7 +12,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── frontend/             # web app (React, TypeScript, Vite, Tailwind CSS, shadcn/ui)
 ├── docs/                 # project documentation, by stage, and the detection evaluation
 ├── infra/                # Prometheus and Grafana configuration
-├── charts/               # Helm charts: postgresql, then sentinelcore (make up)
+├── charts/               # Helm charts: postgresql, then sentinelcore (make up); preview, a preview's base (GitOps)
 ├── kind/                 # the local kind cluster's configuration
 ├── falco/                # Falco's values: runtime detection in the cluster (make up)
 ├── kyverno/              # admission policies and the Kyverno values (make up)
@@ -174,6 +174,7 @@ make cluster-check   # the running cluster's security properties, one line each
 make grafana         # the cluster's Grafana at http://127.0.0.1:3001 (user admin, password in .kind/grafana.txt)
 make gitops-up       # the GitOps cluster at http://localhost:8081: Terraform and Argo CD, then everything from main (docs/07-gitops.md)
 make argocd          # its Argo CD at http://127.0.0.1:3002 (user admin, password in .kind/gitops/argocd.txt)
+make preview PR=<n>  # the preview of pull request <n> (labelled preview) at http://127.0.0.1:8090; SEED=1 loads the demo's data
 make deploy-pr REVISION=<commit>   # a pull request deploying main's signed images of that commit
 make gitops-down     # delete the GitOps cluster (asks first)
 make backup          # a database dump now, from the nightly backup (docs/06-backups.md)
@@ -196,7 +197,7 @@ Three service level objectives are measured in the cluster's Prometheus ([`docs/
 
 The database is dumped every night at 02:00 UTC, seven kept, on a volume in the cluster ([`docs/06-backups.md`](docs/06-backups.md)). `make backup-check` proves the newest dump by restoring it into a database of its own: its checksum and age, its audit chains verified with the key, and each chain's last record found in the live database with the same seal. Cluster CI runs it on every change to the deployment. On kind, `make down` deletes the backups with the cluster.
 
-A second cluster runs SentinelCore by GitOps ([`docs/07-gitops.md`](docs/07-gitops.md)): Terraform creates it and installs Argo CD, which installs everything else from `main`, external charts pinned by the digest of their OCI artifacts and our images by the signed digests in `deploy/images.yaml`. Changes made by hand are reverted, and a deployment is a merged pull request, which `make deploy-pr` opens after checking the images' signature. There the API is a canary run by Argo Rollouts: a new version gets one pod of five, then three, each step after an analysis that sends it synthetic traffic and reads its 5xx rate in Prometheus, and a version that fails is taken back on its own. CI builds this cluster at the commit under test and runs `make cluster-check` on it.
+A second cluster runs SentinelCore by GitOps ([`docs/07-gitops.md`](docs/07-gitops.md)): Terraform creates it and installs Argo CD, which installs everything else from `main`, external charts pinned by the digest of their OCI artifacts and our images by the signed digests in `deploy/images.yaml`. Changes made by hand are reverted, and a deployment is a merged pull request, which `make deploy-pr` opens after checking the images' signature. There the API is a canary run by Argo Rollouts: a new version gets one pod of five, then three, each step after an analysis that sends it synthetic traffic and reads its 5xx rate in Prometheus, and a version that fails is taken back on its own. A pull request labelled `preview` gets its own copy of the application there, in a namespace of its own, from its commit and its signed images, deleted when the pull request closes; `make preview PR=<n>` opens it. CI builds this cluster at the commit under test and runs `make cluster-check` on it.
 
 ## Continuous integration
 

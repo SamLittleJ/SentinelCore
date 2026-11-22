@@ -24,9 +24,12 @@ permissions:
 env:
     REGISTRY: ghcr.io/samlittlej
 
+# One run at a time per pull request, none cancelled: a run stopped between
+# signing and attesting would leave images Kyverno refuses, and Argo CD
+# retries a sync of that commit before it moves on to the next.
 concurrency:
     group: preview-images-${{ github.event.pull_request.number }}
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 jobs:
     images:
