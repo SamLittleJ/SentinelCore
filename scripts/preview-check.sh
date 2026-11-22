@@ -136,6 +136,10 @@ check "the preview's console reaches its API" preview_reaches "$preview_console"
 check "the preview's API reaches its database" preview_reaches "$preview_backend" backend sentinelcore-postgresql 5432
 check "the preview's API cannot reach sentinelcore's API" preview_blocked "$preview_backend" backend "$backend_ip" 8000
 check "the preview's API cannot reach sentinelcore's database" preview_blocked "$preview_backend" backend "$postgresql_ip" 5432
+# sentinelcore's console takes requests from anywhere: only the preview's own
+# policies keep its pods from it.
+console_ip="$(kubectl get service -n "$NAMESPACE" sentinelcore-console -o jsonpath='{.spec.clusterIP}')"
+check "the preview's API cannot reach sentinelcore's console" preview_blocked "$preview_backend" backend "$console_ip" 8080
 check "the preview's API cannot reach the internet" preview_blocked "$preview_backend" backend 1.1.1.1 443
 check "sentinelcore's API cannot reach the preview's database" \
   blocked "$backend" backend "${preview_postgresql_ip:-0.0.0.0}" 5432
