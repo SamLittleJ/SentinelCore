@@ -87,10 +87,10 @@ spec:
     - name: images
       cosign:
         keyless:
+          # One identity, as Kyverno verifies only one per attestor:
+          # preview-images.yml on a pull request, or images-ci.yml on main.
           identities:
-            - subjectRegExp: ^https://github\.com/SamLittleJ/SentinelCore/\.github/workflows/preview-images\.yml@refs/pull/[0-9]+/merge$
-              issuer: https://token.actions.githubusercontent.com
-            - subject: https://github.com/SamLittleJ/SentinelCore/.github/workflows/images-ci.yml@refs/heads/main
+            - subjectRegExp: ^https://github\.com/SamLittleJ/SentinelCore/\.github/workflows/(preview-images\.yml@refs/pull/[0-9]+/merge|images-ci\.yml@refs/heads/main)$
               issuer: https://token.actions.githubusercontent.com
         ctlog:
           url: https://rekor.sigstore.dev

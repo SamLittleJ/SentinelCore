@@ -67,8 +67,7 @@ def test_creates_every_secret_when_none_exists() -> None:
         "@sentinelcore-postgresql:5432/sentinelcore_demo"
     )
     assert (
-        len(decoded(api.secrets["preview-owner"])["SENTINELCORE_OWNER_PASSWORD"])
-        == 64
+        len(decoded(api.secrets["preview-owner"])["SENTINELCORE_OWNER_PASSWORD"]) == 64
     )
 
 
@@ -92,9 +91,7 @@ def test_changes_nothing_when_all_exist() -> None:
     assert all(method == "GET" for method, _ in api.calls)
 
 
-@pytest.mark.parametrize(
-    "existing", [{"sentinelcore-api"}, NAMES - {"preview-owner"}]
-)
+@pytest.mark.parametrize("existing", [{"sentinelcore-api"}, NAMES - {"preview-owner"}])
 def test_stops_without_writing_when_only_some_exist(existing: set[str]) -> None:
     api = FakeApi(existing=existing)
 
