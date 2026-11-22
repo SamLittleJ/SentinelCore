@@ -13,6 +13,12 @@ metadata:
 spec:
   validationActions: [Deny]
   failurePolicy: Fail
+  # Pods only, not the Deployments and Jobs that make them: a pull request's
+  # image is named by tag in those, and becomes a digest only in the pod,
+  # when the signature policy below resolves it.
+  autogen:
+    podControllers:
+      controllers: []
   evaluation:
     background:
       enabled: false
