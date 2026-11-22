@@ -5623,3 +5623,9 @@ Detection rules run inside the request that brings their event, so the delay wor
 
 - `make deploy-pr` failed on its first real run: it passed the revision to `scripts/verify-images.sh` in the environment, while the script reads it as its first argument. It now passes it as the argument. With that change, the images of `96d8b45eeabf` passed the signature, provenance and SBOM checks, and the script opened the deployment pull request (#108).
 - Cluster CI on `main` failed once while installing Argo CD: ECR Public answered `429 Too Many Requests` for the Redis image, a limit on anonymous pulls shared by GitHub's runners. It passed when run again, then failed the same way on the deployment pull request. Redis now comes from `mirror.gcr.io`, Google's mirror of Docker Hub, under the same digest, so the image is byte for byte the same.
+
+## Stage: CVE fixes of 2026-11-22
+
+### 467. glibc
+
+On 2026-11-22 `make scan-images` failed on the canary's pull request (#110) with two findings unrelated to it: CVE-2026-19499 and CVE-2026-5435, High, in libc6 and libc-bin 2.41-12+deb13u4 of the backend image. Debian fixed both in deb13u5, which no `python:3.12-slim` digest has yet: the newest is the one pinned. The runtime stage installs libc6 and libc-bin at deb13u5 beside zlib1g, as it did on 2026-11-18, to be removed once the base image's digest includes them. `make scan-images` then reports no open finding.
