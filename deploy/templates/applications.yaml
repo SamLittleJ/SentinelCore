@@ -70,7 +70,7 @@ spec:
 
 {{- /* Manifests and charts of this repository. */ -}}
 {{- $own := list
-  (dict "name" "kyverno-policies" "wave" "1" "namespace" "kyverno" "path" "kyverno" "include" "{pod-rules.yaml,signatures.yaml}")
+  (dict "name" "kyverno-policies" "wave" "1" "namespace" "kyverno" "path" "kyverno" "include" "{pod-rules.yaml,signatures.yaml,previews.yaml}")
   (dict "name" "network-policies" "wave" "1" "namespace" "sentinelcore" "path" "network-policies")
   (dict "name" "observability-config" "wave" "2" "namespace" "observability" "path" "charts/observability-config" "release" "observability-config")
   (dict "name" "observability-rbac" "wave" "2" "namespace" "observability" "path" "observability" "include" "rbac.yaml")

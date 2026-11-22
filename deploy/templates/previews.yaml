@@ -1,0 +1,154 @@
+{{- /*
+One preview per open pull request of this repository labelled `preview`
+(docs/07-gitops.md, Previews), in its own namespace preview-<number>, made
+of two applications:
+
+- preview-<n>-base, from this revision (main), never the pull request's:
+  the namespace, its network policies, the Job that creates its Secrets
+  (charts/preview) and its database (charts/postgresql);
+- preview-<n>, from the pull request's head commit: the application
+  (charts/sentinelcore, deploy/preview.yaml) on the images
+  preview-images.yml built from that commit, which Kyverno checks
+  (kyverno/previews.yaml). Until the base is ready its sync fails and is
+  retried.
+
+Each project limits what its applications may create: no pull request can
+reach a namespace other than preview-*, create one, or add network
+policies or roles to its own. Argo CD asks GitHub every five minutes,
+without a token (60 requests an hour); a closed, merged or unlabelled pull
+request's applications are deleted, with everything in their namespace.
+*/ -}}
+{{- $root := . -}}
+{{- define "previews.syncPolicy" -}}
+syncPolicy:
+  automated:
+    prune: true
+    selfHeal: true
+  syncOptions:
+    - ServerSideApply=true
+  retry:
+    limit: {{ . }}
+    backoff:
+      duration: 10s
+      factor: 2
+      maxDuration: 3m
+{{- end }}
+{{- define "previews.generator" -}}
+- pullRequest:
+    github:
+      owner: {{ .owner }}
+      repo: {{ .repo }}
+      labels: [preview]
+    requeueAfterSeconds: 300
+{{- end }}
+{{- $github := dict "owner" "SamLittleJ" "repo" "SentinelCore" }}
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: preview-base
+  namespace: argocd
+spec:
+  description: The part of a preview that main makes (charts/preview, charts/postgresql).
+  sourceRepos: [{{ $root.Values.repoURL | quote }}]
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: preview-*
+  clusterResourceWhitelist:
+    - {group: "", kind: Namespace}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: previews
+  namespace: argocd
+spec:
+  description: A pull request's application, in its preview's namespace only.
+  sourceRepos: [{{ $root.Values.repoURL | quote }}]
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: preview-*
+  # Nothing outside a namespace, and none of what charts/preview owns.
+  clusterResourceWhitelist: []
+  namespaceResourceBlacklist:
+    - {group: networking.k8s.io, kind: NetworkPolicy}
+    - {group: rbac.authorization.k8s.io, kind: Role}
+    - {group: rbac.authorization.k8s.io, kind: RoleBinding}
+    - {group: "", kind: ResourceQuota}
+    - {group: "", kind: LimitRange}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: preview-base
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    {{- include "previews.generator" $github | nindent 4 }}
+  template:
+    metadata:
+      name: {{ `preview-{{ .number }}-base` | quote }}
+      labels:
+        sentinelcore/preview: "true"
+      # Deleting the application deletes what it made: the namespace too.
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: preview-base
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: {{ `preview-{{ .number }}` | quote }}
+      sources:
+        - repoURL: {{ $root.Values.repoURL }}
+          targetRevision: {{ $root.Values.revision }}
+          path: charts/preview
+          helm:
+            releaseName: preview
+            valueFiles: [$values/deploy/images.yaml]
+        - repoURL: {{ $root.Values.repoURL }}
+          targetRevision: {{ $root.Values.revision }}
+          path: charts/postgresql
+          helm:
+            releaseName: postgresql
+            valueFiles: [$values/deploy/preview-postgresql.yaml]
+        - repoURL: {{ $root.Values.repoURL }}
+          targetRevision: {{ $root.Values.revision }}
+          ref: values
+      {{- include "previews.syncPolicy" 10 | nindent 6 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: preview
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    {{- include "previews.generator" $github | nindent 4 }}
+  template:
+    metadata:
+      name: {{ `preview-{{ .number }}` | quote }}
+      labels:
+        sentinelcore/preview: "true"
+      finalizers: [resources-finalizer.argocd.argoproj.io]
+    spec:
+      project: previews
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: {{ `preview-{{ .number }}` | quote }}
+      sources:
+        - repoURL: {{ $root.Values.repoURL }}
+          targetRevision: {{ `{{ .head_sha }}` | quote }}
+          path: charts/sentinelcore
+          helm:
+            releaseName: sentinelcore
+            valueFiles: [$values/deploy/preview.yaml]
+            parameters:
+              - name: image.tag
+                value: {{ `pr-{{ .head_sha }}` | quote }}
+        - repoURL: {{ $root.Values.repoURL }}
+          targetRevision: {{ `{{ .head_sha }}` | quote }}
+          ref: values
+      {{- /* Waits for its base: the namespace, the Secrets, the database. */}}
+      {{- include "previews.syncPolicy" 20 | nindent 6 }}

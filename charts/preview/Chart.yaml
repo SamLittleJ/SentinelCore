@@ -1,0 +1,10 @@
+apiVersion: v2
+name: preview
+description: >-
+  What a pull request's preview needs before its database and application
+  (docs/07-gitops.md, Previews): its namespace, under the cluster's Pod
+  Security Standard and Kyverno's rules, the network policies that keep it
+  apart, and the Job that creates its Secrets. Always read from main, never
+  from the pull request.
+type: application
+version: 0.1.0

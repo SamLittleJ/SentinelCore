@@ -9,6 +9,7 @@
 #   every script, with shellcheck
 #   the SLO rules, with promtool: their syntax, then their unit tests
 #   the GitOps applications (deploy/): Kyverno and its policies sync first
+#   the previews: their base from main, their rules those of sentinelcore
 #   the Terraform of the GitOps cluster (gitops/): formatted and valid
 #   every action of the workflows, pinned to a full commit SHA
 set -euo pipefail
@@ -29,6 +30,7 @@ echo "== helm lint"
 helm lint --strict charts/postgresql
 helm lint --strict charts/sentinelcore --set image.tag="$TAG"
 helm lint --strict charts/observability-config 2>/dev/null
+helm lint --strict charts/preview --set image.tag="$TAG" 2>/dev/null
 
 echo "== kubeconform"
 # Every resource needs a schema: there are no custom resources, so one
@@ -41,6 +43,11 @@ echo "== kubeconform"
     --set image.backend=ghcr.io/samlittlej/sentinelcore-backend \
     --set image.digests.backend="sha256:$(printf '0%.0s' {1..64})"
   helm template observability-config charts/observability-config 2>/dev/null
+  # A preview (deploy/templates/previews.yaml): its base, from main, and the
+  # application as a pull request's commit runs it.
+  helm template preview charts/preview --namespace preview-1 -f deploy/images.yaml 2>/dev/null
+  helm template postgresql charts/postgresql -f deploy/preview-postgresql.yaml
+  helm template sentinelcore charts/sentinelcore -f deploy/preview.yaml --set image.tag="pr-$TAG"
   for file in network-policies/*.yaml observability/rbac.yaml gitops/network-policy.yaml; do
     echo ---
     cat "$file"
@@ -70,7 +77,7 @@ helm lint --strict deploy
 helm template root deploy | "$ROOT/.tools/scanners/bin/python" -c '
 import sys, yaml
 apps = {a["metadata"]["name"]: int(a["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"])
-        for a in yaml.safe_load_all(sys.stdin) if a}
+        for a in yaml.safe_load_all(sys.stdin) if a and a["kind"] == "Application"}
 first = max(apps[n] for n in ("kyverno", "kyverno-policies"))
 late = sorted(n for n, w in apps.items() if n not in ("kyverno", "kyverno-policies", "network-policies") and w <= first)
 if apps["kyverno"] >= apps["kyverno-policies"] or late:
@@ -100,6 +107,41 @@ steps = rollout["spec"]["strategy"]["canary"]["steps"]
 if not all("analysis" in after for before, after in zip(steps, steps[1:]) if "setWeight" in before):
     sys.exit("every canary step must be followed by an analysis")
 print(f"canary: {len(queries)} queries on the new pods, a minimum of requests, {len(steps) // 2} analysed steps")'
+# The previews (deploy/templates/previews.yaml, kyverno/previews.yaml): their
+# base is read from main, never from the pull request; the pull request's
+# project may create nothing outside its namespace, nor network policies or
+# roles in it; their pods follow sentinelcore's rules; and sentinelcore
+# accepts no image signed on a pull request.
+{
+  helm template root deploy
+  echo ---
+  cat kyverno/pod-rules.yaml
+  echo ---
+  cat kyverno/signatures.yaml
+  echo ---
+  cat kyverno/previews.yaml
+} | "$ROOT/.tools/scanners/bin/python" -c '
+import sys, yaml
+docs = [d for d in yaml.safe_load_all(sys.stdin) if d]
+named = {(d["kind"], d["metadata"]["name"]): d for d in docs}
+base = named["ApplicationSet", "preview-base"]["spec"]["template"]["spec"]
+if any("head_sha" in source.get("targetRevision", "") for source in base["sources"]):
+    sys.exit("a preview base must be read from main, not from the pull request")
+project = named["AppProject", "previews"]["spec"]
+if project.get("clusterResourceWhitelist") != [] or not {
+    "NetworkPolicy", "Role", "RoleBinding"} <= {r["kind"] for r in project.get("namespaceResourceBlacklist", [])}:
+    sys.exit("a pull request may create cluster resources, network policies or roles")
+if any(d["destinations"] != [{"server": "https://kubernetes.default.svc", "namespace": "preview-*"}]
+       for d in (project, named["AppProject", "preview-base"]["spec"])):
+    sys.exit("a preview may reach namespaces other than preview-*")
+rules = lambda name: [v["expression"] for v in named["ValidatingPolicy", name]["spec"]["validations"]]
+if rules("sentinelcore-pods")[:2] != rules("sentinelcore-preview-pods")[:2]:
+    sys.exit("the preview pods must meet the same container rules as sentinelcore")
+subjects = [i.get("subject") or i.get("subjectRegExp")
+            for i in named["ImageValidatingPolicy", "sentinelcore-signatures"]["spec"]["attestors"][0]["cosign"]["keyless"]["identities"]]
+if any("refs/heads/main" not in s or "preview-images" in s for s in subjects):
+    sys.exit("sentinelcore must accept only images signed on main")
+print("previews: base from main, a narrow project, the same pod rules, no pull request image in sentinelcore")'
 terraform -chdir=gitops fmt -check -diff
 tf_data="$(mktemp -d)"
 TF_DATA_DIR="$tf_data" terraform -chdir=gitops init -backend=false -input=false >/dev/null

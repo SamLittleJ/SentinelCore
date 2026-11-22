@@ -14,7 +14,7 @@ from app.models.api_key import ApiKey
 from app.models.security_event import SecurityEvent, SecurityEventType
 from app.schemas.user import UserCreate
 from app.services.user_service import create_owner
-from simulator.__main__ import loopback_senders, main
+from simulator.__main__ import forwarded_senders, loopback_senders, main
 from simulator.attacks import SHARED_VPN_ADDRESS, Attack, Step
 from simulator.client import SentinelCore, SimulatorError
 from simulator.evaluation import evaluate
@@ -401,6 +401,15 @@ def test_a_loopback_sender_reaches_localhost_by_its_ipv4_address() -> None:
     with make("127.0.0.11") as sender:
         assert sender.base_url.host == "127.0.0.1"
         assert sender.base_url.port == 8000
+
+
+def test_a_forwarded_sender_names_its_address_and_sends_from_ours() -> None:
+    with forwarded_senders("http://127.0.0.1:18000")("127.0.0.11") as sender:
+        assert sender.headers["X-Forwarded-For"] == "127.0.0.11"
+        assert sender.base_url.port == 18000
+        # No transport bound to the address: the request leaves from ours.
+        request = sender.build_request("GET", "/health")
+        assert request.headers["X-Forwarded-For"] == "127.0.0.11"
 
 
 def test_the_simulator_refuses_hosts_other_than_localhost(

@@ -1,0 +1,8 @@
+# A preview's database (deploy/templates/previews.yaml): named as the demo's,
+# which `make preview SEED=1` fills with the simulator, and without the
+# nightly backup.
+database: sentinelcore_demo
+storage:
+  size: 1Gi
+backup:
+  enabled: false

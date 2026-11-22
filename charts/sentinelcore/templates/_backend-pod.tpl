@@ -30,8 +30,11 @@ spec:
       envFrom:
         - secretRef:
             name: {{ .Values.secrets.api }}
+        {{- /* None in a preview, whose API takes no Falco alerts. */}}
+        {{- if .Values.secrets.falco }}
         - secretRef:
             name: {{ .Values.secrets.falco }}
+        {{- end }}
       ports:
         - name: http
           containerPort: 8000

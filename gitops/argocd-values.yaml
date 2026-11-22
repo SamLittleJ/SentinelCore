@@ -1,6 +1,7 @@
 # Argo CD for the GitOps cluster (main.tf, docs/07-gitops.md): the server,
-# the repo server, the application controller and Redis, pinned by digest.
-# No Dex, notifications or ApplicationSet controller yet (previews, D1c).
+# the repo server, the application controller, Redis and the ApplicationSet
+# controller (previews of pull requests), pinned by digest. No Dex or
+# notifications.
 # Reached only through `make argocd` (a port-forward), so the server speaks
 # plain HTTP inside the cluster.
 
@@ -61,8 +62,13 @@ dex:
 notifications:
   enabled: false
 
+# Makes one preview per labelled pull request (deploy/templates/previews.yaml),
+# asking GitHub's API without a token: the repository is public.
 applicationSet:
-  replicas: 0
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 250m, memory: 256Mi}
 
 redis:
   image:

@@ -54,7 +54,8 @@ kyverno_stuck() {
 }
 
 # Every application synced and healthy at that commit, or the ones that are
-# not after the time allowed. Synced alone is not enough: right after the
+# not after the time allowed. Previews are left out: they follow pull
+# requests, not this commit (`make preview`). Synced alone is not enough: right after the
 # root application moves to another revision, the others still report the
 # one they had.
 wait_applications() {
@@ -69,7 +70,8 @@ wait_applications() {
       restarted=1
     fi
     pending="$(kubectl get applications -n argocd -o json | jq -r --arg commit "$commit" '
-      .items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy"
+      .items[] | select(.metadata.labels["sentinelcore/preview"] != "true")
+      | select(.status.sync.status != "Synced" or .status.health.status != "Healthy"
         or (([.status.sync.revision] + (.status.sync.revisions // [])) | index($commit) | not))
       | "\(.metadata.name): \(.status.sync.status // "-")/\(.status.health.status // "-")"')"
     if [[ -z "$pending" ]] && (($(kubectl get applications -n argocd -o name | wc -l) > 1)); then

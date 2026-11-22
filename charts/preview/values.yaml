@@ -1,0 +1,11 @@
+# The backend image of main (deploy/images.yaml): it runs the Job that
+# creates the Secrets, from a ConfigMap (files/preview_secrets.py).
+image:
+  backend: ghcr.io/samlittlej/sentinelcore-backend
+  tag: ""
+  digests:
+    backend: ""
+
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {cpu: 200m, memory: 128Mi}
