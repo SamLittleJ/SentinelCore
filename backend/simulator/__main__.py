@@ -62,6 +62,20 @@ def loopback_senders(base_url: str) -> Callable[[str], httpx.Client] | None:
     return make
 
 
+def forwarded_senders(base_url: str) -> Callable[[str], httpx.Client]:
+    """Clients that name their address in X-Forwarded-For instead of sending
+    from it, for a server reached through a port-forward (`make preview
+    SEED=1`): every request arrives from the forward's own address, which
+    that server trusts as a proxy (FORWARDED_ALLOW_IPS)."""
+
+    def make(address: str) -> httpx.Client:
+        return httpx.Client(
+            base_url=base_url, timeout=30, headers={"X-Forwarded-For": address}
+        )
+
+    return make
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     host = urlsplit(args.base_url).hostname

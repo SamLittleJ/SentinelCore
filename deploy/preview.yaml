@@ -1,0 +1,25 @@
+# A pull request's preview (docs/07-gitops.md, Previews): the application
+# from the pull request's own commit, small and on its own. The images are
+# the pull request's: the ApplicationSet sets their tag, pr-<head commit>
+# (deploy/templates/previews.yaml), and Kyverno resolves it to a digest.
+image:
+  backend: ghcr.io/samlittlej/sentinelcore-backend
+  console: ghcr.io/samlittlej/sentinelcore-console
+backend:
+  replicas: 1
+  canary:
+    enabled: false
+  config:
+    # `make preview SEED=1` reaches the API through a port-forward, which
+    # arrives from the pod's loopback: the simulator names each attacker's
+    # address in X-Forwarded-For (`--forwarded-for`). Only who may
+    # port-forward in the cluster reaches that address.
+    FORWARDED_ALLOW_IPS: 127.0.0.1
+    # Neither traces nor Falco alerts: those stay the cluster's own.
+    OTEL_EXPORTER_OTLP_ENDPOINT: ""
+console:
+  nodePort: null
+secrets:
+  falco: ""
+owner:
+  enabled: true

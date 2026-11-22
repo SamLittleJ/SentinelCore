@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images backup backup-check gitops-up gitops-down argocd deploy-pr
+.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images backup backup-check gitops-up gitops-down argocd preview deploy-pr
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -75,6 +75,9 @@ gitops-down: ## Delete the GitOps cluster and its state (asks first)
 
 deploy-pr: ## Open a pull request deploying REVISION (a commit of main) to the GitOps cluster, its images checked first
 	@REVISION=$(REVISION) ./scripts/deploy-pr.sh
+
+preview: ## The preview of pull request PR (labelled preview) on the GitOps cluster at http://127.0.0.1:8090; SEED=1 loads the demo's data first (docs/07-gitops.md)
+	@PR=$(PR) SEED=$(SEED) ./scripts/preview.sh
 
 argocd: ## Argo CD of the GitOps cluster at http://127.0.0.1:3002 (user admin, password in .kind/gitops/argocd.txt); Ctrl-C stops it
 	@./scripts/gitops.sh argocd

@@ -1,0 +1,134 @@
+name: Preview images
+
+# The images of a pull request labelled `preview`, for its preview on the
+# GitOps cluster (docs/07-gitops.md, Previews): built from the pull
+# request's head commit and scanned as images-ci.yml does on main, then
+# published to GHCR as pr-<head commit>, signed (cosign, keyless) and
+# attested (SLSA provenance and the scanned SBOM). Their signatures name
+# this workflow on refs/pull/<n>/merge, which Kyverno accepts only in the
+# previews' namespaces (kyverno/previews.yaml), never in sentinelcore's.
+#
+# Every path, unlike images-ci.yml: a preview needs images whatever the
+# pull request changes. Pull requests from forks get no token to publish
+# or sign with, and Dependabot's none either, so only this repository's
+# own branches can have a preview.
+on:
+    pull_request:
+        branches:
+            - main
+        types: [labeled, opened, synchronize, reopened]
+
+permissions:
+    contents: read
+
+env:
+    REGISTRY: ghcr.io/samlittlej
+
+concurrency:
+    group: preview-images-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    images:
+        name: Build, scan, publish and sign the preview's images
+        if: >-
+            contains(github.event.pull_request.labels.*.name, 'preview')
+            && github.event.pull_request.head.repo.full_name == github.repository
+            && (github.event.action != 'labeled' || github.event.label.name == 'preview')
+        runs-on: ubuntu-latest
+        timeout-minutes: 40
+        permissions:
+            contents: read
+            packages: write
+            # The OIDC token Sigstore exchanges for a short-lived signing
+            # certificate: this workflow's identity on this pull request.
+            id-token: write
+            attestations: write
+
+        steps:
+            # The head commit, not GitHub's merge of it into main: the
+            # preview runs exactly what the pull request shows.
+            - name: Checkout the pull request's head
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.event.pull_request.head.sha }}
+                  persist-credentials: false
+
+            - name: Set up Python
+              uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+              with:
+                  python-version: "3.12"
+
+            # The same gate as images-ci.yml: an open finding publishes
+            # nothing.
+            - name: Run make scan-images
+              run: make scan-images
+
+            - name: Push to GHCR
+              id: push
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  revision="$(git rev-parse --short=12 HEAD)"
+                  echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+                  {
+                      echo "### Preview images"
+                      echo
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  for image in backend console; do
+                      target="$REGISTRY/sentinelcore-$image:pr-$HEAD_SHA"
+                      docker tag "sentinelcore-$image:$revision" "$target"
+                      docker push --quiet "$target"
+                      digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$target")"
+                      digest="${digest#*@}"
+                      echo "$image=$digest" >> "$GITHUB_OUTPUT"
+                      echo "- \`$target\` (\`$digest\`)" >> "$GITHUB_STEP_SUMMARY"
+                  done
+
+            - name: Sign the images
+              env:
+                  BACKEND: ${{ steps.push.outputs.backend }}
+                  CONSOLE: ${{ steps.push.outputs.console }}
+              run: |
+                  cosign="$(./scripts/tools.sh cosign)/cosign"
+                  "$cosign" sign --yes "$REGISTRY/sentinelcore-backend@$BACKEND"
+                  "$cosign" sign --yes "$REGISTRY/sentinelcore-console@$CONSOLE"
+
+            - name: Attest the backend's provenance
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-backend
+                  subject-digest: ${{ steps.push.outputs.backend }}
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Attest the backend's SBOM
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-backend
+                  subject-digest: ${{ steps.push.outputs.backend }}
+                  sbom-path: .scan/sbom-backend.spdx.json
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Attest the console's provenance
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-console
+                  subject-digest: ${{ steps.push.outputs.console }}
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Attest the console's SBOM
+              uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+              with:
+                  subject-name: ${{ env.REGISTRY }}/sentinelcore-console
+                  subject-digest: ${{ steps.push.outputs.console }}
+                  sbom-path: .scan/sbom-console.spdx.json
+                  push-to-registry: true
+                  create-storage-record: false
+
+            - name: Log out of GHCR
+              if: always()
+              run: docker logout ghcr.io

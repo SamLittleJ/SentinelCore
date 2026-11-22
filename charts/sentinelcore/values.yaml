@@ -75,3 +75,11 @@ console:
     limits:
       cpu: 200m
       memory: 128Mi
+
+# A preview's first owner (templates/owner.yaml), from the Secret its Jobs
+# made: the email the demo's simulator signs in with (`make preview SEED=1`).
+owner:
+  enabled: false
+  email: owner@sim.example.com
+  username: owner
+  secret: preview-owner

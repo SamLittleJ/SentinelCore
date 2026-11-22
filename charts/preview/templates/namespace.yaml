@@ -1,0 +1,14 @@
+# The preview's namespace is a resource of its application, so Argo CD
+# deletes it, and all in it, when the pull request is closed or loses its
+# label. Its labels put it under Kubernetes' "restricted" Pod Security
+# Standard and Kyverno's preview policies (kyverno/previews.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    sentinelcore/preview: "true"
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.35
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"

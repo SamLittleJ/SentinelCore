@@ -62,10 +62,13 @@ metadata:
     app.kubernetes.io/name: sentinelcore-console
     {{- include "sentinelcore.labels" . | nindent 4 }}
 spec:
+  {{- /* A preview has no NodePort: `make preview` forwards a port to it. */}}
+  {{- if .Values.console.nodePort }}
   type: NodePort
   # Traffic stays on the node it arrived at, so nginx sees the sender's
   # address rather than another node's.
   externalTrafficPolicy: Local
+  {{- end }}
   selector:
     app.kubernetes.io/name: sentinelcore-console
     app.kubernetes.io/instance: {{ .Release.Name }}
@@ -73,4 +76,6 @@ spec:
     - name: http
       port: 8080
       targetPort: http
-      nodePort: {{ .Values.console.nodePort }}
+      {{- with .Values.console.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}

@@ -56,7 +56,7 @@ from app.models import (  # noqa: F401
     user_session,
 )
 from app.models.security_event import DETECTION_SOURCE, SecurityEvent
-from simulator.__main__ import LOCAL_HOSTS, loopback_senders
+from simulator.__main__ import LOCAL_HOSTS, forwarded_senders, loopback_senders
 from simulator.attacks import Attack, plan_attacks
 from simulator.client import SentinelCore, SimulatorError
 from simulator.population import (
@@ -421,6 +421,13 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--owner-email", required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
+        "--forwarded-for",
+        action="store_true",
+        help="Name each attacker's address in X-Forwarded-For instead of "
+        "sending from it: for a backend reached through a port-forward that "
+        "trusts it as a proxy (`make preview SEED=1`).",
+    )
+    parser.add_argument(
         "--accounts-dir",
         type=Path,
         help="Where to write the admins' passwords, one file each, mode 600.",
@@ -456,7 +463,10 @@ def main(argv: list[str] | None = None) -> int:
         f"Password for {args.owner_email}: "
     )
     with httpx.Client(base_url=args.base_url, timeout=60) as http:
-        owner = SentinelCore(http, from_address=loopback_senders(args.base_url))
+        senders = (forwarded_senders if args.forwarded_for else loopback_senders)(
+            args.base_url
+        )
+        owner = SentinelCore(http, from_address=senders)
         admin, analyst = SentinelCore(http), SentinelCore(http)
         try:
             owner.log_in(args.owner_email, password)

@@ -365,7 +365,8 @@ check "Grafana refuses a request without its password" grafana_locked
 
 # GitOps: Git is the only source. A change made by hand is reverted by
 # Argo CD's self-heal within a minute (docs/07-gitops.md). The API is a
-# Rollout there, with its canary (scripts/canary-check.sh).
+# Rollout there, with its canary (scripts/canary-check.sh); the previews of
+# pull requests are checked on a drill (scripts/preview-check.sh).
 if [[ "${CLUSTER:-}" == gitops ]]; then
   api_replicas() { kubectl get rollout.argoproj.io sentinelcore-backend -n "$NAMESPACE" -o jsonpath='{.spec.replicas}'; }
   self_healed() {
@@ -382,6 +383,8 @@ if [[ "${CLUSTER:-}" == gitops ]]; then
   check "a change made by hand is reverted from Git" self_healed
   # shellcheck source=scripts/canary-check.sh
   source "$ROOT/scripts/canary-check.sh"
+  # shellcheck source=scripts/preview-check.sh
+  source "$ROOT/scripts/preview-check.sh"
 fi
 
 if ((failed > 0)); then
