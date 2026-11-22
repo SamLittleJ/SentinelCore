@@ -24,12 +24,12 @@ tests:
             exp_labels: {severity: page, slo: availability}
             exp_annotations:
               summary: The API answers with 5xx fast enough to spend the 30-day budget within days.
-              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreAvailabilityBurnRate.md
           - &availability-ticket
             exp_labels: {severity: ticket, slo: availability}
             exp_annotations:
               summary: The API's 5xx are spending the 30-day budget about three times too fast.
-              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreAvailabilityBurnRate.md
 
   - name: a short burst pages through the 1h and 5m windows alone
     # Six clean hours, then 15 minutes at 50% errors: 12.5% over the hour,
@@ -153,12 +153,12 @@ tests:
             exp_labels: {severity: page, slo: sign-in-latency}
             exp_annotations:
               summary: Sign-ins are slower than 0.5 s often enough to spend the 30-day budget within days.
-              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreSignInLatencyBurnRate.md
           - &sign-in-ticket
             exp_labels: {severity: ticket, slo: sign-in-latency}
             exp_annotations:
               summary: Slow sign-ins are spending the 30-day budget about three times too fast.
-              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreSignInLatencyBurnRate.md
 
   - name: 20% slow is above the ticket's 15% but below the pages' 30% and 72%
     interval: 1m
@@ -218,7 +218,7 @@ tests:
             exp_labels: {severity: ticket, slo: detection-freshness}
             exp_annotations:
               summary: At least one of Falco's alerts reached the API more than 60 s after the action.
-              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreruntimealertslate
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreRuntimeAlertsLate.md
 
   - name: alerts on time do not, and a late one is forgotten after 30 minutes
     interval: 1m
@@ -257,7 +257,7 @@ tests:
           - exp_labels: {severity: page, slo: availability}
             exp_annotations:
               summary: Prometheus has reached no API pod for two minutes.
-              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreapidown
+              runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreApiDown.md
 
   - name: one pod down of two is not the API down
     interval: 1m

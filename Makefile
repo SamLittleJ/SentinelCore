@@ -1,4 +1,4 @@
-.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana cluster-check deploy-lint scan scan-images verify-images backup backup-check gitops-up gitops-down argocd preview deploy-pr
+.PHONY: help demo demo-clean evaluate-rba evaluate-rba-offline screenshots images lock lock-scanners verify tools up down grafana incident cluster-check deploy-lint scan scan-images verify-images backup backup-check gitops-up gitops-down argocd preview deploy-pr
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-14s %s\n", $$1, $$2}'
@@ -63,6 +63,9 @@ scan: ## Scan dependencies and deployment files; open findings fail (security/ex
 
 scan-images: images ## Build the images, then an SBOM of each and its known vulnerabilities (.scan/)
 	@REVISION=$(REVISION) ./scripts/scan-images.sh
+
+incident: ## The incident drill on make up's cluster: a password spray, then a shell in the API's container (docs/postmortems/)
+	@./scripts/incident.sh
 
 cluster-check: ## Check the running cluster's security properties, one line each
 	@./scripts/cluster-check.sh

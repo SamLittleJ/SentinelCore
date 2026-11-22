@@ -171,6 +171,7 @@ Images published before signing began (C3) have no signature and are refused.
 make up              # the images, a kind cluster and both Helm charts; then http://localhost:8080
 make up FROM=registry  # the same, with this commit's signed GHCR images instead of a local build
 make cluster-check   # the running cluster's security properties, one line each
+make incident        # the incident drill on this cluster: a password spray, then a shell in the API (docs/postmortems/)
 make grafana         # the cluster's Grafana at http://127.0.0.1:3001 (user admin, password in .kind/grafana.txt)
 make gitops-up       # the GitOps cluster at http://localhost:8081: Terraform and Argo CD, then everything from main (docs/07-gitops.md)
 make argocd          # its Argo CD at http://127.0.0.1:3002 (user admin, password in .kind/gitops/argocd.txt)
@@ -235,6 +236,8 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [06 - Backups](docs/06-backups.md): the nightly dump, how a restore is proven, and the steps to restore for real
 - [07 - GitOps](docs/07-gitops.md): the GitOps cluster, what Argo CD manages, and how a version is deployed
 - [08 - Architecture](docs/08-architecture.md): the system's context and its containers, as C4 diagrams
+- [Runbooks](docs/runbooks/README.md): what to do when each alert fires
+- [Postmortems](docs/postmortems/2026-11-22-spray-and-shell.md): the incident drill (`make incident`), a password spray and a shell in the API's container
 - [Architecture decision records](docs/adr/README.md): the twelve decisions that shape the architecture, each with its options and consequences
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 - [Independent evaluation](docs/evaluation/independent-rba.md): the detection rules on a public, labelled data set of 31 million sign-ins (`make evaluate-rba`), with this application's lockout as a baseline

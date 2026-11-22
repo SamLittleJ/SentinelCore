@@ -38,42 +38,25 @@ Burn rates follow the multi-window method of the Google SRE Workbook (chapter 5)
 
 A burn-rate alert also needs at least 20 requests in its long window: with almost no traffic, one 5xx in three requests would page. A real outage with no traffic at all is caught by `SentinelCoreApiDown`.
 
+Each alert's `runbook_url` opens its runbook in [`docs/runbooks/`](runbooks/README.md): the first checks with their commands, how to stop the damage and how to know it is over.
+
 ### SentinelCoreAvailabilityBurnRate
 
-**Means:** the API answers with 5xx fast enough to spend the 30-day budget within days (page) or about three times too fast (ticket).
-
-**First checks:**
-1. The dashboard's availability row: which window is high, and since when.
-2. Which routes fail: in Prometheus, `sum by (route, status_code) (rate(sentinelcore_http_requests_total{status_code=~"5.."}[5m]))`.
-3. The API's logs for those requests: `kubectl logs -n sentinelcore -l app.kubernetes.io/name=sentinelcore-backend`; a log line's `trace_id` finds its trace in Tempo.
-4. The database: `kubectl get pods -n sentinelcore` and `make cluster-check` (the API reaches the database).
+**Means:** the API answers with 5xx fast enough to spend the 30-day budget within days (page) or about three times too fast (ticket). [Runbook](runbooks/SentinelCoreAvailabilityBurnRate.md).
 
 ### SentinelCoreSignInLatencyBurnRate
 
-**Means:** too many sign-ins take longer than 0.5 s.
-
-**First checks:**
-1. Whether sign-ins come in a burst (a spray or a flood): the overview dashboard's failed logins, and refused sign-ins (`sentinelcore_login_refused_total`). A flood is a security matter first (T-80).
-2. The API pods' CPU against their limits: the password hash is CPU-bound.
-3. A slow sign-in's trace in Tempo: the time spent in SQL against the time spent hashing.
+**Means:** too many sign-ins take longer than 0.5 s. [Runbook](runbooks/SentinelCoreSignInLatencyBurnRate.md).
 
 ### SentinelCoreRuntimeAlertsLate
 
-**Means:** at least one of Falco's alerts reached the API more than 60 s after the action, within the last 30 minutes (ticket).
-
-**First checks:**
-1. Whether falcosidekick restarted recently: `kubectl get pods -n falco`. After a restart, Falco's output can stall for one to two minutes (T-76); the alerts arrive late, not lost.
-2. falcosidekick's logs for failed posts: `kubectl logs -n falco -l app.kubernetes.io/name=falcosidekick`.
-3. The API's policy still lets falcosidekick in (`network-policies/sentinelcore.yaml`).
+**Means:** at least one of Falco's alerts reached the API more than 60 s after the action, within the last 30 minutes (ticket). [Runbook](runbooks/SentinelCoreRuntimeAlertsLate.md).
 
 ### SentinelCoreApiDown
 
-**Means:** Prometheus has reached no API pod for two minutes. The availability ratio shows nothing then, because no request is recorded.
+**Means:** Prometheus has reached no API pod for two minutes. The availability ratio shows nothing then, because no request is recorded. [Runbook](runbooks/SentinelCoreApiDown.md).
 
-**First checks:**
-1. `kubectl get pods -n sentinelcore`: are the API pods running and ready?
-2. Prometheus' targets (`/targets`): an error there, for example a 401, points to the metrics token rather than the API.
-3. The API's policy still lets Prometheus in (`network-policies/sentinelcore.yaml`).
+Falco's own alerts are not Prometheus alerts: they reach the console as platform alerts, with runbooks of their own ([container shell](runbooks/container-shell.md), [sensitive file read](runbooks/sensitive-file-read.md), [network tool](runbooks/container-network-tool.md)).
 
 ## Limits
 

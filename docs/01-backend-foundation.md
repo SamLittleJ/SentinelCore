@@ -5692,3 +5692,30 @@ On 2026-11-22 `make scan-images` failed on the canary's pull request (#110) with
 - `make cluster-check CLUSTER=gitops` on the GitOps cluster reading the branch: 86 of 86, the preview drill included.
 - On pull request #112, labelled `preview`: its images were published and signed by `preview-images.yml`, and its pods ran them by digest; `make preview PR=112 SEED=1` loaded the demo (58 people, 4,823 sign-ins, 18 alerts, from 1,608 addresses) and the owner signed in through the console; an image of the pull request was refused in `sentinelcore` and admitted in its preview; when the pull request was merged, both applications and the namespace were deleted.
 - Mutations, each caught: the pull request's identity added to `sentinelcore`'s signature policy (`make deploy-lint`); the Secrets' Job replacing existing Secrets (3 pytest tests); a preview without its network policies (it reached `sentinelcore`'s console and the internet); the namespace not a resource of the application (it stayed after the applications were deleted).
+
+## Phase F2: runbooks and an incident drill
+
+### 476. Runbooks
+
+- `docs/runbooks/` holds one runbook per alert: the four Prometheus alerts, whose `runbook_url` now points there, and the three types of Falco alerts. Each says what the alert means, its impact, the first checks with their commands, how to stop the damage, how to know it is over, when to escalate. `docs/05` keeps one line per alert and a link.
+- `make deploy-lint` requires every alert's `runbook_url` to name a file in `docs/runbooks/`.
+
+### 477. The incident drill
+
+- `make incident` (`scripts/incident.sh`) runs on the `make up` cluster only, and refuses another kubeconfig or the GitOps cluster. It starts the incident and nothing more: `python -m simulator.incident` creates an organization of its own, "Northwind (incident drill)", with fourteen members invited, then tries one wrong password on twelve of them from one address, above the spray rule's ten accounts and under the address's twenty failures; then a shell with a terminal runs `id` and `hostname` in a running API container. Each step prints its time.
+- The response is by hand, with the runbooks; [`docs/postmortems/2026-11-22-spray-and-shell.md`](postmortems/2026-11-22-spray-and-shell.md) is the first run's blameless postmortem.
+
+### 478. What was found
+
+- **Falco reported no shell in the API's containers**, about 23 hours old, while it reported one in a new probe pod and in the API pod that replaced the old one; restarting Falco restored it. The cause is not known. `make cluster-check` opens its shell in a new pod each run, so it never saw this. The runbooks now say how to tell this blind spot from an outage, and T-76 records it.
+- The spray rule needs ten accounts (`DETECTION_SPRAY_MIN_ACCOUNTS`), not the eight first planned, so the drill sprays twelve.
+- `kubectl logs -l <selector>` shows only the last ten lines of each pod: the runbooks read Falco's log as `ds/falco` instead.
+- A `make up` cluster installed before D1b's Prometheus lifecycle API could not reload its rules (403 to the config reloader) until Prometheus was restarted; a new `make up` has the flag.
+- An in-process test of the spray needs a client with an address: the rule skips events with none, and the test client's default host is not one.
+
+### 479. Local validation
+
+- `pytest tests/test_incident.py`: 3 passed.
+- `make incident` on the `make up` cluster: the spray alert 0.1 s after the tenth account; the shell, see 478. The response took 4 minutes 55 seconds, from its first command (16:31:55) to `make cluster-check`'s 46 of 46.
+- Runbooks: every command run on the `make up` cluster; two that failed were fixed (`audit_logs` has `created_at`, not `occurred_at`; Falco's log through its DaemonSet). `SentinelCoreApiDown` fired for real: API scaled to zero at 16:37:01, pending at 16:37:31, firing at 16:39:31, gone 35 seconds after the runbook's fix. A sensitive read and a shell sent over the network, in a temporary namespace whose pod ran as root, each reached the console within the same second.
+- `make verify`: 15 of 15 (pytest 817, vitest 259).
