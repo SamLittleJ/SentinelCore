@@ -5661,3 +5661,34 @@ On 2026-11-22 `make scan-images` failed on the canary's pull request (#110) with
 - Real canaries of the API on the GitOps cluster, from a harmless change pushed to the branch: after the fixes above, both steps passed (0% of 5xx; 354 to 646 requests on the new pod at 20%, 781 to 973 at 60%) and the version was promoted in about 7.5 minutes. The first one, before them, was stopped and the stable version kept, as a failed analysis should.
 - `make verify` 15/15 (pytest 806, vitest 259).
 - Mutations, each failing a check: the error threshold raised to 110% (the drill's broken version is not stopped); the minimum of requests removed, and the error query reading every pod (`make deploy-lint`); Argo Rollouts synced after the API (`make deploy-lint`); the traffic sent to the sign-in route (`tests/test_canary_traffic.py`).
+
+## Phase D1c: previews of pull requests
+
+### 472. Images and admission
+
+- A pull request of this repository labelled `preview` gets its images from a new workflow, `preview-images.yml`: built from the pull request's head commit, scanned with the same gate as `main`, published to GHCR as `pr-<head commit>`, signed with cosign and attested (SLSA provenance and the SBOM). It runs whatever the pull request changes; forks and Dependabot get no token to publish or sign with.
+- Kyverno has policies of its own for the namespaces labelled `sentinelcore/preview` (`kyverno/previews.yaml`): our images signed by `preview-images.yml` on a pull request or by `images-ci.yml` on `main`, the tag resolved to the digest it checked (`mutateDigest`), and `sentinelcore`'s pod rules, except that the Secrets' Job, under its own account, may mount a token. `sentinelcore` keeps accepting `main`'s signature only.
+
+### 473. The applications
+
+- Argo CD's ApplicationSet controller is on. Two ApplicationSets ask GitHub every five minutes, without a token, for the open pull requests labelled `preview`, and make two applications for each, in the namespace `preview-<n>`: its base from the revision the cluster reads (`charts/preview`: the namespace, its network policies, the Job that creates its Secrets; and `charts/postgresql` with a database named `sentinelcore_demo`), and the application from the pull request's head commit (`charts/sentinelcore` with `deploy/preview.yaml`: one API pod, no canary, no traces, no Falco token, no NodePort, and a Job that creates the first owner after each sync).
+- Each has an Argo CD project: the base may create a namespace, the pull request's application nothing outside its namespace, nor network policies, roles or quotas in it.
+- The Secrets' Job (`backend/app/preview_secrets.py`, from a ConfigMap on `main`'s backend image) creates the four Secrets once through the Kubernetes API, changes nothing once they exist, and stops if only some exist. Its account may only get and create Secrets in its namespace.
+- `make preview PR=<n>` waits for both applications, writes the owner's password to `.kind/gitops/preview-<n>.txt` and forwards 127.0.0.1:8090 to the console; `SEED=1` first runs the demo's simulator through port-forwards, with a new mode `--forwarded-for` that names each attacker's address in `X-Forwarded-For`, which a preview's API trusts from `127.0.0.1`.
+- `make gitops-up` waits for every application except the previews, which follow pull requests rather than the commit it deploys.
+
+### 474. What was found
+
+- Kyverno 1.19 refuses an attestor with several identities ("multiple identities are not supported at this time") and reported it as an unsigned image: the two identities are one regular expression.
+- A `ValidatingPolicy` is applied by default to the Deployments and Jobs that make pods as well, where a pull request's image is still a tag, before the signature policy resolves it in the pod: the preview pod rules apply to pods only.
+- Argo CD reports an application healthy while its PostSync hook still runs: the drill waits for the owner's Job. Deleting the applications while that hook ran left the namespace stuck behind the hook's finalizer.
+- `kubectl create job --from=` accepts a CronJob only: the drill copies the Secrets' Job with `jq` to run it again.
+- A newer push cancelled the images' run of the commit before it between signing and attesting: Kyverno rightly refused those images, and Argo CD kept retrying that commit's sync instead of moving to the next. Runs are no longer cancelled.
+- A preview without its own network policies still could not reach `sentinelcore`'s API, whose ingress refuses it, but reached `sentinelcore`'s console, open to any source, and the internet. The drill now checks the console, so that mutation is caught.
+
+### 475. Local validation
+
+- `make verify`: 15 checks; pytest 814, vitest 259; pyright's one error in the new test was fixed after the run and checked alone (0 errors).
+- `make cluster-check CLUSTER=gitops` on the GitOps cluster reading the branch: 86 of 86, the preview drill included.
+- On pull request #112, labelled `preview`: its images were published and signed by `preview-images.yml`, and its pods ran them by digest; `make preview PR=112 SEED=1` loaded the demo (58 people, 4,823 sign-ins, 18 alerts, from 1,608 addresses) and the owner signed in through the console; an image of the pull request was refused in `sentinelcore` and admitted in its preview; when the pull request was merged, both applications and the namespace were deleted.
+- Mutations, each caught: the pull request's identity added to `sentinelcore`'s signature policy (`make deploy-lint`); the Secrets' Job replacing existing Secrets (3 pytest tests); a preview without its network policies (it reached `sentinelcore`'s console and the internet); the namespace not a resource of the application (it stayed after the applications were deleted).
