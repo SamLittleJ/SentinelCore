@@ -6,6 +6,7 @@ repoURL: https://github.com/SamLittleJ/SentinelCore.git
 # digest: the same versions as scripts/tools.sh, whose files `make up`
 # checks by SHA-256. Falco, the Collector, Tempo and Prometheus are byte for
 # byte the files tools.sh pins; Kyverno and Grafana render identically.
+# Argo Rollouts runs only here, so only its kubectl plugin is in tools.sh.
 charts:
   kyverno:
     oci: oci://ghcr.io/kyverno/charts/kyverno
@@ -31,3 +32,7 @@ charts:
     oci: oci://ghcr.io/grafana-community/helm-charts/grafana
     version: 14.2.0
     digest: sha256:022c539b087a1b2d7cd95ffd6e34e7840309c6515791219a4236146498c2112b
+  argo-rollouts:
+    oci: oci://ghcr.io/argoproj/argo-helm/argo-rollouts
+    version: 2.43.12
+    digest: sha256:87de4bac1be47355a92f388467ec7651e179e26177c103925d5e0245d46ead12

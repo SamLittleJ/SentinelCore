@@ -1,0 +1,157 @@
+{{- if .Values.backend.canary.enabled }}
+{{- $a := .Values.backend.canary.analysis }}
+{{- /* The pods of the new version, for the analysis's traffic: Argo Rollouts
+adds the new version's pod-template hash to this selector. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentinelcore-backend-canary
+  labels:
+    app.kubernetes.io/name: sentinelcore-backend
+    {{- include "sentinelcore.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/name: sentinelcore-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# The traffic's script (backend/app/canary_traffic.py, through a link in
+# files/): it runs with the Python of the signed backend image, whatever
+# version that image is, so the analysis never depends on the version it
+# judges having the script.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sentinelcore-canary-traffic
+  labels:
+    {{- include "sentinelcore.labels" . | nindent 4 }}
+data:
+  canary_traffic.py: |
+    {{- .Files.Get "files/canary_traffic.py" | nindent 4 }}
+---
+# The analysis of each canary step (docs/07-gitops.md). Two parts, run
+# together: a Job sends synthetic traffic to the new pods only, through
+# requests that read the database and write nothing (canary_traffic.py);
+# Prometheus reads the new pods' 5xx rate and request count. The step fails
+# above the error rate, and also with too few requests: no traffic is not a
+# pass. The canary drill of `make cluster-check CLUSTER=gitops` uses this
+# template with its own workload, metric prefix and shorter arguments.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: sentinelcore-canary
+  labels:
+    {{- include "sentinelcore.labels" . | nindent 4 }}
+spec:
+  args:
+    # The new version's pod-template hash, from the Rollout.
+    - name: canary-hash
+    # The pods are named <workload>-<hash>-<suffix>.
+    - name: workload
+      value: sentinelcore-backend
+    - name: service
+      value: sentinelcore-backend-canary
+    - name: metric-prefix
+      value: sentinelcore
+    - name: image
+    - name: traffic-seconds
+      value: {{ $a.trafficSeconds | quote }}
+    - name: rate
+      value: {{ $a.rate | quote }}
+    - name: interval
+      value: {{ $a.interval | quote }}
+    - name: count
+      value: {{ $a.count | quote }}
+    - name: max-error-ratio
+      value: {{ $a.maxErrorRatio | quote }}
+    - name: min-requests
+      value: {{ $a.minRequests | quote }}
+  metrics:
+    - name: traffic
+      provider:
+        job:
+          metadata:
+            labels:
+              app.kubernetes.io/name: sentinelcore-canary-traffic
+          spec:
+            backoffLimit: 0
+            activeDeadlineSeconds: 600
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: sentinelcore-canary-traffic
+              spec:
+                restartPolicy: Never
+                automountServiceAccountToken: false
+                securityContext:
+                  {{- include "sentinelcore.podSecurity" . | nindent 18 }}
+                  {{- include "sentinelcore.backendUser" . | nindent 18 }}
+                containers:
+                  - name: traffic
+                    image: "{{ "{{" }}args.image{{ "}}" }}"
+                    command:
+                      - python
+                      - /canary/canary_traffic.py
+                      - --url
+                      - "http://{{ "{{" }}args.service{{ "}}" }}:8000"
+                      - --seconds
+                      - "{{ "{{" }}args.traffic-seconds{{ "}}" }}"
+                      - --rate
+                      - "{{ "{{" }}args.rate{{ "}}" }}"
+                    # No setting and no Secret: it needs neither.
+                    resources:
+                      requests: {cpu: 20m, memory: 64Mi}
+                      limits: {cpu: 200m, memory: 128Mi}
+                    securityContext:
+                      {{- include "sentinelcore.containerSecurity" . | nindent 22 }}
+                    volumeMounts:
+                      - name: script
+                        mountPath: /canary
+                        readOnly: true
+                volumes:
+                  - name: script
+                    configMap:
+                      name: sentinelcore-canary-traffic
+    # The new pods' share of 5xx, without /health and /metrics as in the SLOs
+    # (observability/slo-rules.yaml). The first reading waits 90 seconds: the
+    # traffic Job starts only once Kyverno has checked its image's signature,
+    # which can take half a minute, and a reading at 60 seconds once counted
+    # 35 requests where there would be 150.
+    - name: error-ratio
+      initialDelay: 90s
+      interval: "{{ "{{" }}args.interval{{ "}}" }}"
+      count: "{{ "{{" }}args.count{{ "}}" }}"
+      failureLimit: 0
+      successCondition: "result[0] < {{ "{{" }}args.max-error-ratio{{ "}}" }}"
+      provider:
+        prometheus:
+          address: {{ $a.prometheus }}
+          query: |
+            (sum(increase({{ "{{" }}args.metric-prefix{{ "}}" }}_http_requests_total{pod=~"{{ "{{" }}args.workload{{ "}}" }}-{{ "{{" }}args.canary-hash{{ "}}" }}-.*",route!~"/health.*|/metrics",status_code=~"5.."}[5m])) or vector(0))
+            /
+            sum(increase({{ "{{" }}args.metric-prefix{{ "}}" }}_http_requests_total{pod=~"{{ "{{" }}args.workload{{ "}}" }}-{{ "{{" }}args.canary-hash{{ "}}" }}-.*",route!~"/health.*|/metrics"}[5m]))
+    - name: requests
+      initialDelay: 90s
+      interval: "{{ "{{" }}args.interval{{ "}}" }}"
+      count: "{{ "{{" }}args.count{{ "}}" }}"
+      failureLimit: 0
+      successCondition: "result[0] >= {{ "{{" }}args.min-requests{{ "}}" }}"
+      provider:
+        prometheus:
+          address: {{ $a.prometheus }}
+          query: |
+            sum(increase({{ "{{" }}args.metric-prefix{{ "}}" }}_http_requests_total{pod=~"{{ "{{" }}args.workload{{ "}}" }}-{{ "{{" }}args.canary-hash{{ "}}" }}-.*",route!~"/health.*|/metrics"}[5m])) or vector(0)
+{{- end }}
+
+{{- /* What the Rollout passes to each analysis: the new version's hash and
+the image its traffic Job runs. */ -}}
+{{- define "sentinelcore.canaryArgs" -}}
+- name: canary-hash
+  valueFrom:
+    podTemplateHashValue: Latest
+- name: image
+  value: "{{ include "sentinelcore.image" (list . "backend") }}"
+{{- end }}

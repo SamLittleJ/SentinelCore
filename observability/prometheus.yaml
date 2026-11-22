@@ -43,7 +43,10 @@ server:
   # Asks the Kubernetes API where the pods are.
   automountServiceAccountToken: true
   enableServiceLinks: false
-  extraFlags: []
+  # The reloader above calls /-/reload, which needs the lifecycle API. It
+  # also offers /-/quit: only Grafana and Argo Rollouts' controller reach
+  # this port (network-policies/observability.yaml).
+  extraFlags: [web.enable-lifecycle]
   retention: 2d
   persistentVolume:
     enabled: false
@@ -134,3 +137,27 @@ scrapeConfigs:
         action: keep
       - source_labels: [__meta_kubernetes_pod_name]
         target_label: pod
+  # The canary drill of `make cluster-check CLUSTER=gitops`: the same API,
+  # its metrics renamed sentinelcore_drill_*, so the drill's deliberate 500s
+  # never reach the SLOs (slo-rules.yaml), which read sentinelcore_*.
+  sentinelcore-canary-drill:
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [sentinelcore]
+        selectors:
+          - role: pod
+            label: app.kubernetes.io/name=sentinelcore-canary-drill
+    authorization:
+      credentials_file: /etc/sentinelcore/token
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_container_port_number]
+        regex: "8000"
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: sentinelcore_(.*)
+        target_label: __name__
+        replacement: sentinelcore_drill_$1

@@ -19,6 +19,7 @@ An API-first platform for identity and access management, audit logging and secu
 ├── network-policies/     # the only network flows allowed in the cluster (make up)
 ├── deploy/               # the GitOps cluster's applications for Argo CD, and the images it runs
 ├── gitops/               # Terraform for the GitOps cluster and Argo CD
+├── argo-rollouts/        # the values of Argo Rollouts, which runs the API's canary on the GitOps cluster
 ├── observability/        # the Collector, Tempo, Prometheus and Grafana values, the SLO rules and dashboard: traces, metrics and alerts in the cluster (make up)
 ├── scripts/              # make verify, make screenshots, make up / down / cluster-check, make deploy-lint, make scan / scan-images / verify-images, pinned tools
 ├── security/             # scanners locked by hash and expiring scan exceptions
@@ -195,7 +196,7 @@ Three service level objectives are measured in the cluster's Prometheus ([`docs/
 
 The database is dumped every night at 02:00 UTC, seven kept, on a volume in the cluster ([`docs/06-backups.md`](docs/06-backups.md)). `make backup-check` proves the newest dump by restoring it into a database of its own: its checksum and age, its audit chains verified with the key, and each chain's last record found in the live database with the same seal. Cluster CI runs it on every change to the deployment. On kind, `make down` deletes the backups with the cluster.
 
-A second cluster runs SentinelCore by GitOps ([`docs/07-gitops.md`](docs/07-gitops.md)): Terraform creates it and installs Argo CD, which installs everything else from `main`, external charts pinned by the digest of their OCI artifacts and our images by the signed digests in `deploy/images.yaml`. Changes made by hand are reverted, and a deployment is a merged pull request, which `make deploy-pr` opens after checking the images' signature. CI builds this cluster at the commit under test and runs `make cluster-check` on it.
+A second cluster runs SentinelCore by GitOps ([`docs/07-gitops.md`](docs/07-gitops.md)): Terraform creates it and installs Argo CD, which installs everything else from `main`, external charts pinned by the digest of their OCI artifacts and our images by the signed digests in `deploy/images.yaml`. Changes made by hand are reverted, and a deployment is a merged pull request, which `make deploy-pr` opens after checking the images' signature. There the API is a canary run by Argo Rollouts: a new version gets one pod of five, then three, each step after an analysis that sends it synthetic traffic and reads its 5xx rate in Prometheus, and a version that fails is taken back on its own. CI builds this cluster at the commit under test and runs `make cluster-check` on it.
 
 ## Continuous integration
 

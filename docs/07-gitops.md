@@ -48,10 +48,35 @@ It checks the images' signature and attestations as `make up FROM=registry` does
 
 The pull request is opened from your machine, with your `gh` login, because one opened by a workflow with its own token would not start the checks that `main` requires.
 
+## Canary
+
+On the GitOps cluster the API is an Argo Rollouts `Rollout`, not a `Deployment` (`deploy/sentinelcore.yaml` turns it on; `make up` keeps the `Deployment`). Argo Rollouts' controller is an application of its own (`argo-rollouts`, chart pinned by digest, values in `argo-rollouts/values.yaml`), synced before the API.
+
+A new version, from a merged `make deploy-pr`, goes out in steps:
+
+1. **20%**: one new pod of five. With no ingress or service mesh, the traffic is split by the number of pods behind the API's Service.
+2. **Analysis**, about two minutes: a Job sends five requests a second for two minutes to the new pods only, through the Service `sentinelcore-backend-canary`. Prometheus reads, after 90 seconds and then every 30 seconds, four times in all, the new pods' share of 5xx (without `/health` and `/metrics`, as the SLOs) and how many requests they answered. The first reading waits for the traffic Job, which starts only once Kyverno has checked its image.
+3. **60%**: three new pods of five, then the same analysis.
+4. **100%**: the new version becomes the stable one.
+
+Argo Rollouts puts the new version's hash in that Service's selector; Argo CD is told to leave that key alone (`ignoreDifferences` in `deploy/templates/applications.yaml`), since a selector is replaced whole on apply and its self-heal would otherwise send the traffic to every pod.
+
+A step passes below 1% of 5xx and with at least 100 requests: an analysis that saw no traffic fails, it does not pass. The traffic uses only a request that reads the database and writes nothing: an ingestion batch with a well-formed key that does not exist, which the API looks up and refuses with 401. Failed sign-ins were not used: each would write a security event, spend the address's sign-in budget and could raise an alert. The script (`backend/app/canary_traffic.py`, linked into the chart) runs with the Python of the signed backend image, whatever its version, and holds no Secret.
+
+When an analysis fails, Argo Rollouts stops the canary: the new pods go, the stable version keeps all five, and Argo CD shows the application as Degraded. Git is not changed: `deploy/images.yaml` still names the version that was stopped until the next `make deploy-pr`, with a good version or the previous one.
+
+To follow a canary:
+
+```bash
+export KUBECONFIG=.kind/gitops/kubeconfig
+.tools/kubectl-argo-rollouts get rollout sentinelcore-backend -n sentinelcore --watch
+```
+
 ## Checks
 
-- `make cluster-check CLUSTER=gitops` runs every check of `make up`'s cluster on the GitOps one, plus two of its own: an image of ours that CI did not sign is refused, and a change made by hand (the API's replicas) is reverted from Git within a minute.
-- `make deploy-lint` renders `deploy/` and requires Kyverno, then its policies, to sync before every other application, and checks that the Terraform is formatted and valid.
+- `make cluster-check CLUSTER=gitops` runs every check of `make up`'s cluster on the GitOps one, plus its own: an image of ours that CI did not sign is refused, a change made by hand (the API's replicas) is reverted from Git within a minute, and the canary's checks (`scripts/canary-check.sh`).
+- **The canary drill** in those checks: a copy of the API under its own name, never behind the real Service, run with the API's own `AnalysisTemplate` and a shorter analysis (one minute of traffic, two readings). A harmless change must be promoted; a version on a database role without rights on the tables, ready but answering 500, must be stopped with the previous version kept. Its metrics are renamed `sentinelcore_drill_*`, so its 500s never reach the SLOs. It also checks that the traffic wrote no event, key usage or audit record, and removes the copy, its Secret and the role at the end.
+- `make deploy-lint` renders `deploy/` and requires Kyverno, then its policies, to sync before every other application and Argo Rollouts before the API; it checks that every query of the analysis reads the new pods only, that it requires a minimum of requests and that every step is analysed, and that the Terraform is formatted and valid.
 - Cluster CI runs `make gitops-up` with Argo CD reading the commit under test, then `make cluster-check CLUSTER=gitops`.
 
 ## Reaching Argo CD
@@ -67,4 +92,8 @@ There is no NodePort; the UI is reached only through this port-forward.
 - **Argo CD can change anything in the cluster.** It installs CRDs and namespaces, so it holds near cluster-admin rights. On kind it is reachable only through a port-forward, with a password kept locally (T-84).
 - **A merge to `main` deploys.** Review and CI stand between a change and the cluster, and only images signed by CI on `main` run (T-85).
 - **Charts are trusted by digest, not by SHA-256 of a file.** A digest pins the exact OCI artifact; a registry that served other bytes under it would be caught (T-86).
+- **Turning the API into a Rollout stops it briefly, once.** Argo CD deletes the old Deployment as it creates the Rollout, so on that first sync the API has no pod for some tens of seconds. A `Rollout` with a `workloadRef` to the Deployment would avoid it, at the cost of two objects for one workload.
+- **The canary is split by pods, not by requests.** Twenty percent means one pod of five behind the Service; with few users, the new version may get more or fewer of their requests in a step. Its analysis does not depend on them, since it sends its own traffic.
+- **Kyverno's check of a new image is close to its time limit.** For each pod of ours it verifies the signature, the provenance and the SBOM online with Sigstore: 17 to 28 seconds on kind for an image, against the admission webhook's 30 seconds, and it keeps no result for this kind of policy, so a second pod pays again. When several pods start at once (the migrations, then five replicas), the checks time out and are retried without end. The network to GitHub and Sigstore answers in about 0.3 seconds from inside the cluster; each check takes about 5.5 seconds from this machine too. `make gitops-up` restarts Kyverno's admission controller once when it sees such a timeout, which has let them through; the canary's steps, one pod and then two more, are themselves gentle on it. Checking the SBOM only before deployment (`make deploy-pr`) would cut a third of the time; that would change the admission rule of phase C, so it is left for a decision of its own. In CI it passes.
+- **The development cluster follows the revision it was built with.** A cluster built from a branch (`GITOPS_REVISION=feat/...`) keeps reading that branch after it is merged and deleted: rebuild it on `main` with `make gitops-up`. `make gitops-up` now waits for every application to report the target commit, not just to be synced.
 - **`make gitops-down` deletes the whole cluster**, not the applications one by one: some charts' delete hooks would wait for namespaces already gone.

@@ -28,13 +28,49 @@ say() { printf '==> %s\n' "$*"; }
 tf() { terraform -chdir="$ROOT/gitops" "$@"; }
 tf_vars=(-var "kubeconfig_path=$KUBECONFIG" -var "argocd_chart=$ROOT/.tools/argo-cd.tgz")
 
-# Every application synced and healthy, or the ones that are not after the
-# time allowed.
+# The commit GITOPS_REVISION names: a full commit as it is, a branch or tag
+# as GitHub has it now.
+resolve_revision() {
+  if [[ "$GITOPS_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "$GITOPS_REVISION"
+    return
+  fi
+  local repo
+  repo="$(sed -n 's/^repoURL: //p' "$ROOT/deploy/values.yaml")"
+  git ls-remote "$repo" "refs/heads/$GITOPS_REVISION" "refs/tags/$GITOPS_REVISION" | awk 'NR == 1 { print $1 }'
+}
+
+# Kyverno checks the signature, provenance and SBOM of each of our images as
+# a pod starts, online with Sigstore: 17 to 28 seconds on kind, against the
+# admission webhook's 30. When several pods start at once, the checks time
+# out and are retried without end; a restart of its admission controller has
+# let them through (docs/07-gitops.md). True when a pod was refused for that
+# in the last three minutes.
+kyverno_stuck() {
+  kubectl get events -A --field-selector reason=FailedCreate -o json | jq -e '
+    [.items[] | select((.message | test("kyverno.*(Timeout|timed out|deadline)"))
+      and ((.lastTimestamp // .eventTime) | sub("\\.[0-9]+"; "") | fromdateiso8601) > (now - 180))]
+    | length > 0' >/dev/null
+}
+
+# Every application synced and healthy at that commit, or the ones that are
+# not after the time allowed. Synced alone is not enough: right after the
+# root application moves to another revision, the others still report the
+# one they had.
 wait_applications() {
-  local deadline=$((SECONDS + 1200)) pending
+  local deadline=$((SECONDS + 1200)) pending commit
+  commit="$(resolve_revision)"
+  [[ -n "$commit" ]] || { echo "No commit for $GITOPS_REVISION on GitHub." >&2; return 1; }
+  local restarted=0
   while ((SECONDS < deadline)); do
-    pending="$(kubectl get applications -n argocd -o json | jq -r '
-      .items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy")
+    if ((restarted == 0)) && kyverno_stuck; then
+      say "Kyverno timed out checking image signatures; restarting its admission controller once"
+      kubectl delete pod -n kyverno -l app.kubernetes.io/component=admission-controller >/dev/null
+      restarted=1
+    fi
+    pending="$(kubectl get applications -n argocd -o json | jq -r --arg commit "$commit" '
+      .items[] | select(.status.sync.status != "Synced" or .status.health.status != "Healthy"
+        or (([.status.sync.revision] + (.status.sync.revisions // [])) | index($commit) | not))
       | "\(.metadata.name): \(.status.sync.status // "-")/\(.status.health.status // "-")"')"
     if [[ -z "$pending" ]] && (($(kubectl get applications -n argocd -o name | wc -l) > 1)); then
       return 0
@@ -79,7 +115,8 @@ up() {
   wait_applications
 
   local image
-  image="$(kubectl get deployment sentinelcore-backend -n sentinelcore \
+  # The API is a Rollout here (its canary, deploy/sentinelcore.yaml).
+  image="$(kubectl get rollout.argoproj.io sentinelcore-backend -n sentinelcore \
     -o jsonpath='{.spec.template.spec.containers[?(@.name=="backend")].image}')"
   OWNER_IMAGE="$image" CLUSTER="$CLUSTER" STATE="$STATE" URL="$URL" "$ROOT/scripts/cluster.sh" owner
   say "SentinelCore (GitOps) is at $URL"

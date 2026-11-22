@@ -5629,3 +5629,35 @@ Detection rules run inside the request that brings their event, so the delay wor
 ### 467. glibc
 
 On 2026-11-22 `make scan-images` failed on the canary's pull request (#110) with two findings unrelated to it: CVE-2026-19499 and CVE-2026-5435, High, in libc6 and libc-bin 2.41-12+deb13u4 of the backend image. Debian fixed both in deb13u5, which no `python:3.12-slim` digest has yet: the newest is the one pinned. The runtime stage installs libc6 and libc-bin at deb13u5 beside zlib1g, as it did on 2026-11-18, to be removed once the base image's digest includes them. `make scan-images` then reports no open finding.
+
+## Phase D1b: the API's canary
+
+### 468. Argo Rollouts
+
+- On the GitOps cluster the API is a `Rollout` of Argo Rollouts (v1.10.2, chart 2.43.12 by digest), whose controller is an application synced before the API. The chart renders the `Rollout` instead of the Deployment from the same pod template (`templates/_backend-pod.tpl`), so `make up` renders exactly what it did.
+- Five replicas; steps of 20% and 60%, each followed by an analysis, then 100%. A Service `sentinelcore-backend-canary` reaches the new pods only.
+- The controller holds none of the rights for service meshes or cloud load balancers, runs one replica and reaches only DNS, the Kubernetes API and Prometheus.
+
+### 469. The analysis
+
+- An `AnalysisTemplate` runs two things together: a Job that sends five requests a second to the new pods, and two Prometheus readings, the first after 90 seconds, then every 30 seconds, four in all: the new pods' share of 5xx and the number of requests they answered. A step fails above 1% or below 100 requests.
+- The new pods are found by name, which holds the new version's pod-template hash. `make deploy-lint` checks that every selector of both queries has it.
+- The traffic (`app/canary_traffic.py`) sends ingestion batches with a well-formed key that does not exist: one read of `api_keys`, then 401, and nothing written. It uses the standard library only and imports nothing of the application; the chart takes it through a link in `files/` into a ConfigMap, and the Job runs it with the backend image's Python and no Secret. Its first version ran as `python -m app.canary_traffic` from the image under test, which failed on the image deployed: that image predated the script.
+
+### 470. What was found
+
+- Prometheus never loaded a changed configuration on the GitOps cluster: its reloader got 403, because E4 had turned off the lifecycle API the reloader calls. It is on again, and `make cluster-check` now compares the scrape jobs Prometheus runs with its ConfigMap.
+- The drill's metrics would have counted in the SLOs, which read `sentinelcore_http_requests_total` from every pod: its scrape job renames them `sentinelcore_drill_*`.
+- `make gitops-up` waited for applications that were synced, not synced to the revision just applied: right after the root application moved to a branch, the others still reported the old commit as synced. It now waits for every application to report the target commit.
+- Kyverno takes 17 to 28 seconds to admit a pod with a new signed image (signature, provenance and SBOM, online with Sigstore), against the webhook's 30 seconds, and keeps no result for this kind of policy. From inside the cluster, GitHub and Sigstore answered in about 0.3 seconds; each check takes about 5.5 seconds from the host too. Several pods at once time out and retry without end; `make gitops-up` restarts its admission controller once when it sees that.
+- Argo CD deletes the Deployment as it creates the Rollout, so the API stops for some tens of seconds on that first sync.
+- The first real canary of the API was stopped although the version was good: at its first reading, after 60 seconds, the new pod had answered 35 requests. The traffic Job starts only once Kyverno has checked its image (up to half a minute); the first reading now waits 90 seconds.
+- In the next ones most of the synthetic requests reached the old pods. Argo Rollouts adds the new version's hash to the canary Service's selector; a selector is replaced whole on apply, so each self-heal of Argo CD removed it and the Service reached every pod. The drill, which Argo CD does not manage, never showed it. Argo CD now ignores that key of the selector (`ignoreDifferences` with `RespectIgnoreDifferences`), and `make cluster-check` checks that the canary Service selects the current version and that the application is synced. With it, the 20% step counted 354 to 646 requests on the new pod instead of 106 to 159.
+- Tempo was killed for memory (256 MiB) during a `make cluster-check` that followed canaries: every synthetic request is traced, with its SQL. It has 512 MiB now. Leaving the canary Services' host out of tracing was considered and dropped: nginx passes the client's `Host`, so anyone could have used it to keep requests out of the traces.
+
+### 471. Local validation
+
+- `make cluster-check CLUSTER=gitops`: 65 of 65, the canary drill included (a harmless change promoted, a version answering 500 stopped with the previous one kept, the real Service untouched, nothing written, nothing left behind); the canary adds about 7 minutes. Requests are still traced in Tempo after it.
+- Real canaries of the API on the GitOps cluster, from a harmless change pushed to the branch: after the fixes above, both steps passed (0% of 5xx; 354 to 646 requests on the new pod at 20%, 781 to 973 at 60%) and the version was promoted in about 7.5 minutes. The first one, before them, was stopped and the stable version kept, as a failed analysis should.
+- `make verify` 15/15 (pytest 806, vitest 259).
+- Mutations, each failing a check: the error threshold raised to 110% (the drill's broken version is not stopped); the minimum of requests removed, and the error query reading every pod (`make deploy-lint`); Argo Rollouts synced after the API (`make deploy-lint`); the traffic sent to the sign-in route (`tests/test_canary_traffic.py`).
