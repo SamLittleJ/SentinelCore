@@ -1,0 +1,58 @@
+# Argo Rollouts on the GitOps cluster (deploy/, docs/07-gitops.md): the
+# controller that runs the API's canary. Its chart comes by digest
+# (deploy/values.yaml); these are its values.
+
+controller:
+  # One is enough on kind; it holds a lease, so a second would only wait.
+  replicas: 1
+  image:
+    registry: quay.io
+    repository: argoproj/argo-rollouts
+    tag: v1.10.2@sha256:2a395642ea411ae7b09274a560c3934b16134dfe36f5ffaaa6054c8a21a2eecf
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+  metrics:
+    enabled: false
+
+# The canary splits traffic by replicas, with no mesh or ingress: none of the
+# providers' rights (Istio, SMI, AWS, Traefik, ...) is granted.
+providerRBAC:
+  enabled: false
+
+dashboard:
+  enabled: false
+
+# Its namespace reaches only DNS, the Kubernetes API and Prometheus, which
+# the analysis queries; nothing reaches it.
+extraObjects:
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: argo-rollouts
+      namespace: argo-rollouts
+    spec:
+      podSelector: {}
+      policyTypes: [Ingress, Egress]
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: kube-system
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - {protocol: UDP, port: 53}
+            - {protocol: TCP, port: 53}
+        - ports:
+            - {protocol: TCP, port: 6443}
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: observability
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: prometheus
+          ports:
+            - {protocol: TCP, port: 9090}

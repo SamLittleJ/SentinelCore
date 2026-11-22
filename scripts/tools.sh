@@ -66,6 +66,11 @@ TERRAFORM_VERSION=v1.17.2
 TERRAFORM_SHA256=e6f16b2f0b137ee5729caa8c4e79a3bae4ee261acd198a1fcfa8584a6296605b
 ARGOCD_CHART_VERSION=10.18.0
 ARGOCD_CHART_SHA256=9785aff67197402aab26d7ab3928ac8e611c292dacdee47f0e8ded16c2cd5a47
+# The kubectl plugin of Argo Rollouts (the API's canary on the GitOps
+# cluster, deploy/): the controller's release, v1.10.2, whose chart
+# deploy/values.yaml pins by digest. The SHA-256 is the release's own.
+ARGO_ROLLOUTS_VERSION=v1.10.2
+ARGO_ROLLOUTS_SHA256=355d62379d787a778f92903ce0b2fc1c1f4999d790d829370b6f1854a55f1cf9
 # promtool, which checks and tests the SLO rules (observability/slo-rules.yaml)
 # in `make deploy-lint`: from the release of the cluster's Prometheus server
 # (observability/prometheus.yaml), so both read the rules the same way.
@@ -96,7 +101,7 @@ wanted() {
 requested=("$@")
 for tool in "${requested[@]}"; do
   case "$tool" in
-    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|promtool|terraform|argo-cd|scanners) ;;
+    kind|kubectl|helm|kubeconform|hadolint|shellcheck|gitleaks|syft|grype|cosign|kyverno|falco|otel-collector|tempo|prometheus|grafana|promtool|terraform|argo-cd|kubectl-argo-rollouts|scanners) ;;
     *) echo "tools: unknown tool: $tool" >&2; exit 1 ;;
   esac
 done
@@ -183,6 +188,13 @@ if wanted cosign && ! installed cosign "$COSIGN_VERSION"; then
     "$COSIGN_SHA256" "$TOOLS/cosign"
   chmod 755 "$TOOLS/cosign"
   echo "$COSIGN_VERSION" >"$TOOLS/cosign.version"
+fi
+
+if wanted kubectl-argo-rollouts && ! installed kubectl-argo-rollouts "$ARGO_ROLLOUTS_VERSION"; then
+  fetch "https://github.com/argoproj/argo-rollouts/releases/download/$ARGO_ROLLOUTS_VERSION/kubectl-argo-rollouts-linux-amd64" \
+    "$ARGO_ROLLOUTS_SHA256" "$TOOLS/kubectl-argo-rollouts"
+  chmod 755 "$TOOLS/kubectl-argo-rollouts"
+  echo "$ARGO_ROLLOUTS_VERSION" >"$TOOLS/kubectl-argo-rollouts.version"
 fi
 
 if wanted terraform && ! installed terraform "$TERRAFORM_VERSION"; then

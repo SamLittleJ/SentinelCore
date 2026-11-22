@@ -77,6 +77,11 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: prometheus
+        # The canary's synthetic traffic (GitOps cluster), which an analysis
+        # sends to the new pods only (charts/sentinelcore, canary.yaml).
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sentinelcore-canary-traffic
       ports:
         - {protocol: TCP, port: 8000}
   egress:
@@ -96,7 +101,65 @@ spec:
       ports:
         - {protocol: TCP, port: 4318}
 ---
-# The database: reached by the API and the Jobs, talks to no one.
+# The canary's synthetic traffic: a Job of each analysis, which talks only to
+# the API (its canary Service) and to the drill's copy of it; nothing
+# reaches it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sentinelcore-canary-traffic
+  namespace: sentinelcore
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sentinelcore-canary-traffic
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [sentinelcore-backend, sentinelcore-canary-drill]
+      ports:
+        - {protocol: TCP, port: 8000}
+---
+# The canary drill of `make cluster-check CLUSTER=gitops`: a copy of the API
+# under its own name, so it is never behind the real Service. Reached only
+# by the synthetic traffic and by Prometheus; talks only to the database.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sentinelcore-canary-drill
+  namespace: sentinelcore
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sentinelcore-canary-drill
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sentinelcore-canary-traffic
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - {protocol: TCP, port: 8000}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+# The database: reached by the API, the Jobs and the canary drill's copy of
+# the API; talks to no one.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -113,7 +176,7 @@ spec:
             matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values: [sentinelcore-backend, sentinelcore-migrations, sentinelcore-owner, sentinelcore-backup, sentinelcore-backup-check]
+                values: [sentinelcore-backend, sentinelcore-migrations, sentinelcore-owner, sentinelcore-backup, sentinelcore-backup-check, sentinelcore-canary-drill]
       ports:
         - {protocol: TCP, port: 5432}
 ---

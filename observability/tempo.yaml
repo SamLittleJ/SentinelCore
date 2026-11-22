@@ -10,9 +10,11 @@ tempo:
   # within 30, and so do you in Grafana.
   queryFrontend:
     query_end_cutoff: 5s
+  # 512 MiB: at 256 it was killed for memory while a canary analysis traced
+  # its synthetic traffic (docs/07-gitops.md).
   resources:
-    requests: {cpu: 100m, memory: 256Mi}
-    limits: {cpu: 500m, memory: 256Mi}
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: 500m, memory: 512Mi}
   # Only the Collector sends, over OTLP/gRPC.
   receivers:
     otlp:
