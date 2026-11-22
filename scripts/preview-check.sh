@@ -109,7 +109,7 @@ secrets_kept() {
   kubectl get job preview-secrets -n "$PREVIEW" -o json |
     jq '{apiVersion, kind, metadata: {name: "preview-secrets-again", labels: .metadata.labels},
          spec: (.spec | del(.selector) | .template.metadata.labels |= with_entries(
-           select(.key | test("controller-uid|job-name") | not))))}' |
+           select(.key | test("controller-uid|job-name") | not)))}' |
     kubectl create -n "$PREVIEW" -f - >/dev/null &&
     kubectl wait --for=condition=complete job/preview-secrets-again -n "$PREVIEW" --timeout=180s >/dev/null &&
     kubectl logs job/preview-secrets-again -n "$PREVIEW" | grep -q 'are present' &&
