@@ -234,6 +234,8 @@ Backend, tests and checks: [backend/README.md](backend/README.md).
 - [05 - SLOs](docs/05-slos.md): the service level objectives, how each is measured, and what to check when one of their alerts fires
 - [06 - Backups](docs/06-backups.md): the nightly dump, how a restore is proven, and the steps to restore for real
 - [07 - GitOps](docs/07-gitops.md): the GitOps cluster, what Argo CD manages, and how a version is deployed
+- [08 - Architecture](docs/08-architecture.md): the system's context and its containers, as C4 diagrams
+- [Architecture decision records](docs/adr/README.md): the twelve decisions that shape the architecture, each with its options and consequences
 - [Detection evaluation](docs/evaluation/report.md): detection rate, false positives and time to detect, measured by the attack simulator
 - [Independent evaluation](docs/evaluation/independent-rba.md): the detection rules on a public, labelled data set of 31 million sign-ins (`make evaluate-rba`), with this application's lockout as a baseline
 - [Baselines and thresholds](docs/evaluation/independent-rba-baselines.md): the Freeman et al. risk score against the same rules on the same sample, and the rules under other thresholds (`make evaluate-rba-offline`)
