@@ -106,7 +106,7 @@ groups:
           slo: availability
         annotations:
           summary: The API answers with 5xx fast enough to spend the 30-day budget within days.
-          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreAvailabilityBurnRate.md
       - alert: SentinelCoreAvailabilityBurnRate
         expr: |
           sentinelcore:slo_availability_error_ratio:rate1d > (3 * 0.005)
@@ -117,7 +117,7 @@ groups:
           slo: availability
         annotations:
           summary: The API's 5xx are spending the 30-day budget about three times too fast.
-          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreavailabilityburnrate
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreAvailabilityBurnRate.md
 
       # 95% within 0.5 s: budget 0.05, so 14.4 × 0.05 = 72% slow, 6 × = 30%,
       # 3 × = 15%.
@@ -139,7 +139,7 @@ groups:
           slo: sign-in-latency
         annotations:
           summary: Sign-ins are slower than 0.5 s often enough to spend the 30-day budget within days.
-          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreSignInLatencyBurnRate.md
       - alert: SentinelCoreSignInLatencyBurnRate
         expr: |
           sentinelcore:slo_sign_in_slow_ratio:rate1d > (3 * 0.05)
@@ -150,7 +150,7 @@ groups:
           slo: sign-in-latency
         annotations:
           summary: Slow sign-ins are spending the 30-day budget about three times too fast.
-          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoresigninlatencyburnrate
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreSignInLatencyBurnRate.md
 
       # Any of Falco's alerts more than 60 s late in the last 30 minutes.
       - alert: SentinelCoreRuntimeAlertsLate
@@ -163,7 +163,7 @@ groups:
           slo: detection-freshness
         annotations:
           summary: At least one of Falco's alerts reached the API more than 60 s after the action.
-          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreruntimealertslate
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreRuntimeAlertsLate.md
 
       # Every API pod down or gone: no requests are recorded, so the
       # availability ratio shows nothing.
@@ -175,4 +175,4 @@ groups:
           slo: availability
         annotations:
           summary: Prometheus has reached no API pod for two minutes.
-          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/05-slos.md#sentinelcoreapidown
+          runbook_url: https://github.com/SamLittleJ/SentinelCore/blob/main/docs/runbooks/SentinelCoreApiDown.md

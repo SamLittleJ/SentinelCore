@@ -903,3 +903,12 @@ Decided in one design session, in rounds, each with a recommended answer:
 - A preview is small: one API pod, no canary, no backups, no traces, no Falco token, no Prometheus scrape. Observability, Falco and Kyverno stay the cluster's own.
 - The namespace is a resource of the base application, not created by `CreateNamespace`, so deleting the application deletes it. The `pr-*` images stay in GHCR; they are public, as the code is.
 - CI checks a drill, `preview-0`, made from the ApplicationSets' own templates with `main`'s images, rather than a real pull request: a cluster job cannot depend on labels, and GitHub's runners share its limit of 60 requests an hour. The full path, with a pull request's images, was checked on this pull request itself.
+
+## Operations (F2)
+
+- One runbook per alert, in `docs/runbooks/`, each with the same parts. The four Prometheus alerts link there; Falco's three types are linked from the threat model and the SLO page rather than from the console, which would have needed interface code, translations and an end-to-end run. The application's own detection alerts get no runbook here: they are for each organization's people, not for the platform's operator.
+- The drill runs on the `make up` cluster, not the GitOps one, whose self-heal would undo the response's steps while they are taken.
+- `make incident` starts the incident and nothing more; the response is by hand and timed, so the postmortem measures the runbooks rather than a script.
+- The shell runs in a real API pod, not a probe, so the alert names a workload the runbook can act on. That choice is what found Falco's blind spot for long-running containers.
+- Actions that need code are notes in `docs/00`, not part of this phase: a check that opens a shell in an existing pod, the cause of the blind spot, and an alert on Falco's silence once Alertmanager exists (D2).
+

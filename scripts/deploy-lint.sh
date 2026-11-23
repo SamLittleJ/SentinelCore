@@ -7,7 +7,8 @@
 #   every rendered manifest, with kubeconform, against Kubernetes 1.35's schemas
 #   both Dockerfiles, with hadolint, warnings included
 #   every script, with shellcheck
-#   the SLO rules, with promtool: their syntax, then their unit tests
+#   the SLO rules, with promtool: their syntax, then their unit tests, and
+#   each alert's runbook
 #   the GitOps applications (deploy/): Kyverno and its policies sync first
 #   the previews: their base from main, their rules those of sentinelcore
 #   the Terraform of the GitOps cluster (gitops/): formatted and valid
@@ -69,6 +70,19 @@ shellcheck scripts/*.sh
 echo "== promtool"
 promtool check rules observability/slo-rules.yaml
 promtool test rules observability/slo-rules.test.yaml
+# Every alert links to a runbook of this repository (docs/runbooks/).
+"$ROOT/.tools/scanners/bin/python" - <<'PY'
+import pathlib, re, sys, yaml
+rules = yaml.safe_load(open("observability/slo-rules.yaml"))
+prefix = "https://github.com/SamLittleJ/SentinelCore/blob/main/"
+alerts = [r for g in rules["groups"] for r in g["rules"] if "alert" in r]
+broken = sorted({r["alert"] for r in alerts
+                 if not (url := r.get("annotations", {}).get("runbook_url", "")).startswith(prefix + "docs/runbooks/")
+                 or not pathlib.Path(url.removeprefix(prefix)).is_file()})
+if broken:
+    sys.exit(f"alerts without a runbook in docs/runbooks/: {broken}")
+print(f"{len(alerts)} alerts, each with its runbook")
+PY
 
 echo "== gitops"
 # Every pod is admitted by Kyverno's rules only if Kyverno and the policies
