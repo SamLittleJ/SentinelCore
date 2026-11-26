@@ -5719,3 +5719,9 @@ On 2026-11-22 `make scan-images` failed on the canary's pull request (#110) with
 - `make incident` on the `make up` cluster: the spray alert 0.1 s after the tenth account; the shell, see 478. The response took 4 minutes 55 seconds, from its first command (16:31:55) to `make cluster-check`'s 46 of 46.
 - Runbooks: every command run on the `make up` cluster; two that failed were fixed (`audit_logs` has `created_at`, not `occurred_at`; Falco's log through its DaemonSet). `SentinelCoreApiDown` fired for real: API scaled to zero at 16:37:01, pending at 16:37:31, firing at 16:39:31, gone 35 seconds after the runbook's fix. A sensitive read and a shell sent over the network, in a temporary namespace whose pod ran as root, each reached the console within the same second.
 - `make verify`: 15 of 15 (pytest 817, vitest 259).
+
+## Stage: CVE fixes of 2026-11-26
+
+### 480. libexpat
+
+On 2026-11-26 Images CI failed on `main` after #117, a change unrelated to the images: the console's build stopped at `apk add`, because Alpine 3.24 replaced libexpat 2.10.0-r0 with 2.11.0-r0 and keeps only the newest build, so the pinned version could no longer be installed. The pin is now 2.11.0-r0, which still includes the fixes for the four CVEs it was added for. `make scan-images` then builds both images and reports no open finding.
